@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Órbita</title>
+  <link rel="icon" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%23a78bfa'/><ellipse cx='16' cy='16' rx='14' ry='5' fill='none' stroke='%2367e8f9' stroke-width='2' transform='rotate(-25 16 16)'/></svg>" />
+  <link rel="stylesheet" href="vendor/fonts.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Todo va dentro de Órbita (public/vendor, ver scripts/vendor.mjs): funciona sin internet -->
+  <script defer src="vendor/marked.min.js"></script>
+  <script defer src="vendor/purify.min.js"></script>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <header class="top">
+    <div class="brand">
+      <div class="orb" aria-hidden="true"><i></i></div>
+      <div>
+        <h1>Órbita</h1>
+        <p class="sub">Tú decides, la IA trabaja</p>
+      </div>
+    </div>
+
+    <form class="goal" id="goalForm" autocomplete="off">
+      <div class="modo" role="radiogroup" aria-label="Qué hacer con lo que escribes">
+        <button type="button" role="radio" data-modo="planificar" title="Un objetivo grande: la IA lo divide en tarjetas">✦ <span>Planificar</span></button>
+        <button type="button" role="radio" data-modo="preguntar" title="Una pregunta rápida: la IA responde sin crear tarjeta">💬 <span>Preguntar</span></button>
+      </div>
+      <input id="goalInput" placeholder="Un objetivo grande: la IA lo divide en tareas  ( / )" />
+      <button type="submit" id="goalBtn"><span>Planificar</span></button>
+    </form>
+
+    <div class="stats">
+      <div class="stat" title="Tarjetas que la IA está trabajando ahora"><div class="pulse-dots" id="agentDots"></div><b id="statAgents">0</b><span>en marcha</span></div>
+      <button class="stat link" id="qaBtn" title="Preguntas rápidas (?)">💬<span>Preguntas</span><b class="qa-badge" id="qaCount" hidden></b></button>
+      <button class="stat link brain" id="brainStat"><i class="brain-dot"></i><span id="brainLabel">Conectar IA</span></button>
+    </div>
+  </header>
+
+
+  <!-- Cada proyecto es una pestaña, como en el navegador; dentro, todo lo del proyecto -->
+  <nav class="tabbar" aria-label="Proyectos">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <button class="tab-new buscar" id="searchBtn" title="Buscar en todo (⌘K)" aria-label="Paleta de comandos y búsqueda">🔍</button>
+    <div class="tab-add">
+      <button class="tab-new" id="tabNew" title="Nuevo proyecto o reabrir una pestaña cerrada" aria-expanded="false">＋</button>
+      <div class="popover tab-menu" id="tabMenu" hidden></div>
+    </div>
+    <div class="alerts">
+      <button class="tool-btn" id="alertsBtn" aria-expanded="false" aria-controls="alertsPanel" title="Avisos cuando la IA entregue o te pregunte"><span aria-hidden="true" id="alertsIcon">🔕</span><span class="txt"> Avisos</span></button>
+      <div class="popover" id="alertsPanel" hidden>
+        <h4>Avisos</h4>
+        <p>Cuando la IA entregue una tarjeta o te pregunte algo y no estés mirando Órbita:</p>
+        <label class="switch"><input type="checkbox" id="optNotif" /> <span>Aviso del navegador</span></label>
+        <small class="estado" id="notifEstado"></small>
+        <label class="switch"><input type="checkbox" id="optSound" /> <span>Sonido suave</span> <button type="button" class="link" id="testSound">Probar</button></label>
+        <p class="muted">El contador en la pestaña, «(2) Órbita», está siempre activo.</p>
+      </div>
+    </div>
+  </nav>
+
+  <div class="workspace" id="workspace">
+    <nav class="subnav" id="subnav" aria-label="Secciones del proyecto"></nav>
+  <main class="board" id="board">
+    <section class="col" data-col="backlog">
+      <header><h2><i class="dot"></i>Ideas</h2><span class="count"></span><button class="add" id="addBtn" title="Nueva tarjeta (n)">+</button></header>
+      <div class="drop"></div>
+    </section>
+    <section class="col" data-col="doing">
+      <header><h2><i class="dot"></i>En curso</h2><span class="count"></span></header>
+      <div class="drop"></div>
+      <p class="hint">Arrastra aquí una tarjeta y la IA conectada la toma</p>
+    </section>
+    <section class="col" data-col="review">
+      <header><h2><i class="dot"></i>Para revisar</h2><span class="count"></span></header>
+      <div class="drop"></div>
+    </section>
+    <section class="col" data-col="done">
+      <header><h2><i class="dot"></i>Hecho</h2><span class="count"></span><button class="add archive-all" id="archiveDone" title="Archivar las tarjetas hechas de este proyecto (se pueden restaurar)" hidden>Archivar</button></header>
+      <div class="drop"></div>
+    </section>
+  </main>
+    <section class="page" id="page" hidden></section>
+  </div>
+
+  <div class="visor" id="visor" hidden role="dialog" aria-modal="true" aria-label="Imagen ampliada">
+    <div class="visor-barra">
+      <span class="visor-nombre" id="visorNombre"></span>
+      <span class="visor-cuenta" id="visorCuenta"></span>
+      <button class="btn" id="visorCopiar" title="Copiar la imagen (C)">⧉ Copiar imagen</button>
+      <a class="btn" id="visorBajar" download title="Descargar">⤓</a>
+      <a class="btn" id="visorOriginal" target="_blank" rel="noopener" title="Abrir el original en otra pestaña">↗</a>
+      <button class="icon-btn" id="visorCerrar" title="Cerrar (Esc)">✕</button>
+    </div>
+    <div class="visor-lienzo" id="visorLienzo"><img id="visorImg" alt=""></div>
+    <button class="visor-nav ant" id="visorAnt" title="Anterior (←)" aria-label="Anterior">‹</button>
+    <button class="visor-nav sig" id="visorSig" title="Siguiente (→)" aria-label="Siguiente">›</button>
+  </div>
+  <div class="buscador" id="buscador" hidden role="dialog" aria-modal="true" aria-label="Paleta de comandos y búsqueda">
+    <div class="buscador-caja">
+      <div class="buscador-input"><span aria-hidden="true">🔍</span><input id="buscarInput" placeholder="Busca en todo o escribe un comando…" autocomplete="off" spellcheck="false" /><kbd>esc</kbd></div>
+      <ol class="buscador-lista" id="buscarLista" role="listbox"></ol>
+      <div class="buscador-pie" id="buscarPie"></div>
+    </div>
+  </div>
+
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-inner" id="drawerBody"></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <dialog id="newDialog">
+    <form method="dialog" id="newForm">
+      <h3>Nueva tarjeta</h3>
+      <div class="plantillas-elegir" id="newPlantillas" aria-label="Plantillas"></div>
+      <div class="campos-plantilla" id="newCampos" hidden></div>
+      <input name="title" placeholder="¿Qué hay que hacer?" required />
+      <textarea name="description" rows="4" placeholder="Detalles y contexto… (opcional)"></textarea>
+      <textarea name="criterios" rows="3" placeholder="✅ Terminado cuando… (uno por línea, opcional): la IA los revisará uno a uno al entregar"></textarea>
+      <label class="field">Proyecto <select name="projectId" id="newProject"></select></label>
+      <label class="check"><input type="checkbox" name="run" /> Pedírsela a la IA ya</label>
+      <div class="row">
+        <button value="cancel" formnovalidate class="ghost">Cancelar</button>
+        <button value="ok" class="primary">Crear</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.DS_Store
+
+# Datos de desarrollo: npm start usa esta carpeta como carpeta de datos.
+# Son el tablero y los entregables de quien desarrolla, no parte del producto.
+data/
+entregables/
+config.json

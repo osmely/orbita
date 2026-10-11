@@ -1,0 +1,29 @@
+{
+  "name": "orbita",
+  "version": "1.0.0",
+  "description": "Tu tablero kanban que trabaja con tu propia IA: se ejecuta en tu máquina y cualquier IA conectada por MCP trabaja las tarjetas",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs --data .",
+    "vendor": "node scripts/vendor.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@fontsource/inter": "5.2.5",
+    "@fontsource/jetbrains-mono": "5.2.5",
+    "dompurify": "3.1.6",
+    "esbuild": "0.25.0",
+    "marked": "12.0.2"
+  },
+  "bin": {
+    "orbita": "server.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
