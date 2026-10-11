@@ -17,7 +17,8 @@
     <nav aria-label="Secciones">
       <a href="#como">Cómo funciona</a>
       <a href="#funciones">Qué hace</a>
-      <a href="#privacidad">Privacidad</a>
+      <a href="#usos">Para qué</a>
+      <a href="#dentro">Por dentro</a>
       <a href="#empezar" class="boton pequeno">Empezar</a>
     </nav>
   </header>
@@ -73,6 +74,14 @@
         <div class="nodo"><b>Tu IA</b><span>Claude Code, Cursor…</span></div>
         <div class="carpeta"><b>📁 carpeta del proyecto</b><span>tu código y <code>orbita/</code> con el tablero y los entregables</span></div>
       </div>
+
+      <h3 class="titulo-bloque">La vida de una tarjeta</h3>
+      <ol class="ciclo">
+        <li class="c-ideas"><b>Ideas</b><span>La creas tú (o la IA, al planificar un objetivo). Puede llevar criterios, adjuntos, dependencias o repetirse cada semana.</span></li>
+        <li class="c-curso"><b>En curso</b><span><i>En cola</i> hasta que una IA la toma; luego <i>Trabajando</i>, con su progreso en vivo. Si le falta algo, <i>Te pregunta</i> y espera.</span></li>
+        <li class="c-revisar"><b>Para revisar</b><span>La IA entrega el resultado y revisa cada criterio. Tú lees, y <i>Apruebas</i> o le <i>Respondes</i>: vuelve a «En curso» con tu mensaje.</span></li>
+        <li class="c-hecho"><b>Hecho</b><span>Queda con todas sus versiones. Si otras tarjetas la esperaban, se desbloquean solas. Luego se archiva.</span></li>
+      </ol>
     </section>
 
     <section id="funciones" class="seccion">
@@ -80,9 +89,15 @@
       <div class="destacado">
         <div class="texto">
           <h3>La ves trabajar, en vivo</h3>
-          <p>Cada tarjeta muestra el paso actual, el porcentaje y cuánto lleva. En su panel, la pestaña <b>En vivo</b> enseña lo que va produciendo antes de entregar. Si le escribes mientras trabaja, lo lee en su siguiente paso, sin detenerse.</p>
+          <p>Cada tarjeta muestra el paso actual, el porcentaje y cuánto lleva. En su panel, la pestaña <b>En vivo</b> reúne todo:</p>
+          <ul class="lista">
+            <li>el paso, la barra de progreso y <b>hace cuánto dio señales de vida</b> (si se calla más de 3 minutos, te avisa);</li>
+            <li>su avance escrito: lo hecho, lo que hace ahora y lo que sigue;</li>
+            <li>la <b>historia de pasos</b> y los archivos que va escribiendo.</li>
+          </ul>
+          <p>Si le escribes mientras trabaja, lo lee en su siguiente paso, sin detenerse.</p>
         </div>
-        <figure class="captura"><img src="img/panel-en-vivo.jpg" width="1360" height="1100" loading="lazy" alt="Panel de una tarjeta en curso con su avance en vivo" /></figure>
+        <figure class="captura"><img src="img/panel-en-vivo.jpg" width="1360" height="1640" loading="lazy" alt="Panel de una tarjeta en curso con su avance en vivo" /></figure>
       </div>
       <div class="destacado al-reves">
         <div class="texto">
@@ -98,6 +113,20 @@
         </div>
         <figure class="captura"><img src="img/entidades.jpg" width="2400" height="1650" loading="lazy" alt="Entidades de un juego de rol agrupadas por categoría: personajes, armas, objetos" /></figure>
       </div>
+      <div class="destacado al-reves">
+        <div class="texto">
+          <h3>Te pregunta cuando le falta algo</h3>
+          <p>Si la IA necesita una decisión que solo tú puedes tomar, la tarjeta se pone en ámbar y te lo pregunta. Respondes ahí mismo y sigue. Todo pasa en el tablero: nunca tienes que ir a su chat.</p>
+        </div>
+        <figure class="captura"><img src="img/panel-pregunta.jpg" width="1360" height="1040" loading="lazy" alt="Una tarjeta en la que la IA pregunta qué pasarela de pago prefieres" /></figure>
+      </div>
+      <div class="destacado">
+        <div class="texto">
+          <h3>Preguntas rápidas</h3>
+          <p>Para lo que no merece una tarjeta: pregúntale y responde al momento, con el contexto del proyecto (sus instrucciones, su memoria y sus archivos de referencia). Puedes dejar una IA dedicada solo a esto, y cualquier respuesta se convierte en tarjeta con un clic.</p>
+        </div>
+        <figure class="captura"><img src="img/preguntas.jpg" width="1360" height="900" loading="lazy" alt="Panel de preguntas rápidas con una respuesta de la IA" /></figure>
+      </div>
 
       <ul class="rejilla">
         <li><b>🧠 Una IA por proyecto</b><span>Dos proyectos avanzan a la vez, cada uno con su sesión de IA.</span></li>
@@ -108,7 +137,68 @@
         <li><b>⌘K Búsqueda y comandos</b><span>Busca en todo (también lo archivado) y haz cualquier cosa sin el ratón.</span></li>
         <li><b>▶ Vista previa segura</b><span>Las páginas y juegos que hace la IA funcionan dentro, aislados del tablero.</span></li>
         <li><b>↻ Versiones y exportar</b><span>Cada entrega es una versión; cópiala, descárgala en .md, como página o en PDF.</span></li>
+        <li><b>🔒 Dependencias</b><span>«Espera a…»: una tarjeta no empieza hasta que terminan aquellas de las que depende.</span></li>
+        <li><b>⏸ Pausa y prioridad</b><span>Pausa un proyecto o dale prioridad total con «Solo este». La IA lo retoma donde lo dejó.</span></li>
+        <li><b>📎 Adjuntos y conocimiento</b><span>Arrastra archivos a una tarjeta o al proyecto: la IA los recibe como material de trabajo.</span></li>
+        <li><b>🧩 Plantillas</b><span>Investigación, informe, revisión de código, corregir un fallo… y las tuyas, con {campos} para rellenar.</span></li>
+        <li><b>🗂 Memoria e instrucciones</b><span>Reglas fijas por proyecto y una memoria que la IA va actualizando entre tarjetas.</span></li>
+        <li><b>🗑 Papelera</b><span>Lo que borra una IA no se pierde: aviso con «Deshacer» y 30 días para restaurarlo.</span></li>
+        <li><b>🔔 Avisos</b><span>«(2) Órbita» en la pestaña, aviso del navegador y un sonido suave cuando te entrega o te pregunta.</span></li>
+        <li><b>◐ Claro y oscuro</b><span>Sigue al sistema o elige tú. Y en su propia ventana, como una aplicación.</span></li>
       </ul>
+    </section>
+
+    <section id="usos" class="seccion">
+      <h2>Para qué sirve</h2>
+      <p class="sub">Para cualquier trabajo que tu IA pueda hacer en una carpeta de tu ordenador.</p>
+      <ul class="usos">
+        <li><span class="u-ico">💻</span><b>Desarrollar software</b><span>Pon el backlog de tu app en el tablero y deja que la IA vaya tomando tarjetas: implementa, prueba y te entrega con capturas. Tú revisas y apruebas, como en un equipo.</span></li>
+        <li><span class="u-ico">🔎</span><b>Investigar e informar</b><span>«Investigar {tema}» o «Informe de {asunto}» con criterios claros: la IA busca, compara, cita fuentes y deja el informe como entregable.</span></li>
+        <li><span class="u-ico">🎮</span><b>Juegos, historias y mundos</b><span>Las entidades guardan personajes, objetos y lugares, y la IA los consulta en cada tarea para que todo encaje.</span></li>
+        <li><span class="u-ico">🔁</span><b>Rutinas</b><span>Un resumen cada lunes, una revisión diaria, un informe el día 1 de cada mes: tarjetas programadas que la IA hace sola.</span></li>
+      </ul>
+    </section>
+
+    <section id="ia" class="seccion">
+      <h2>Lo que puede hacer la IA</h2>
+      <p class="sub">Órbita le ofrece 24 herramientas por <a href="https://modelcontextprotocol.io">MCP</a>. Estas son las principales:</p>
+      <div class="herramientas">
+        <div><h3>Trabajar</h3><ul>
+          <li><code>wait_for_work</code> espera hasta que hay una tarjeta para ella y la toma</li>
+          <li><code>report_progress</code> informa del paso, el porcentaje y el avance en vivo</li>
+          <li><code>submit_result</code> entrega el resultado, con la revisión de cada criterio</li>
+          <li><code>ask_human</code> te pregunta cuando le falta una decisión</li>
+        </ul></div>
+        <div><h3>Organizar</h3><ul>
+          <li><code>open_project</code> crea o abre un proyecto en su carpeta y se queda escuchándolo</li>
+          <li><code>create_card</code>, <code>update_card</code>, <code>move_card</code> planifica en tarjetas, con dependencias</li>
+          <li><code>delete_card</code>, <code>restore_card</code> borra a la papelera (y restaura)</li>
+          <li><code>add_comment</code> te deja una nota sin entregar</li>
+        </ul></div>
+        <div><h3>Recordar</h3><ul>
+          <li><code>update_memory</code> guarda lo aprendido para las próximas tarjetas</li>
+          <li><code>save_entity</code>, <code>list_entities</code> mantiene las entidades del proyecto</li>
+          <li><code>get_secret</code> lee una clave del proyecto sin que aparezca en el tablero</li>
+          <li><code>answer_question</code> responde las preguntas rápidas</li>
+        </ul></div>
+        <div><h3>Archivos</h3><ul>
+          <li><code>write_file</code> guarda entregables (informes, capturas, páginas…) en <code>orbita/</code></li>
+          <li><code>read_file</code>, <code>list_files</code> lee adjuntos, conocimiento y entregables</li>
+          <li>Y, con sus propias herramientas, trabaja en el código de tu carpeta</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="dentro" class="seccion">
+      <h2>Por dentro</h2>
+      <div class="dentro">
+        <div><b>Un servidor pequeño en tu equipo</b><span>Node.js, sin dependencias pesadas, escuchando solo en <code>127.0.0.1:4321</code>. Sirve el tablero y el MCP (<code>/mcp</code>, HTTP «streamable»), y avisa a la página en vivo.</span></div>
+        <div><b>La IA espera sin gastar</b><span><code>wait_for_work</code> mantiene la llamada abierta hasta que hay trabajo: en cuanto mueves una tarjeta a «En curso», la recibe.</span></div>
+        <div><b>Todo en archivos</b><span>Cada proyecto se guarda en <code>orbita/tablero.json</code> dentro de su carpeta, con escritura atómica. La lista de proyectos y los secretos, en la carpeta de datos del sistema.</span></div>
+        <div><b>Seguro por diseño</b><span>Rechaza otras webs (<code>Host</code> y <code>Origin</code>), CSP estricta y vista previa en un origen aislado con clave. Los valores de los secretos nunca llegan al tablero.</span></div>
+        <div><b>Un solo ejecutable</b><span>Node, el servidor y la interfaz en un archivo para macOS (<code>Órbita.app</code>), Windows y Linux. Funciona sin internet.</span></div>
+        <div><b>Código abierto</b><span>Está en <a href="https://github.com/osmely/orbita">GitHub</a>, con pruebas automáticas (<code>npm test</code>).</span></div>
+      </div>
     </section>
 
     <section id="privacidad" class="seccion privacidad">
@@ -139,7 +229,42 @@ npm start</code></pre>
           <pre><code>claude mcp add --transport http --scope user orbita http://localhost:4321/mcp</code></pre>
           <p>Después, en cualquier sesión:</p>
           <pre><code>/mcp__orbita__trabajar</code></pre>
-          <p class="nota">Para Cursor, Claude Desktop y otras, el botón <b>Conectar IA</b> del tablero da la configuración lista para copiar.</p>
+          <details class="otras"><summary>Cursor, Windsurf, VS Code</summary><pre><code>{
+  "mcpServers": {
+    "orbita": { "url": "http://localhost:4321/mcp" }
+  }
+}</code></pre></details>
+          <details class="otras"><summary>Claude Desktop</summary><pre><code>{
+  "mcpServers": {
+    "orbita": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:4321/mcp"]
+    }
+  }
+}</code></pre></details>
+          <p class="nota">También puedes pedírselo con tus palabras: <i>«Abre en Órbita un proyecto aquí y quédate escuchando»</i>.</p>
+        </div>
+      </div>
+      <div class="columnas">
+        <div class="tarjeta">
+          <h3>Atajos de teclado</h3>
+          <ul class="atajos">
+            <li><kbd>⌘</kbd> <kbd>K</kbd> buscar en todo y comandos</li>
+            <li><kbd>N</kbd> nueva tarjeta</li>
+            <li><kbd>/</kbd> escribir un objetivo</li>
+            <li><kbd>?</kbd> pregunta rápida</li>
+            <li><kbd>Alt</kbd> <kbd>↑</kbd><kbd>↓</kbd> mover la tarjeta abierta</li>
+            <li><kbd>Esc</kbd> cerrar</li>
+          </ul>
+        </div>
+        <div class="tarjeta">
+          <h3>Requisitos</h3>
+          <ul class="lista">
+            <li>macOS, Windows o Linux.</li>
+            <li>Un navegador moderno; con Chrome, Edge o Brave se abre en su propia ventana.</li>
+            <li>Una IA con MCP: Claude Code, Cursor, Claude Desktop…</li>
+            <li>Desde el código: Node 22 o posterior.</li>
+          </ul>
         </div>
       </div>
     </section>
@@ -150,6 +275,9 @@ npm start</code></pre>
       <details><summary>¿Funciona sin IA?</summary><p>Sí: es un kanban normal. Creas tarjetas, las arrastras y escribes los resultados tú. Si no hay ninguna IA conectada, las tarjetas de «En curso» esperan en cola.</p></details>
       <details><summary>¿Necesita internet?</summary><p>Órbita no: la interfaz lleva dentro sus fuentes y librerías. Tu IA sí lo necesitará para funcionar.</p></details>
       <details><summary>¿Puedo tener varios proyectos a la vez?</summary><p>Sí. Cada proyecto es una pestaña con su carpeta de trabajo, y puedes darle a cada uno su propia IA para que avancen en paralelo.</p></details>
+      <details><summary>¿Qué pasa si cierro la ventana?</summary><p>Órbita sigue en marcha y la IA puede seguir trabajando. Para cerrarla del todo: ⌘K → «Cerrar Órbita». Al abrirla otra vez, todo está donde lo dejaste.</p></details>
+      <details><summary>¿Y si la IA se equivoca?</summary><p>Nada se da por bueno sin ti: cada entrega va a «Para revisar». Le respondes con lo que falta y lo rehace; cada entrega queda como versión, con «Ver cambios» respecto a la anterior.</p></details>
+      <details><summary>¿Puedo quitarle una tarjeta a la IA?</summary><p>Sí: muévela, pausa su proyecto o pulsa «Quitársela». La IA recibe un aviso para que se detenga; si fue una pausa, lo que llevaba se conserva y la retoma al reanudar.</p></details>
     </section>
   </main>
 

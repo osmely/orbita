@@ -150,3 +150,39 @@ pre code { background: none; border: 0; padding: 0; }
   .pasos, .rejilla { grid-template-columns: 1fr; }
   .seccion { padding-top: 64px; }
 }
+
+/* Secciones añadidas: ciclo de una tarjeta, usos, herramientas de la IA, por dentro, atajos */
+.titulo-bloque { text-align: center; margin: 56px 0 18px; font-size: 22px; }
+.ciclo { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; counter-reset: ciclo; }
+.ciclo li { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 18px 18px 18px 20px; border-radius: 14px; background: var(--panel); border: 1px solid var(--borde); border-top: 3px solid var(--c, var(--violeta)); }
+.ciclo b { font-size: 16px; }
+.ciclo span { color: var(--tenue); font-size: 14px; line-height: 1.55; }
+.ciclo i { font-style: normal; color: var(--texto); font-weight: 600; }
+.ciclo li:not(:last-child)::after { content: "→"; position: absolute; right: -11px; top: 50%; transform: translateY(-50%); color: var(--muy-tenue); font-size: 14px; z-index: 1; }
+.c-ideas { --c: #8b8aa0; } .c-curso { --c: #22d3ee; } .c-revisar { --c: #f59e0b; } .c-hecho { --c: #22c55e; }
+.lista { margin: 10px 0 12px; padding-left: 20px; color: var(--tenue); }
+.lista li { margin: 4px 0; }
+.usos { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.usos li { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; row-gap: 4px; padding: 20px; border-radius: 16px; background: var(--panel); border: 1px solid var(--borde); }
+.u-ico { grid-row: span 2; font-size: 28px; line-height: 1; }
+.usos b { font-size: 17px; }
+.usos span:not(.u-ico) { color: var(--tenue); font-size: 15px; }
+.herramientas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.herramientas > div { padding: 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--borde); min-width: 0; }
+.herramientas ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.herramientas li { color: var(--tenue); font-size: 14px; line-height: 1.5; }
+.herramientas code { color: var(--texto); }
+.dentro { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 32px; }
+.dentro > div { display: flex; flex-direction: column; gap: 6px; padding: 18px; border-radius: 14px; background: var(--panel); border: 1px solid var(--borde); }
+.dentro span { color: var(--tenue); font-size: 14px; line-height: 1.55; }
+.columnas + .columnas { margin-top: 18px; }
+.otras { margin: 0 0 10px; }
+.otras summary { cursor: pointer; color: var(--tenue); font-size: 14px; margin-bottom: 8px; }
+.atajos { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; color: var(--tenue); }
+kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--borde); border-bottom-width: 2px; background: var(--fondo-2); color: var(--texto); font: 600 12px/1.6 ui-monospace, Menlo, monospace; text-align: center; }
+@media (max-width: 900px) {
+  .ciclo, .herramientas, .dentro { grid-template-columns: 1fr 1fr; }
+  .ciclo li:not(:last-child)::after { display: none; }
+  .usos { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) { .ciclo, .herramientas, .dentro { grid-template-columns: 1fr; } }
