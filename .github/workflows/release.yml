@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - { os: macos-14, nombre: orbita-macos-arm64 }
-          - { os: macos-13, nombre: orbita-macos-x64 }
+          - { os: macos-15-intel, nombre: orbita-macos-x64 }
           - { os: ubuntu-24.04, nombre: orbita-linux-x64 }
           - { os: windows-2022, nombre: orbita-windows-x64 }
     runs-on: ${{ matrix.os }}
