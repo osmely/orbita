@@ -1,27 +1,15 @@
 // Dónde y cómo se ejecuta Órbita en la máquina de cada persona: argumentos, carpeta de datos,
-// la interfaz (en disco o dentro del ejecutable) y abrir el navegador.
+// la interfaz (public/) y abrir el navegador.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn, execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import paquete from "./package.json" with { type: "json" };
 
 export const NOMBRE = "Órbita";
 export const VERSION_APP = paquete.version;
-
-// ¿Corre como ejecutable (Node SEA)? Entonces la interfaz va dentro del propio binario.
-const sea = (() => {
-  try {
-    const s = createRequire(import.meta.url)("node:sea");
-    return s.isSea() ? s : null;
-  } catch {
-    return null;
-  }
-})();
-export const ES_EJECUTABLE = Boolean(sea);
 
 // --- Argumentos -------------------------------------------------------------------------
 
@@ -60,17 +48,8 @@ function leerArgumentos(argv) {
   return opciones;
 }
 
-// ¿Se abrió como Órbita.app (doble clic en el Finder)? Entonces no hay Terminal donde leer los mensajes.
-export const EN_APP_MAC = process.platform === "darwin" && /\.app\/Contents\/MacOS\//.test(process.execPath);
-
 export function salir(mensaje, codigo = 1) {
   (codigo ? console.error : console.log)(mensaje);
-  // Sin Terminal, un error que impide arrancar se cuenta en un aviso del sistema
-  if (codigo && EN_APP_MAC) {
-    try {
-      execFileSync("osascript", ["-e", `display alert "Órbita no pudo arrancar" message ${JSON.stringify(String(mensaje))} as critical`], { timeout: 5 * 60_000 });
-    } catch {}
-  }
   process.exit(codigo);
 }
 
@@ -131,17 +110,10 @@ const EN_PESTANA = args.pestana || !!process.env.ORBITA_TAB;
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 
-// Lee un archivo de la interfaz: del ejecutable si lo es, si no de public/. Devuelve null si no existe.
+// Lee un archivo de la interfaz (de public/). Devuelve null si no existe.
 export function leerPublico(rel) {
   const limpio = path.posix.normalize("/" + String(rel).replaceAll("\\", "/")).slice(1);
   if (!limpio || limpio.startsWith("..")) return null;
-  if (sea) {
-    try {
-      return Buffer.from(sea.getAsset(`public/${limpio}`));
-    } catch {
-      return null;
-    }
-  }
   try {
     return fs.readFileSync(path.join(PUBLIC, limpio));
   } catch {
@@ -149,11 +121,9 @@ export function leerPublico(rel) {
   }
 }
 
-// Los archivos de la interfaz que cuentan para su versión (si cambian al reiniciar, las páginas abiertas se recargan).
-// En el ejecutable, los módulos de js/ van empaquetados en js/main.js.
+// Los archivos de la interfaz que cuentan para su versión (si cambian al reiniciar, las páginas abiertas se recargan)
 export function archivosDeLaInterfaz() {
   const base = ["index.html", "styles.css"];
-  if (sea) return [...base, "js/main.js"];
   try {
     return [...base, ...fs.readdirSync(path.join(PUBLIC, "js")).filter((f) => f.endsWith(".js")).sort().map((f) => `js/${f}`)];
   } catch {

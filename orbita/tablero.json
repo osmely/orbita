@@ -2216,6 +2216,19 @@
      "de": "persona",
      "tipo": "comentario",
      "texto": "no se porque haces ejecutables si esto es web"
+    },
+    {
+     "t": 1791754475757,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "pregunta",
+     "texto": "Entendí «publica» como publicar la release de ejecutables, porque en la tarjeta de GitHub Pages dijiste «sigamos con la idea del ejecutable». **Ya lo he cancelado: no se ha publicado ninguna release.**\n\n**Lo que sí está hecho:**\n- todo el código está subido a GitHub (`main`);\n- la web informativa está publicada y al día en https://osmely.github.io/orbita/.\n\nUna aclaración importante: **Órbita no puede funcionar solo como una web publicada**. Tu IA se conecta a Órbita por MCP, y eso necesita algo corriendo en tu equipo; además, Órbita guarda los tableros en tus carpetas. La web de GitHub Pages solo puede *explicar* Órbita, no ser el tablero.\n\n¿Qué prefieres?\n- **A)** Seguir como hasta ahora: la web explica y enlaza la descarga del ejecutable (`Órbita.app` y los de Windows y Linux). Publico la release v1.1.0, que ya está probada.\n- **B)** Sin ejecutables: Órbita se usa desde el código (`npm start`, o `npx orbita` si lo publicamos en npm), y la web lo explica. Quito el ejecutable, `Órbita"
+    },
+    {
+     "t": 1791754507353,
+     "de": "persona",
+     "tipo": "respuesta",
+     "texto": "B"
     }
    ],
    "attachments": [],
@@ -2224,11 +2237,11 @@
    "programa": null,
    "worker": "Claude · ia",
    "inbox": [],
-   "progress": 70,
-   "step": "Ejecutable de CI probado ✅; publicando la versión v1.1.0",
-   "live": "**Plan:**\n1. Subir lo pendiente.\n2. **Versión 1.1.0**: `package.json` + la etiqueta `v1.1.0`.\n3. **GitHub Actions** construye los 4 ejecutables (macOS arm64 / x64 con `Órbita.app`, Windows y Linux) y crea la release.\n4. Comprobar que la release tiene los 4 zips.\n5. **Web:** el botón principal pasa a «Descargar», con enlaces por sistema.",
-   "liveAt": 1791753655927,
-   "startedAt": 1791753643268,
+   "progress": 88,
+   "step": "Pruebas sin el ejecutable; después, subir y borrar la etiqueta v1.1.0",
+   "live": "**Opción B, sin ejecutables:**\n1. Fuera `scripts/build.mjs`, el workflow de release, `recursos/` (el icono de la app), `DISTRIBUCION.md`, el código para correr como ejecutable y `esbuild`.\n2. **`npm start`** usará la carpeta de datos del sistema, la misma que usaba la app, así que verás tus mismos proyectos. Para desarrollo queda `npm run dev`, con los datos en el repositorio.\n3. README y web: se arranca con `git clone` + `npm install` + `npm start`.\n4. Borrar la etiqueta `v1.1.0`, que no tendrá release.\n5. Pruebas, subir y publicar la web.",
+   "liveAt": 1791754534613,
+   "startedAt": 1791754507353,
    "log": [
     {
      "t": 1791753643268,
@@ -2259,15 +2272,73 @@
      "t": 1791754405560,
      "kind": "step",
      "text": "Ejecutable de CI probado ✅; publicando la versión v1.1.0"
+    },
+    {
+     "t": 1791754475757,
+     "kind": "ask",
+     "text": "Entendí «publica» como publicar la release de ejecutables, porque en la tarjeta de GitHub Pages dijiste «sigamos con la idea del ejecutable». **Ya lo he cancelado: no se ha publicado ninguna release.**\n\n**Lo que sí está hecho:**\n- todo el código está subido a GitHub (`main`);\n- la web informativa está publicada y al día en https://osmely.github.io/orbita/.\n\nUna aclaración importante: **Órbita no puede funcionar solo como una web publicada**. Tu IA se conecta a Órbita por MCP, y eso necesita algo corriendo en tu equipo; además, Órbita guarda los tableros en tus carpetas. La web de GitHub Pages solo puede *explicar* Órbita, no ser el tablero.\n\n¿Qué prefieres?\n- **A)** Seguir como hasta ahora: la web explica y enlaza la descarga del ejecutable (`Órbita.app` y los de Windows y Linux). Publico la release v1.1.0, que ya está probada.\n- **B)** Sin ejecutables: Órbita se usa desde el código (`npm start`, o `npx orbita` si lo publicamos en npm), y la web lo explica. Quito el ejecutable, `Órbita"
+    },
+    {
+     "t": 1791754507353,
+     "kind": "you",
+     "text": "B"
+    },
+    {
+     "t": 1791754507353,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791754534613,
+     "kind": "step",
+     "text": "Opción B: quitando el ejecutable (build, Órbita.app, release, código SEA)"
+    },
+    {
+     "t": 1791754639980,
+     "kind": "step",
+     "text": "Pruebas sin el ejecutable; después, subir y borrar la etiqueta v1.1.0"
     }
    ],
    "result": "",
    "question": "",
    "files": [],
    "createdAt": 1791753643268,
-   "updatedAt": 1791754405565,
+   "updatedAt": 1791754639980,
    "revocada": null,
    "pausada": false
+  },
+  {
+   "id": "a98192b3",
+   "title": "Entregables",
+   "description": "estas poniendo en entregables todo lo que se genera intermedio.. creo que una card debe estar marcada como entregable para que su resultado pase a los entregables",
+   "kind": "task",
+   "column": "doing",
+   "status": "queued",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 3000,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [],
+   "programa": null,
+   "worker": null,
+   "inbox": [],
+   "progress": 0,
+   "step": "Esperando a una IA…",
+   "live": "",
+   "liveAt": null,
+   "startedAt": null,
+   "log": [],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791754637425,
+   "updatedAt": 1791754637425
   }
  ]
 }

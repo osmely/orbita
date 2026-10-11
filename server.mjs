@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // Órbita — un Trello con cerebro externo. El tablero funciona a mano, y
 // cualquier IA conectada por MCP (Claude Code, Cursor, Claude Desktop…) toma
 // las tarjetas que pongas en "En curso", informa su progreso y te entrega el
@@ -91,7 +92,7 @@ function serveFile(res, rel) {
   });
 }
 
-// La interfaz de Órbita: de public/ o, en el ejecutable, de dentro del binario (ver entorno.mjs)
+// La interfaz de Órbita, de public/ (ver entorno.mjs)
 function servirPublico(res, rel) {
   const data = leerPublico(rel);
   if (!data) return send(res, 404, { error: "no encontrado" });

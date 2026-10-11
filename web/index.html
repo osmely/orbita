@@ -47,7 +47,7 @@
         <li>
           <span class="num">1</span>
           <h3>Abre Órbita</h3>
-          <p>Se ejecuta en tu equipo y se abre en su propia ventana. Cada proyecto vive en su carpeta de trabajo (la de tu código o tus documentos).</p>
+          <p>Con <code>npm start</code> se ejecuta en tu equipo y se abre en su propia ventana. Cada proyecto vive en su carpeta de trabajo (la de tu código o tus documentos).</p>
         </li>
         <li>
           <span class="num">2</span>
@@ -196,7 +196,7 @@
         <div><b>La IA espera sin gastar</b><span><code>wait_for_work</code> mantiene la llamada abierta hasta que hay trabajo: en cuanto mueves una tarjeta a «En curso», la recibe.</span></div>
         <div><b>Todo en archivos</b><span>Cada proyecto se guarda en <code>orbita/tablero.json</code> dentro de su carpeta, con escritura atómica. La lista de proyectos y los secretos, en la carpeta de datos del sistema.</span></div>
         <div><b>Seguro por diseño</b><span>Rechaza otras webs (<code>Host</code> y <code>Origin</code>), CSP estricta y vista previa en un origen aislado con clave. Los valores de los secretos nunca llegan al tablero.</span></div>
-        <div><b>Un solo ejecutable</b><span>Node, el servidor y la interfaz en un archivo para macOS (<code>Órbita.app</code>), Windows y Linux. Funciona sin internet.</span></div>
+        <div><b>Ligera y sin compilar</b><span>Dos dependencias, la interfaz en módulos JavaScript nativos y nada que construir: <code>npm install</code> y <code>npm start</code>. Funciona sin internet.</span></div>
         <div><b>Código abierto</b><span>Está en <a href="https://github.com/osmely/orbita">GitHub</a>, con pruebas automáticas (<code>npm test</code>).</span></div>
       </div>
     </section>
@@ -216,12 +216,12 @@
       <div class="columnas">
         <div class="tarjeta">
           <h3>1 · Abre Órbita</h3>
-          <p>Desde el código (necesita <a href="https://nodejs.org">Node 22</a> o posterior):</p>
+          <p>Necesitas <a href="https://nodejs.org">Node.js 22</a> o posterior:</p>
           <pre><code>git clone https://github.com/osmely/orbita
 cd orbita
 npm install
 npm start</code></pre>
-          <p class="nota">Se abre en <code>http://localhost:4321</code>. Los ejecutables para macOS, Windows y Linux (sin instalar nada) se publicarán en <a href="https://github.com/osmely/orbita/releases">Releases</a>.</p>
+          <p class="nota">Se abre en <code>http://localhost:4321</code>, en su propia ventana con Chrome, Edge o Brave. Para actualizarla: <code>git pull</code> y vuelve a arrancarla; tus proyectos no se tocan.</p>
         </div>
         <div class="tarjeta">
           <h3>2 · Conecta tu IA</h3>
@@ -263,7 +263,7 @@ npm start</code></pre>
             <li>macOS, Windows o Linux.</li>
             <li>Un navegador moderno; con Chrome, Edge o Brave se abre en su propia ventana.</li>
             <li>Una IA con MCP: Claude Code, Cursor, Claude Desktop…</li>
-            <li>Desde el código: Node 22 o posterior.</li>
+            <li>Node.js 22 o posterior.</li>
           </ul>
         </div>
       </div>

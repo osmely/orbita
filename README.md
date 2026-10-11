@@ -4,22 +4,24 @@ Un tablero kanban que funciona a mano y que **cualquier IA conectada por MCP** p
 
 ## Cómo funciona
 
-Órbita se descarga de su web, pero **se ejecuta en la máquina de cada persona**: un servidor pequeño en `127.0.0.1` sirve el tablero al navegador y la IA local de esa persona (Claude Code, Cursor…) se conecta a él por MCP. No hay servidor central: los datos no salen de su equipo y funciona sin internet (la interfaz lleva dentro sus fuentes y librerías).
+Órbita **se ejecuta en la máquina de cada persona**: un servidor pequeño en `127.0.0.1` sirve el tablero al navegador y la IA local de esa persona (Claude Code, Cursor…) se conecta a él por MCP. No hay servidor central: los datos no salen de su equipo y funciona sin internet (la interfaz lleva dentro sus fuentes y librerías). Su web, que explica cómo funciona, está en https://osmely.github.io/orbita/.
 
-## Usarla (ejecutable, sin instalar Node)
+## Usarla
 
-Descarga el ejecutable de tu sistema y ábrelo: el tablero se abre **en su propia ventana**, como una aplicación, sin pestañas ni barra de direcciones. Para eso usa Chrome, Edge, Brave o Chromium en «modo app»; si no hay ninguno, se abre en una pestaña de tu navegador.
-
-- **macOS**: `Órbita.app`. Se abre con doble clic, sin ventana de Terminal. Abrirla otra vez con Órbita ya en marcha solo vuelve a mostrar su ventana.
-- **Windows y Linux**: el ejecutable `orbita`.
+Necesitas [Node.js](https://nodejs.org) 22 o posterior.
 
 ```bash
-./orbita
+git clone https://github.com/osmely/orbita
+cd orbita
+npm install
+npm start
 ```
 
-Para cerrar Órbita del todo: ⌘K → «Cerrar Órbita» (o Ctrl+C en la Terminal). Cerrar su ventana no la detiene, así que la IA puede seguir trabajando.
+El tablero se abre en http://localhost:4321, **en su propia ventana** si tienes Chrome, Edge, Brave o Chromium (en «modo app»: sin pestañas ni barra de direcciones). Si no, en una pestaña de tu navegador.
 
-Opciones: `--port <n>` (por defecto 4321; se recuerda), `--data <carpeta>`, `--no-open`, `--tab` (en una pestaña del navegador, no en su propia ventana), `--version`, `--help`.
+Para cerrar Órbita: Ctrl+C en la Terminal, o ⌘K → «Cerrar Órbita». Cerrar solo su ventana no la detiene, así que la IA puede seguir trabajando. Si ya hay una Órbita abierta, arrancarla otra vez solo abre la ventana.
+
+Opciones (tras `npm start --`, o con `node server.mjs`): `--port <n>` (por defecto 4321; se recuerda), `--data <carpeta>`, `--no-open`, `--tab` (en una pestaña del navegador, no en su propia ventana), `--version`, `--help`.
 
 ### Dónde se guarda todo
 
@@ -36,7 +38,7 @@ mi-web/                 ← la carpeta de trabajo: aquí trabaja la IA
 
 Si copias la carpeta, o la subes a un repositorio, el proyecto va con ella: al elegir esa carpeta en otra máquina, Órbita abre el proyecto tal cual. Al crear un proyecto se elige su carpeta con el selector del sistema; desde la IA, `open_project` usa su directorio de trabajo.
 
-En la carpeta de datos de Órbita solo queda `orbita.json`, con la lista de proyectos (y dónde está cada uno) y lo que no es de ningún proyecto: preguntas rápidas, plantillas y papelera. Junto a él está `secretos.json`, con los secretos de cada proyecto. Está en la carpeta de datos del sistema, no junto al programa, así que una actualización no la toca:
+En la carpeta de datos de Órbita solo queda `orbita.json`, con la lista de proyectos (y dónde está cada uno) y lo que no es de ningún proyecto: preguntas rápidas, plantillas y papelera. Junto a él está `secretos.json`, con los secretos de cada proyecto. Está en la carpeta de datos del sistema, no junto al código, así que actualizar Órbita (`git pull`) no la toca:
 
 | Sistema | Carpeta |
 |---|---|
@@ -44,21 +46,18 @@ En la carpeta de datos de Órbita solo queda `orbita.json`, con la lista de proy
 | Windows | `%APPDATA%\Orbita` |
 | Linux | `~/.local/share/orbita` |
 
-Si ya hay una Órbita abierta, abrirla otra vez solo abre el navegador.
-
 ## Desarrollar
 
 ```bash
 npm install
-npm start
+npm run dev
 ```
 
-Abre http://localhost:4321. `npm start` usa esta misma carpeta como carpeta de datos (`orbita.json`). Si encuentra un `data/board.json` del formato anterior, todo en un JSON, lo migra solo: cada proyecto pasa a `entregables/<proyecto>/` como carpeta de trabajo, y el JSON antiguo queda como `data/board.v1.json`.
+`npm run dev` es como `npm start`, pero guarda los datos en esta misma carpeta (`orbita.json`), para no mezclar las pruebas con tus proyectos. Si encuentra un `data/board.json` del formato anterior, todo en un JSON, lo migra solo: cada proyecto pasa a `entregables/<proyecto>/` como carpeta de trabajo, y el JSON antiguo queda como `data/board.v1.json`.
 
 - El servidor: `server.mjs` (HTTP, solo en 127.0.0.1), `estado.mjs` (el tablero y sus operaciones), `rutas.mjs` (la API como tabla `[método, ruta, manejador]`), `mcp.mjs` (las herramientas de la IA), `programadas.mjs`, `almacen.mjs` (dónde se guarda cada cosa), `secretos.mjs` y `entidades.mjs`.
-- La interfaz está en `public/`: `index.html`, `styles.css` y sus módulos en `public/js/` (`main.js` los arranca en orden; ninguno pasa de unas 500 líneas). En desarrollo se cargan como módulos nativos; en el ejecutable van empaquetados en un solo `js/main.js`.
+- La interfaz está en `public/`: `index.html`, `styles.css` y sus módulos en `public/js/` (`main.js` los arranca en orden; ninguno pasa de unas 500 líneas). Se cargan como módulos nativos, sin compilar nada.
 - `npm test`: las pruebas automáticas (`node --test`, en `test/`).
-- `npm run build`: crea el ejecutable para tu sistema en `dist/` (ver [DISTRIBUCION.md](DISTRIBUCION.md)).
 - `npm run vendor`: vuelve a copiar fuentes y librerías de la interfaz a `public/vendor/` (tras cambiar sus versiones).
 
 ## Conectar el cerebro
