@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Órbita · el tablero que trabaja con tu IA</title>
+  <meta name="description" content="Órbita es un tablero kanban que se ejecuta en tu equipo y que trabaja tu propia IA (Claude Code, Cursor…) por MCP. Tú decides qué hacer; la IA lo hace y te lo entrega para revisar." />
+  <meta property="og:title" content="Órbita · el tablero que trabaja con tu IA" />
+  <meta property="og:description" content="Arrastra una tarjeta a «En curso» y tu IA la trabaja: progreso en vivo, criterios de aceptación y resultado para revisar. Todo en tu equipo." />
+  <meta property="og:image" content="img/tablero-oscuro.jpg" />
+  <link rel="icon" href="img/icono.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="estilos.css" />
+</head>
+<body>
+  <header class="cabecera">
+    <a class="marca" href="#"><span class="orbe" aria-hidden="true"><i></i></span>Órbita</a>
+    <nav aria-label="Secciones">
+      <a href="#como">Cómo funciona</a>
+      <a href="#funciones">Qué hace</a>
+      <a href="#privacidad">Privacidad</a>
+      <a href="#empezar" class="boton pequeno">Empezar</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="portada">
+      <p class="etiqueta">Kanban local + tu IA por MCP</p>
+      <h1>El tablero que <span class="degradado">trabaja con tu IA</span></h1>
+      <p class="entradilla">Escribe lo que hay que hacer, arrastra la tarjeta a «En curso» y tu propia IA (Claude Code, Cursor, Claude Desktop…) la toma, te enseña su progreso en vivo y te entrega el resultado para que lo revises. Tú decides; la IA trabaja.</p>
+      <div class="acciones">
+        <a class="boton" href="#empezar">Empezar ahora</a>
+        <a class="boton secundario" href="https://github.com/osmely/orbita">Ver en GitHub</a>
+      </div>
+      <figure class="captura principal">
+        <picture>
+          <source srcset="img/tablero-claro.jpg" media="(prefers-color-scheme: light)" />
+          <img src="img/tablero-oscuro.jpg" width="2880" height="1720" alt="El tablero de Órbita: una tarjeta en curso con su progreso, otra esperando revisión con 3/3 criterios cumplidos y otra en la que la IA hace una pregunta" />
+        </picture>
+      </figure>
+    </section>
+
+    <section id="como" class="seccion">
+      <h2>Cómo funciona</h2>
+      <p class="sub">Órbita no tiene IA propia ni te pide API keys: la inteligencia la pone la IA que ya usas.</p>
+      <ol class="pasos">
+        <li>
+          <span class="num">1</span>
+          <h3>Abre Órbita</h3>
+          <p>Se ejecuta en tu equipo y se abre en su propia ventana. Cada proyecto vive en su carpeta de trabajo (la de tu código o tus documentos).</p>
+        </li>
+        <li>
+          <span class="num">2</span>
+          <h3>Conecta tu IA</h3>
+          <p>Una sola vez, por MCP. Después, en cualquier sesión, le dices <i>«quédate escuchando el tablero»</i> y se queda esperando trabajo.</p>
+        </li>
+        <li>
+          <span class="num">3</span>
+          <h3>Arrastra a «En curso»</h3>
+          <p>La IA toma la tarjeta, trabaja con sus propias herramientas en tu carpeta y te va contando qué hace. Al terminar, la deja en «Para revisar».</p>
+        </li>
+        <li>
+          <span class="num">4</span>
+          <h3>Revisa y decide</h3>
+          <p>Apruébala o respóndele desde la tarjeta: lo recibe al momento y sigue. Nunca tienes que salir del tablero.</p>
+        </li>
+      </ol>
+
+      <div class="esquema" role="img" aria-label="Tú usas el tablero en el navegador; el tablero habla con un servidor local en 127.0.0.1; tu IA se conecta a ese servidor por MCP y trabaja en la carpeta del proyecto">
+        <div class="nodo"><b>Tú</b><span>el tablero, en su ventana</span></div>
+        <div class="flecha"><span>tarjetas · revisión</span></div>
+        <div class="nodo central"><span class="orbe" aria-hidden="true"><i></i></span><b>Órbita</b><span>en tu equipo · 127.0.0.1</span></div>
+        <div class="flecha"><span>MCP</span></div>
+        <div class="nodo"><b>Tu IA</b><span>Claude Code, Cursor…</span></div>
+        <div class="carpeta"><b>📁 carpeta del proyecto</b><span>tu código y <code>orbita/</code> con el tablero y los entregables</span></div>
+      </div>
+    </section>
+
+    <section id="funciones" class="seccion">
+      <h2>Qué hace</h2>
+      <div class="destacado">
+        <div class="texto">
+          <h3>La ves trabajar, en vivo</h3>
+          <p>Cada tarjeta muestra el paso actual, el porcentaje y cuánto lleva. En su panel, la pestaña <b>En vivo</b> enseña lo que va produciendo antes de entregar. Si le escribes mientras trabaja, lo lee en su siguiente paso, sin detenerse.</p>
+        </div>
+        <figure class="captura"><img src="img/panel-en-vivo.jpg" width="1360" height="1100" loading="lazy" alt="Panel de una tarjeta en curso con su avance en vivo" /></figure>
+      </div>
+      <div class="destacado al-reves">
+        <div class="texto">
+          <h3>«Terminado cuando…»</h3>
+          <p>Pon criterios de aceptación y la IA no puede entregar sin revisarlos uno a uno, con su evidencia. Si alguno no se cumple, lo marcas y se lo devuelves: sabrá exactamente qué falta.</p>
+        </div>
+        <figure class="captura"><img src="img/panel-criterios.jpg" width="1360" height="1250" loading="lazy" alt="Criterios de aceptación cumplidos, cada uno con su evidencia" /></figure>
+      </div>
+      <div class="destacado">
+        <div class="texto">
+          <h3>Entidades del proyecto</h3>
+          <p>Lo que existe en el proyecto y perdura (los personajes de un juego, sus armas y objetos, las personas de un informe…) como fichas por categoría. La IA las va guardando mientras trabaja y las consulta en cada tarjeta.</p>
+        </div>
+        <figure class="captura"><img src="img/entidades.jpg" width="2400" height="1650" loading="lazy" alt="Entidades de un juego de rol agrupadas por categoría: personajes, armas, objetos" /></figure>
+      </div>
+
+      <ul class="rejilla">
+        <li><b>🧠 Una IA por proyecto</b><span>Dos proyectos avanzan a la vez, cada uno con su sesión de IA.</span></li>
+        <li><b>❓ Te pregunta</b><span>Si le falta una decisión, la tarjeta te lo pregunta y espera tu respuesta.</span></li>
+        <li><b>🎯 Planificar objetivos</b><span>Escribe un objetivo grande y la IA lo divide en tarjetas, con dependencias.</span></li>
+        <li><b>🔁 Tareas programadas</b><span>Una vez, cada día, cada semana o cada mes: la tarjeta pasa sola a «En curso».</span></li>
+        <li><b>🔑 Secretos</b><span>Claves de API por proyecto: la IA ve los nombres, pide el valor y el tablero lo tapa.</span></li>
+        <li><b>⌘K Búsqueda y comandos</b><span>Busca en todo (también lo archivado) y haz cualquier cosa sin el ratón.</span></li>
+        <li><b>▶ Vista previa segura</b><span>Las páginas y juegos que hace la IA funcionan dentro, aislados del tablero.</span></li>
+        <li><b>↻ Versiones y exportar</b><span>Cada entrega es una versión; cópiala, descárgala en .md, como página o en PDF.</span></li>
+      </ul>
+    </section>
+
+    <section id="privacidad" class="seccion privacidad">
+      <h2>Tus datos no salen de tu equipo</h2>
+      <ul>
+        <li><b>Sin servidor central ni cuentas.</b> Órbita se ejecuta en tu máquina y solo escucha en <code>127.0.0.1</code>.</li>
+        <li><b>Sin API keys.</b> La IA es la tuya, con tu suscripción; Órbita solo le pasa las tarjetas.</li>
+        <li><b>El proyecto va con su carpeta.</b> El tablero se guarda en <code>orbita/</code>, dentro de la carpeta de trabajo: cópiala o súbela a un repositorio y el proyecto va con ella.</li>
+        <li><b>Protegida del navegador.</b> Rechaza peticiones de otras webs y sirve lo que escribe la IA aislado del tablero.</li>
+      </ul>
+    </section>
+
+    <section id="empezar" class="seccion">
+      <h2>Empezar</h2>
+      <div class="columnas">
+        <div class="tarjeta">
+          <h3>1 · Abre Órbita</h3>
+          <p>Desde el código (necesita <a href="https://nodejs.org">Node 22</a> o posterior):</p>
+          <pre><code>git clone https://github.com/osmely/orbita
+cd orbita
+npm install
+npm start</code></pre>
+          <p class="nota">Se abre en <code>http://localhost:4321</code>. Los ejecutables para macOS, Windows y Linux (sin instalar nada) se publicarán en <a href="https://github.com/osmely/orbita/releases">Releases</a>.</p>
+        </div>
+        <div class="tarjeta">
+          <h3>2 · Conecta tu IA</h3>
+          <p>En Claude Code, una sola vez:</p>
+          <pre><code>claude mcp add --transport http --scope user orbita http://localhost:4321/mcp</code></pre>
+          <p>Después, en cualquier sesión:</p>
+          <pre><code>/mcp__orbita__trabajar</code></pre>
+          <p class="nota">Para Cursor, Claude Desktop y otras, el botón <b>Conectar IA</b> del tablero da la configuración lista para copiar.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion preguntas">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Qué IA necesito?</summary><p>Cualquiera que hable MCP: Claude Code, Cursor, Claude Desktop… Órbita no incluye IA ni cobra nada por ella.</p></details>
+      <details><summary>¿Funciona sin IA?</summary><p>Sí: es un kanban normal. Creas tarjetas, las arrastras y escribes los resultados tú. Si no hay ninguna IA conectada, las tarjetas de «En curso» esperan en cola.</p></details>
+      <details><summary>¿Necesita internet?</summary><p>Órbita no: la interfaz lleva dentro sus fuentes y librerías. Tu IA sí lo necesitará para funcionar.</p></details>
+      <details><summary>¿Puedo tener varios proyectos a la vez?</summary><p>Sí. Cada proyecto es una pestaña con su carpeta de trabajo, y puedes darle a cada uno su propia IA para que avancen en paralelo.</p></details>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <span class="marca"><span class="orbe" aria-hidden="true"><i></i></span>Órbita</span>
+    <span>Tú decides, la IA trabaja · <a href="https://github.com/osmely/orbita">código en GitHub</a></span>
+  </footer>
+</body>
+</html>
