@@ -48,6 +48,8 @@ claude mcp add --transport http --scope user orbita http://localhost:4321/mcp
 
 Después, en cualquier sesión de Claude Code, escribe `/mcp__orbita__trabajar` y Claude se queda escuchando el tablero.
 
+Para empezar un proyecto **sin tocar la app**, pídeselo a la IA en su chat: *«Abre en Órbita un proyecto llamado Web de la tienda y quédate escuchando»*, o en Claude Code `/mcp__orbita__nuevo_proyecto Web de la tienda`. La IA crea el proyecto (o abre el que ya tenga ese nombre), pasa a ser su IA y se queda escuchando sus tarjetas. El tablero cambia solo a ese proyecto. Cada sesión de Claude puede llevar su propio proyecto en paralelo.
+
 Para Cursor, Claude Desktop y otras, pulsa **Conectar IA** en el tablero: ahí está la configuración lista para copiar.
 
 ## Cómo se usa
@@ -103,6 +105,7 @@ Lo que escribe la IA queda en `entregables/` y el tablero en `data/board.json`, 
 |---|---|
 | `wait_for_work` | Escucha el tablero y toma la siguiente tarjeta (o la que le devolviste). En `notices` le cuenta las tarjetas que le quitaste |
 | `report_progress` | Mueve la barra de progreso y, con `detalle` (Markdown, con imágenes), publica el avance intermedio en la sección «En vivo» de la tarjeta |
+| `open_project` | Crea un proyecto (o abre uno que ya existe), hace a la IA su IA y cambia el tablero a ese proyecto. Con `goal` deja además una tarjeta de planificación que será lo primero que reciba |
 | `wait_for_work` (con `project`) | Ser la IA de un solo proyecto: solo recibe su trabajo |
 | `update_card` | Edita una tarjeta: título, descripción, criterios, proyecto o dependencias (queda en su actividad) |
 | `delete_card` | Borra una o varias tarjetas: van a la **Papelera** (Archivo), con aviso y «Deshacer» |
@@ -117,7 +120,7 @@ Lo que escribe la IA queda en `entregables/` y el tablero en `data/board.json`, 
 | `move_card` | Mueve tarjetas si se lo pides |
 | `list_files`, `read_file`, `write_file` | Comparte entregables. Con `card_id`, el archivo va a la carpeta del proyecto de la tarjeta |
 
-También incluye el prompt `trabajar`, que pone a la IA en modo cerebro.
+También incluye los prompts `trabajar` (pone a la IA en modo cerebro) y `nuevo_proyecto` (abre un proyecto y lo escucha).
 
 Por seguridad, el servidor solo escucha en `127.0.0.1` y rechaza peticiones con otro `Host` u `Origin` (así ninguna web puede usar tu tablero desde tu navegador). La página del tablero lleva una política de seguridad de contenido (CSP) que solo deja cargar lo suyo y no se puede incrustar en otras webs. Usa `--port` (o `PORT`) para cambiar el puerto.
 

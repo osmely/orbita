@@ -753,7 +753,7 @@ const VERSION = crypto
 
 const ALLOWED_HOSTS = [`localhost:${PORT}`, `127.0.0.1:${PORT}`];
 const handleMcp = createMcpHandler({
-  board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, WORKSPACE, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica,
+  board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, WORKSPACE, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject,
 });
 
 const server = http.createServer(async (req, res) => {

@@ -32,6 +32,8 @@ Si eres la IA de preguntas rápidas, pasa solo: "preguntas" en cada wait_for_wor
 
 Si eres la IA de un proyecto concreto, pasa project en cada wait_for_work: solo recibirás su trabajo, y otra IA puede llevar otro proyecto en paralelo.
 
+Si la persona te pide abrir, crear o conectarte a un proyecto («abre un proyecto para X y quédate escuchando»), usa open_project: crea el proyecto (o abre el que ya tenga ese nombre), te hace su IA y su tablero cambia solo a él; la persona no tiene que hacer nada en la app. Después llama a wait_for_work con el worker y el project que te devuelve, y repítelo cada vez que vuelva sin trabajo.
+
 Si la tarjeta trae acceptance_criteria («Terminado cuando…»), trabaja para cumplirlos y, al entregar, revisa cada uno con honestidad y pásalos en submit_result → criteria con su evidencia (una captura /files/…, una prueba o un enlace); lo que no cumplas, márcalo met=false y explica. Si un criterio trae person_says, la persona dice que no se cumple: corrígelo primero. Al crear tarjetas (planes), añade criteria comprobables.
 
 Pasa siempre tu nombre en "worker" al llamar a report_progress, write_file, ask_human y submit_result. Si una herramienta responde «DETENTE», la persona te quitó esa tarjeta (la movió, la eliminó, la dio por hecha o pausó su proyecto): deja de trabajar en ella, no la entregues y vuelve a wait_for_work. Si fue una pausa, lo que llevas se conserva y la tarjeta te volverá al reanudar el proyecto. Solo te enteras de estos avisos al llamar a una herramienta: mientras trabajas, llama a report_progress al menos cada 2–3 minutos y antes de cada paso largo, para que una pausa o un cambio de la persona te llegue a tiempo. wait_for_work también te trae esos avisos en "notices".
@@ -42,7 +44,7 @@ Las tarjetas de tipo "plan" piden dividir un objetivo: crea las subtareas con cr
 const COLUMN = z.enum(["backlog", "doing", "review", "done"]);
 
 export function createMcpHandler(ops) {
-  const { board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, WORKSPACE, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica } = ops;
+  const { board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, WORKSPACE, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject } = ops;
 
   const ok = (data) => ({ content: [{ type: "text", text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }] });
   const fail = (msg) => ({ content: [{ type: "text", text: msg }], isError: true });
@@ -239,7 +241,7 @@ export function createMcpHandler(ops) {
         if (project) {
           const p = findProject(project) || board.projects.find((x) => x.name.toLowerCase() === project.toLowerCase());
           if (!p) throw new Error(`No existe el proyecto «${project}». Proyectos: ${board.projects.map((x) => `«${x.name}» (${x.id})`).join(", ")}.`);
-          if (p.ia && p.ia !== worker) throw new Error(`El proyecto «${p.name}» ya tiene su IA: «${p.ia}». Usa otro nombre de proyecto o pide a la persona que la cambie.`);
+          if (p.ia && p.ia !== worker && conectada(p.ia)) throw new Error(`El proyecto «${p.name}» ya tiene su IA conectada ahora: «${p.ia}». Usa otro proyecto o pide a la persona que la cambie.`);
           if (p.ia !== worker) iaDeProyecto(p, worker);
         }
         seen(worker, +1);
@@ -272,6 +274,47 @@ export function createMcpHandler(ops) {
         } finally {
           seen(worker, -1);
         }
+      }),
+    );
+
+    // Abrir un proyecto desde la propia IA: lo crea (o reutiliza), la IA pasa a ser la suya y el tablero de la persona salta a él
+    server.registerTool(
+      "open_project",
+      {
+        title: "Abrir un proyecto y ser su IA",
+        description:
+          "Crea un proyecto en el tablero (o abre el que ya tenga ese nombre) y te hace su IA: solo tú recibirás sus tarjetas y preguntas, y otras IAs pueden llevar otros proyectos en paralelo. El tablero de la persona cambia solo a ese proyecto: no tiene que hacer nada en la app. Úsala cuando te pidan «abre/crea un proyecto…», «conéctate al proyecto…» o «trabaja en…». Después llama a wait_for_work con el worker y el project que te devuelve, en bucle, para quedarte escuchando.",
+        inputSchema: {
+          name: z.string().min(1).max(80).describe("Nombre del proyecto (o su id, si ya existe)"),
+          worker: z.string().min(1).max(60).optional().describe("Tu nombre visible en el tablero. Por defecto «Claude · <proyecto>», para distinguirte de otras sesiones"),
+          goal: z.string().max(5000).optional().describe("Objetivo grande del proyecto: se crea una tarjeta de planificación y será lo primero que recibas para dividirlo en tarjetas"),
+          instructions: z.string().max(20_000).optional().describe("Reglas fijas para todas las tarjetas del proyecto (idioma, tecnología, formato…). Solo se ponen si el proyecto aún no tiene"),
+        },
+      },
+      safe(async ({ name, worker, goal, instructions }) => {
+        const buscado = name.trim();
+        let p = findProject(buscado) || board.projects.find((x) => x.name.toLowerCase() === buscado.toLowerCase());
+        const creado = !p;
+        worker = (worker?.trim() || `Claude · ${buscado.length > 28 ? buscado.slice(0, 27).trimEnd() + "…" : buscado}`).slice(0, 60);
+        if (p?.ia && p.ia !== worker && conectada(p.ia)) throw new Error(`El proyecto «${p.name}» ya lo lleva «${p.ia}», que está conectada ahora. Elige otro nombre de proyecto o pide a la persona que la cambie.`);
+        if (creado) p = newProject(buscado);
+        if (instructions?.trim() && !p.instructions) p.instructions = instructions.trim();
+        iaDeProyecto(p, worker); // también avisa a la app (proyectos) y guarda
+        let plan = null;
+        if (goal?.trim()) {
+          plan = newCard({ title: `Planificar: ${goal.trim().slice(0, 150)}`, description: goal.trim(), kind: "plan", tag: "objetivo", projectId: p.id, origin: "ia" });
+          requestAI(plan); // a la cola de «En curso»: wait_for_work se la dará a esta IA
+        }
+        seen(worker);
+        broadcast({ type: "enfoque", projectId: p.id, por: worker, creado });
+        const pendientes = board.cards.filter((c) => c.projectId === p.id && !c.archivedAt && ["queued", "returned"].includes(c.status)).length;
+        return ok({
+          project: { id: p.id, name: p.name, folder: p.folder + "/", created: creado },
+          worker,
+          paused: p.pausado ? "El proyecto está en pausa: no recibirás sus tarjetas hasta que la persona lo reanude." : undefined,
+          queued_cards: pendientes,
+          next: `Llama ahora a wait_for_work con { worker: "${worker}", project: "${p.id}" } y vuelve a llamarla cada vez que responda sin trabajo: así te quedas escuchando. Las tarjetas que la persona ponga en «En curso» en este proyecto te llegarán solo a ti.`,
+        });
       }),
     );
 
@@ -673,6 +716,30 @@ export function createMcpHandler(ops) {
         }
         broadcast({ type: "files", files: listFiles() });
         return ok(`Guardado en ${relPath}`);
+      }),
+    );
+
+    server.registerPrompt(
+      "nuevo_proyecto",
+      {
+        title: "Abrir un proyecto en Órbita y escucharlo",
+        description: "Crea (o abre) un proyecto en el tablero, hace a esta IA su IA y la deja escuchando sus tarjetas. La app cambia sola al proyecto.",
+        argsSchema: {
+          nombre: z.string().describe("Nombre del proyecto"),
+          objetivo: z.string().optional().describe("Objetivo grande, para que la IA lo divida en tarjetas"),
+          ia: z.string().optional().describe("Cómo aparecerá la IA en el tablero"),
+        },
+      },
+      ({ nombre, objetivo, ia }) => ({
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Abre en Órbita el proyecto «${nombre}» con open_project (name: "${nombre}"${ia ? `, worker: "${ia}"` : ""}${objetivo ? `, goal: ${JSON.stringify(objetivo)}` : ""}) y quédate escuchándolo: llama a wait_for_work con el worker y el project que te devuelva, trabaja cada tarjeta que llegue y vuelve a wait_for_work, sin pedirme confirmación entre tarjetas.\n\n${INSTRUCTIONS}`,
+            },
+          },
+        ],
       }),
     );
 

@@ -171,6 +171,8 @@ function connect() {
         renderSubnav();
         renderSeccion(); // sin redibujar lo que estás escribiendo
       }
+    } else if (ev.type === "enfoque") {
+      enfocarProyecto(ev);
     } else if (ev.type === "brains") {
       state.brains = ev.brains;
       renderBrains();
@@ -183,6 +185,24 @@ function connect() {
     es.close();
     setTimeout(() => load().then(connect).catch(connect), 1500);
   };
+}
+
+// Una IA abrió un proyecto desde su chat (open_project): el tablero salta a él solo.
+// Si estás escribiendo algo, no se te cambia la pantalla: solo se avisa, con «Ir».
+function enfocarProyecto(ev) {
+  const p = proyecto(ev.projectId);
+  if (!p) return;
+  const texto = `◉ ${ev.por} ${ev.creado ? "abrió el proyecto" : "se conectó a"} «${corto(p.name, 40)}» y está escuchando`;
+  const activo = document.activeElement;
+  const escribiendo = /INPUT|TEXTAREA|SELECT/.test(activo?.tagName) && activo.value;
+  if (escribiendo || $("#newDialog").open) return toast(texto, false, { texto: "Ir", accion: () => irAProyecto(p.id) });
+  irAProyecto(p.id);
+  toast(texto);
+}
+function irAProyecto(id) {
+  if (state.openId || state.view !== "card") closeDrawer();
+  state.seccion = "tablero";
+  elegirFiltro(id);
 }
 
 // Órbita se reinició con una interfaz nueva: recargar (sin perder lo que estés escribiendo)
@@ -1485,6 +1505,11 @@ function openConnect() {
       <p class="sub" style="margin:0 0 8px;font-size:13px">En Claude Code usa el comando del servidor:</p>
       <div class="snippet"><pre>/mcp__orbita__trabajar</pre><button class="btn" data-copy="/mcp__orbita__trabajar">Copiar</button></div>
       <p class="sub" style="margin:10px 0 0;font-size:13px">En cualquier otra IA, pídele: <i>«Sé el cerebro de mi tablero Órbita: usa wait_for_work y trabaja las tarjetas una tras otra»</i>.</p>
+    </div>
+    <div class="d-section"><h4>Un proyecto nuevo, desde tu IA</h4>
+      <p class="sub" style="margin:0 0 8px;font-size:13px">No hace falta tocar la app: pídeselo en su chat y el tablero cambia solo al proyecto. En Claude Code:</p>
+      <div class="snippet"><pre>/mcp__orbita__nuevo_proyecto Mi proyecto</pre><button class="btn" data-copy="/mcp__orbita__nuevo_proyecto ">Copiar</button></div>
+      <p class="sub" style="margin:10px 0 0;font-size:13px">O con tus palabras: <i>«Abre en Órbita un proyecto llamado Web de la tienda y quédate escuchando»</i>. Cada sesión puede llevar su propio proyecto, en paralelo.</p>
     </div>
     <div class="d-section"><h4>Lo que puede hacer</h4><ul class="tool-list">${tools.map(([t, d]) => `<li><code>${t}</code><span>${d}</span></li>`).join("")}</ul></div>`;
   $("#dClose").onclick = closeDrawer;
