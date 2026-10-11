@@ -108,6 +108,7 @@ async function load() {
   const data = await api("/api/board");
   state.cards = new Map(data.cards.map((c) => [c.id, c]));
   state.projects = data.projects || [];
+  state.faltantes = data.faltantes || [];
   state.questions = data.questions || [];
   state.preguntasIA = data.preguntasIA || null;
   state.plantillas = data.plantillas || [];
@@ -164,6 +165,7 @@ function connect() {
       if (state.view === "preguntas") renderPreguntas();
     } else if (ev.type === "projects") {
       state.projects = ev.projects;
+      state.faltantes = ev.faltantes || [];
       if (state.filtro !== "todos" && state.filtro !== "sin" && !proyecto(state.filtro)) state.filtro = "todos"; // lo eliminaron
       if (state.seccion === "tablero") renderAll();
       else {
@@ -185,6 +187,26 @@ function connect() {
     es.close();
     setTimeout(() => load().then(connect).catch(connect), 1500);
   };
+}
+
+// Carpeta de trabajo de un proyecto: el diálogo nativo del sistema (lo abre el servidor, que corre en esta
+// máquina). Si el sistema no tiene selector, se pide la ruta escrita. Devuelve la ruta, o null si se cancela.
+async function elegirCarpeta(titulo) {
+  toast("Elige la carpeta en la ventana del sistema…");
+  const { dir, sinSelector } = await api("/api/carpeta/elegir", { titulo });
+  $("#toast").className = "toast";
+  if (dir) return dir;
+  if (!sinSelector) return null;
+  return prompt(`${titulo}\n\nEscribe la ruta completa de la carpeta:`)?.trim() || null;
+}
+// Proyecto nuevo (o el que ya haya en esa carpeta)
+async function crearProyecto(nombre) {
+  const dir = await elegirCarpeta(nombre ? `Carpeta de trabajo de «${nombre}»` : "Carpeta de trabajo del proyecto");
+  if (!dir) return null;
+  const p = await api("/api/projects", { name: nombre || "", dir });
+  state.projects = [...state.projects.filter((x) => x.id !== p.id), p];
+  toast(p.abierto ? `Proyecto «${p.name}» abierto desde su carpeta` : `Proyecto «${p.name}» creado en ${p.dir}`);
+  return p;
 }
 
 // Una IA abrió un proyecto desde su chat (open_project): el tablero salta a él solo.
@@ -521,20 +543,24 @@ $("#tabNew").onclick = (e) => {
   e.stopPropagation();
   const menu = $("#tabMenu");
   const cerrados = state.projects.filter((p) => cerradas.has(p.id) && p.id !== state.filtro);
-  menu.innerHTML = `<form id="tabNewForm"><h4>Nuevo proyecto</h4><div class="row-in"><input name="name" placeholder="Nombre del proyecto" required><button class="btn primary">Crear</button></div></form>
+  menu.innerHTML = `<form id="tabNewForm"><h4>Nuevo proyecto</h4><div class="row-in"><input name="name" placeholder="Nombre (opcional)"><button class="btn primary">Elegir carpeta…</button></div>
+    <p class="muted" style="margin:8px 0 0">Cada proyecto vive en su carpeta de trabajo: Órbita guarda su tablero en <code>orbita/</code> dentro de ella. Si la carpeta ya tiene un proyecto de Órbita, se abre ese.</p></form>
     ${cerrados.length ? `<h4 style="margin-top:14px">Reabrir</h4><ul class="reabrir">${cerrados.map((p) => `<li><button data-abrir="${p.id}"><i class="tab-dot" style="--h:${tono(p.id)}"></i>${esc(p.name)}</button></li>`).join("")}</ul>` : ""}`;
   menu.hidden = !menu.hidden;
+  // Con muchas pestañas el ＋ queda a la derecha: el menú se abre hacia donde hay sitio
+  const aLaDerecha = $("#tabNew").getBoundingClientRect().left > innerWidth / 2;
+  menu.style.left = aLaDerecha ? "auto" : "";
+  menu.style.right = aLaDerecha ? "0" : "";
   $("#tabNew").setAttribute("aria-expanded", String(!menu.hidden));
   if (!menu.hidden) menu.querySelector("input").focus();
   $("#tabNewForm").onsubmit = async (ev) => {
     ev.preventDefault();
     try {
-      const p = await api("/api/projects", { name: new FormData(ev.target).get("name") });
       menu.hidden = true;
-      state.projects = [...state.projects.filter((x) => x.id !== p.id), p];
-      state.seccion = "ajustes"; // recién creado: lo primero es contarle a la IA de qué va
+      const p = await crearProyecto(String(new FormData(ev.target).get("name") || "").trim());
+      if (!p) return;
+      state.seccion = p.abierto ? "tablero" : "ajustes"; // recién creado: lo primero es contarle a la IA de qué va
       elegirFiltro(p.id);
-      toast(`Proyecto «${p.name}» creado`);
     } catch (err) {
       toast(err.message, true);
     }
@@ -607,6 +633,37 @@ function renderSubnav() {
     }</span><button class="btn mini-btn" id="pausaReanudar">▶ Reanudar</button>`;
     $("#pausaReanudar").onclick = () => pausarProyecto(p.id, false);
   }
+  // Proyectos cuya carpeta de trabajo no aparece (se movió, se borró o es un disco desconectado)
+  let falta = $("#faltaBanda");
+  if (!falta) {
+    falta = document.createElement("div");
+    falta.id = "faltaBanda";
+    falta.className = "pausa-banda falta-banda";
+    banda.after(falta);
+  }
+  const faltan = state.faltantes || [];
+  falta.hidden = !faltan.length;
+  falta.innerHTML = faltan
+    .map((x) => `<div class="falta-fila"><span>⚠ No encuentro la carpeta de <b>${esc(x.name)}</b>: <code>${esc(x.dir)}</code> <small class="muted">(${esc(x.motivo || "")})</small></span><button class="btn mini-btn" data-ubicar="${esc(x.id)}">Buscar carpeta…</button><button class="btn mini-btn" data-quitar-falta="${esc(x.id)}">Quitar de la lista</button></div>`)
+    .join("");
+  for (const b of falta.querySelectorAll("[data-ubicar]"))
+    b.onclick = async () => {
+      const x = faltan.find((y) => y.id === b.dataset.ubicar);
+      try {
+        const dir = await elegirCarpeta(`¿Dónde está ahora «${x.name}»? (la carpeta que contiene orbita/)`);
+        if (!dir) return;
+        await api(`/api/faltantes/${x.id}/ubicar`, { dir });
+        toast(`«${x.name}» vuelve a estar en el tablero`);
+        await load(); // trae sus tarjetas
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+  for (const b of falta.querySelectorAll("[data-quitar-falta]"))
+    b.onclick = () => {
+      const x = faltan.find((y) => y.id === b.dataset.quitarFalta);
+      if (confirm(`¿Quitar «${x.name}» de la lista? Su carpeta no se toca: si vuelve a aparecer, ábrela con ＋.`)) api(`/api/faltantes/${x.id}/quitar`, {}).catch((err) => toast(err.message, true));
+    };
   for (const b of document.querySelectorAll("#subnav .sub"))
     b.onclick = () => {
       state.seccion = b.dataset.s;
@@ -637,7 +694,9 @@ function paginaAjustes(pagina) {
       <label class="campo"><span>Nombre</span><input class="campo-input" data-campo="name"></label>
       <label class="campo"><span>Instrucciones para la IA</span><textarea data-campo="instructions" rows="6" placeholder="Reglas fijas para todas las tarjetas: idioma y tono, tecnología, formato de entrega, qué evitar…"></textarea></label>
       <label class="campo"><span>Memoria <small class="muted" data-memoria-fecha></small></span><textarea data-campo="memory" rows="10" placeholder="Lo que la IA aprende entre tarjetas: decisiones, preferencias, datos. Puedes editarla."></textarea></label>
-      <p class="muted">Carpeta de archivos: <code data-carpeta></code></p>
+      <div class="campo"><span>Carpeta de trabajo</span>
+        <div class="carpeta-trabajo"><code data-carpeta></code><button type="button" class="btn mini-btn" data-mostrar>Abrir</button><button type="button" class="btn mini-btn" data-cambiar-carpeta>Cambiar…</button></div>
+        <small class="muted">La IA trabaja aquí. Órbita guarda el tablero del proyecto y sus entregables en <code>orbita/</code>, dentro de esta carpeta: si la copias o la subes a un repositorio, el proyecto va con ella.</small></div>
       <div class="peligro" data-peligro></div>
     </div>`;
     for (const campo of pagina.querySelectorAll("[data-campo]"))
@@ -660,7 +719,18 @@ function paginaAjustes(pagina) {
     }
   }
   pagina.querySelector("[data-memoria-fecha]").textContent = p.memoryAt ? `actualizada ${new Date(p.memoryAt).toLocaleString()}` : "la IA la irá completando";
-  pagina.querySelector("[data-carpeta]").textContent = `entregables/${p.folder}/`;
+  pagina.querySelector("[data-carpeta]").textContent = p.dir;
+  pagina.querySelector("[data-mostrar]").onclick = () => api(`/api/projects/${p.id}/mostrar`, {}).catch((err) => toast(err.message, true));
+  pagina.querySelector("[data-cambiar-carpeta]").onclick = async () => {
+    try {
+      const dir = await elegirCarpeta(`Nueva carpeta de trabajo de «${p.name}» (su carpeta orbita/ se moverá allí)`);
+      if (!dir) return;
+      await api(`/api/projects/${p.id}/carpeta`, { dir });
+      toast(`«${p.name}» trabaja ahora en ${dir}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
   const tiene = [...state.cards.values()].some((c) => c.projectId === p.id);
   pagina.querySelector("[data-peligro]").innerHTML = tiene
     ? `<p class="muted">Para eliminar el proyecto, primero mueve o elimina sus tarjetas. Si solo quieres quitarlo de la vista, cierra su pestaña (✕).</p>`
@@ -736,7 +806,7 @@ function paginaEntregables(pagina) {
   const p = proyecto(f);
   const archivos = archivosDe(f);
   const grupos = p ? [[p.folder, archivos]] : [...new Set(archivos.map((x) => (x.includes("/") ? x.split("/")[0] : "")))].map((d) => [d, archivos.filter((x) => (d ? x.startsWith(d + "/") : !x.includes("/")))]);
-  pagina.innerHTML = `<p class="intro">${p ? `Lo que escribió la IA para este proyecto, en <code>entregables/${esc(p.folder)}/</code>.` : "Lo que escribió la IA en todos los proyectos."}</p>
+  pagina.innerHTML = `<p class="intro">${p ? `Lo que escribió la IA para este proyecto, en <code>${esc(p.dir)}/orbita/</code>.` : "Lo que escribió la IA en todos los proyectos."}</p>
     ${
       archivos.length
         ? grupos
@@ -1332,9 +1402,10 @@ function pintarDependencias(c) {
 }
 
 // Opciones de proyecto para un <select>
+// Toda tarjeta es de un proyecto: si no se indica, el que estás viendo (o «General», o el primero)
 function llenarProyectos(select, valor) {
-  select.innerHTML = `<option value="">Sin proyecto</option>` + state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
-  select.value = valor;
+  select.innerHTML = state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  select.value = proyecto(valor)?.id || proyecto(state.filtro)?.id || state.projects.find((p) => p.name === "General")?.id || state.projects[0]?.id || "";
 }
 
 async function openFile(f) {
@@ -1536,7 +1607,9 @@ $("#goalForm").addEventListener("submit", async (e) => {
   if (!goal) return input.focus();
   if (modoBarra === "preguntar") return preguntar(goal);
   try {
-    const card = await api("/api/goal", { goal });
+    const dir = await elegirCarpeta(`Carpeta de trabajo para «${goal.length > 60 ? goal.slice(0, 59) + "…" : goal}»`);
+    if (!dir) return;
+    const card = await api("/api/goal", { goal, dir });
     input.value = "";
     state.seccion = "tablero";
     elegirFiltro(card.projectId); // como en el navegador: el proyecto nuevo se abre en su pestaña

@@ -9,7 +9,10 @@ import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createMcpHandler } from "./mcp.mjs";
 // Argumentos, carpeta de datos (la del usuario, no la del programa) e interfaz: ver entorno.mjs
-import { PORT, DATA_FILE, WORKSPACE, DATOS, ABRIR_NAVEGADOR, VERSION_APP, leerPublico, abrirNavegador, salir } from "./entorno.mjs";
+import { PORT, DATOS, ABRIR_NAVEGADOR, VERSION_APP, leerPublico, abrirNavegador, salir } from "./entorno.mjs";
+// Cada proyecto se guarda en <su carpeta de trabajo>/orbita/ (ver almacen.mjs)
+import { cargar, guardar, slug, normalizarCarpeta, comprobarCarpeta, leerTablero, tableroDe, baseDe, rutaReal, listarArchivos, moverCarpetaOrbita, CARPETA } from "./almacen.mjs";
+import { elegirCarpeta } from "./carpetas.mjs";
 
 // ---------------------------------------------------------------------------
 // Estado del tablero
@@ -25,11 +28,17 @@ import { PORT, DATA_FILE, WORKSPACE, DATOS, ABRIR_NAVEGADOR, VERSION_APP, leerPu
 //   done      aprobada
 
 const COLUMNS = ["backlog", "doing", "review", "done"];
-let board = { cards: [], projects: [] };
+let cargado;
 try {
-  board = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-} catch {}
+  cargado = cargar();
+} catch (err) {
+  salir(`No se pudo abrir el tablero: ${err.message}`);
+}
+const board = cargado.board;
+// Proyectos cuya carpeta de trabajo no se encuentra: siguen en la lista hasta que la persona los ubique o los quite
+let faltantes = cargado.faltantes;
 board.projects ??= [];
+board.cards ??= [];
 for (const p of board.projects) {
   p.instructions ??= ""; // reglas fijas para la IA en todas las tarjetas del proyecto
   p.memory ??= ""; // lo que la IA va aprendiendo (la persona también puede editarla)
@@ -53,38 +62,67 @@ for (const p of PLANTILLAS_DE_SERIE) if (!board.plantillas.some((x) => x.id === 
 board.deleted ??= {}; // tarjetas eliminadas mientras una IA las trabajaba: id -> { title, worker, motivo }
 
 // ---------------------------------------------------------------------------
-// Proyectos: cada objetivo crea uno, con su carpeta de entregables
+// Proyectos: cada uno tiene su carpeta de trabajo, y dentro, orbita/ con su tablero y sus archivos
 // ---------------------------------------------------------------------------
 
 const findProject = (id) => board.projects.find((p) => p.id === id);
+const carpetaPara = (nombre) => slug(nombre, new Set(board.projects.map((p) => p.folder)));
 
-// "Mejoras de Órbita" -> "mejoras-de-orbita" (sin repetir carpetas)
-function carpetaPara(nombre) {
-  const base =
-    String(nombre)
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40)
-      .replace(/-+$/, "") || "proyecto";
-  let carpeta = base;
-  for (let i = 2; board.projects.some((p) => p.folder === carpeta); i++) carpeta = `${base}-${i}`;
-  return carpeta;
-}
-
-function newProject(nombre, carpeta) {
+// Proyecto en una carpeta de trabajo. Si la carpeta ya tiene orbita/tablero.json (un proyecto que
+// viene de otra máquina, de un repositorio clonado o que se quitó de la lista), se abre ese.
+// Devuelve { project, abierto } (abierto = ya existía en la carpeta).
+function newProject(nombre, dir) {
+  dir = normalizarCarpeta(dir);
+  const yaEs = board.projects.find((p) => p.dir === dir);
+  if (yaEs) return { project: yaEs, abierto: true };
+  comprobarCarpeta(dir, board.projects);
+  if (fs.existsSync(tableroDe(dir))) {
+    const { proyecto, tarjetas } = leerTablero(dir);
+    if (findProject(proyecto.id)) throw new Error(`Esa carpeta tiene una copia de «${findProject(proyecto.id).name}», que ya está abierto`);
+    const project = { ...proyecto, dir, folder: board.projects.some((p) => p.folder === proyecto.folder) || !proyecto.folder ? carpetaPara(proyecto.name) : proyecto.folder };
+    const ids = new Set(board.cards.map((c) => c.id));
+    board.projects.push(project);
+    board.cards.push(...tarjetas.filter((c) => !ids.has(c.id)).map((c) => ({ ...c, projectId: project.id })));
+    faltantes = faltantes.filter((f) => f.id !== project.id);
+    return { project, abierto: true };
+  }
   const project = {
     id: crypto.randomUUID().slice(0, 8),
-    name: String(nombre).trim().slice(0, 80) || "Proyecto",
-    folder: carpeta || carpetaPara(nombre),
+    name: String(nombre || path.basename(dir)).trim().slice(0, 80) || "Proyecto",
+    folder: carpetaPara(nombre || path.basename(dir)),
     instructions: "",
     memory: "",
     memoryAt: null,
     createdAt: Date.now(),
+    dir,
   };
+  fs.mkdirSync(baseDe(project), { recursive: true });
   board.projects.push(project);
+  guardarAhora(); // su tablero.json existe desde el primer momento
+  return { project, abierto: false };
+}
+
+// Para lo que llega sin proyecto (una pregunta rápida hecha desde «Todos», p. ej.): «General», en la carpeta de datos
+function proyectoGeneral() {
+  const dir = path.join(DATOS, "general");
+  const ya = board.projects.find((p) => p.dir === dir);
+  if (ya) return ya;
+  fs.mkdirSync(dir, { recursive: true });
+  const { project } = newProject("General", dir);
+  broadcastProjects();
+  return project;
+}
+
+// Cambia la carpeta de trabajo de un proyecto: su carpeta orbita/ se va con él
+function moverProyecto(project, dir) {
+  dir = normalizarCarpeta(dir);
+  if (dir === project.dir) return project;
+  comprobarCarpeta(dir, board.projects, project);
+  moverCarpetaOrbita(project, dir);
+  project.dir = dir;
+  guardarAhora();
+  broadcastProjects();
+  broadcast({ type: "files", files: listFiles() });
   return project;
 }
 
@@ -100,7 +138,7 @@ const PLAN_INSTRUCCIONES =
 
 for (const card of board.cards) {
   // Si se borraron entregables a mano, las tarjetas dejan de mencionarlos.
-  card.files = (card.files || []).filter((f) => fs.existsSync(path.join(WORKSPACE, f)));
+  card.files = (card.files || []).filter(existeArchivo);
   // Tarjetas de objetivo antiguas: la descripción llevaba las instrucciones para la IA.
   if (card.kind === "plan") card.description = card.description.replace(/^Objetivo:\s*/, "").replace(/\s*Divide este objetivo en 3-7 tarjetas[\s\S]*$/, "");
   card.live ??= ""; // avance intermedio que la IA va publicando (Markdown)
@@ -109,10 +147,6 @@ for (const card of board.cards) {
 for (const card of board.cards) {
   const padre = card.parentId && board.cards.find((c) => c.id === card.parentId);
   if (padre?.kind === "plan") card.tag = padre.title.replace(/^Planificar:\s*/, "");
-}
-// Tableros de antes de los proyectos: cada objetivo pasa a ser un proyecto y sus tarjetas lo heredan.
-if (!board.projects.length) {
-  for (const plan of board.cards.filter((c) => c.kind === "plan" && !c.projectId)) plan.projectId = newProject(nombreDeObjetivo(plan.title)).id;
 }
 const raizDe = (card, vistos = new Set()) => {
   if (card.projectId || !card.parentId || vistos.has(card.id)) return card.projectId || null;
@@ -128,7 +162,7 @@ for (const card of board.cards) {
   card.attachments ??= []; // archivos que adjuntó la persona: { name, path, size }
   card.criterios ??= []; // «Terminado cuando…»: { id, texto, estado: null | "cumple" | "no", evidencia, falla }
   card.programa ??= null; // repetición o fecha programada (ver «Tareas programadas»)
-  card.attachments = card.attachments.filter((a) => fs.existsSync(path.join(WORKSPACE, a.path)));
+  card.attachments = card.attachments.filter((a) => existeArchivo(a.path));
   // Versiones del resultado: el de antes pasa a ser la versión 1
   card.versions ??= card.result ? [{ n: 1, t: card.updatedAt, quien: card.worker || "—", result: card.result }] : [];
   // Conversación: tarjetas de antes la tenían repartida en la actividad
@@ -142,12 +176,7 @@ for (const card of board.cards) {
       );
   }
 }
-// Si los archivos de un proyecto ya estaban en una carpeta, esa pasa a ser la suya (así no se rompe ningún enlace).
-for (const project of board.projects) {
-  const carpetas = board.cards.filter((c) => c.projectId === project.id).flatMap((c) => c.files.filter((f) => f.includes("/")).map((f) => f.split("/")[0]));
-  const usada = carpetas.sort((a, b) => carpetas.filter((x) => x === b).length - carpetas.filter((x) => x === a).length)[0];
-  if (usada && usada !== project.folder && !board.projects.some((p) => p.folder === usada)) project.folder = usada;
-}
+
 
 let saveTimer = null;
 function save() {
@@ -157,8 +186,7 @@ function save() {
 function guardarAhora() {
   clearTimeout(saveTimer);
   saveTimer = null;
-  fs.writeFileSync(DATA_FILE + ".tmp", JSON.stringify(board, null, 1));
-  fs.renameSync(DATA_FILE + ".tmp", DATA_FILE);
+  guardar(board, faltantes); // orbita.json + el tablero.json de cada proyecto (solo los que cambiaron)
 }
 // Al cerrar (Ctrl+C, cerrar la terminal, apagar el equipo) se guarda lo pendiente: nada se pierde
 for (const senal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
@@ -184,7 +212,7 @@ function newCard({ title, description = "", column = "backlog", origin = "tú", 
     origin,
     parentId,
     tag,
-    projectId: projectId && findProject(projectId) ? projectId : null,
+    projectId: projectId && findProject(projectId) ? projectId : proyectoGeneral().id, // toda tarjeta es de un proyecto
     archivedAt: null, // archivada: oculta del tablero, se puede restaurar
     dependsOn: [], // tarjetas que tienen que estar hechas antes que esta
     order: Date.now(), // posición dentro de su columna: las nuevas, al final
@@ -277,11 +305,11 @@ function touch(card) {
   save();
 }
 // ---------------------------------------------------------------------------
-// Conocimiento: archivos de referencia del proyecto, en entregables/<carpeta>/conocimiento/
+// Conocimiento: archivos de referencia del proyecto, en <carpeta de trabajo>/orbita/conocimiento/
 // ---------------------------------------------------------------------------
 
 const MAX_CONOCIMIENTO = 10 * 1024 * 1024; // 10 MB por archivo
-const carpetaConocimiento = (project) => path.join(WORKSPACE, project.folder, "conocimiento");
+const carpetaConocimiento = (project) => path.join(baseDe(project), "conocimiento");
 
 function conocimiento(project) {
   const dir = carpetaConocimiento(project);
@@ -309,7 +337,7 @@ function broadcastQuestions() {
 }
 
 function broadcastProjects() {
-  broadcast({ type: "projects", projects: proyectosPublicos() });
+  broadcast({ type: "projects", projects: proyectosPublicos(), faltantes });
   save();
 }
 // ---------------------------------------------------------------------------
@@ -380,7 +408,7 @@ function restaurarDePapelera(id) {
   if (i === -1) throw new Error(`No está en la papelera: ${id}`);
   const [{ card }] = board.papelera.splice(i, 1);
   if (findCard(card.id)) card.id = crypto.randomUUID().slice(0, 8); // por si acaso, sin chocar
-  if (card.projectId && !findProject(card.projectId)) card.projectId = null;
+  if (!findProject(card.projectId)) card.projectId = proyectoGeneral().id;
   card.dependsOn = (card.dependsOn || []).filter((d) => findCard(d));
   // Si estaba trabajándose, vuelve a la cola (la IA que la tenía ya recibió «DETENTE»)
   if (["running", "returned"].includes(card.status)) card.status = "queued";
@@ -464,21 +492,19 @@ setInterval(broadcastBrains, 10_000);
 // Acciones del tablero (las usan la web y el MCP)
 // ---------------------------------------------------------------------------
 
-function listFiles(dir = WORKSPACE, prefix = "") {
-  const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const rel = prefix + entry.name;
-    if (entry.isDirectory()) out.push(...listFiles(path.join(dir, entry.name), rel + "/"));
-    else out.push(rel);
-  }
-  return out;
-}
+// Archivos de todos los proyectos, como rutas «<folder>/…» (ver almacen.mjs)
+const listFiles = () => listarArchivos(board.projects);
 
 function safePath(rel) {
   if (typeof rel !== "string" || !rel.trim()) throw new Error("Ruta vacía");
-  const full = path.resolve(WORKSPACE, rel);
-  if (full !== WORKSPACE && !full.startsWith(WORKSPACE + path.sep)) throw new Error("Ruta fuera de la carpeta de entregables");
-  return full;
+  return rutaReal(rel, board.projects);
+}
+function existeArchivo(rel) {
+  try {
+    return fs.existsSync(safePath(rel));
+  } catch {
+    return false;
+  }
 }
 
 // Pone la tarjeta en "En curso" para que una IA la trabaje.
@@ -687,8 +713,12 @@ const VISTA_MIME = {
 };
 const SANDBOX = "sandbox allow-scripts allow-forms allow-modals allow-pointer-lock allow-popups allow-downloads";
 function serveVista(res, rel) {
-  const file = path.resolve(WORKSPACE, rel);
-  if (!file.startsWith(WORKSPACE + path.sep)) return send(res, 403, { error: "prohibido" });
+  let file;
+  try {
+    file = safePath(rel);
+  } catch {
+    return send(res, 403, { error: "prohibido" });
+  }
   fs.readFile(file, (err, data) => {
     if (err) return send(res, 404, { error: "no encontrado" });
     const ext = path.extname(file).toLowerCase();
@@ -718,8 +748,13 @@ async function readJson(req, max = 5e6) {
   return raw ? JSON.parse(raw) : {};
 }
 
-function serveFile(res, file, root) {
-  if (!file.startsWith(root + path.sep)) return send(res, 403, { error: "prohibido" });
+function serveFile(res, rel) {
+  let file;
+  try {
+    file = safePath(rel);
+  } catch {
+    return send(res, 403, { error: "prohibido" });
+  }
   fs.readFile(file, (err, data) => {
     if (err) return send(res, 404, { error: "no encontrado" });
     // Los entregables los escribe una IA: se sirven como imagen o como texto plano, nunca como algo que se ejecute.
@@ -753,7 +788,7 @@ const VERSION = crypto
 
 const ALLOWED_HOSTS = [`localhost:${PORT}`, `127.0.0.1:${PORT}`];
 const handleMcp = createMcpHandler({
-  board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, WORKSPACE, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject,
+  board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject, moverProyecto,
 });
 
 const server = http.createServer(async (req, res) => {
@@ -786,7 +821,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/board" && req.method === "GET") {
-      return send(res, 200, { cards: board.cards, projects: proyectosPublicos(), questions: board.questions, preguntasIA: board.preguntasIA, plantillas: board.plantillas, papelera: papeleraPublica(), files: listFiles(), brains: brainList(), version: VERSION, mcpUrl: `http://localhost:${PORT}/mcp` });
+      return send(res, 200, { cards: board.cards, projects: proyectosPublicos(), faltantes, questions: board.questions, preguntasIA: board.preguntasIA, plantillas: board.plantillas, papelera: papeleraPublica(), files: listFiles(), brains: brainList(), version: VERSION, mcpUrl: `http://localhost:${PORT}/mcp` });
     }
 
     if (url.pathname === "/api/cards" && req.method === "POST") {
@@ -832,9 +867,9 @@ const server = http.createServer(async (req, res) => {
 
     // Un objetivo grande se convierte en una tarjeta de planificación para la IA.
     if (url.pathname === "/api/goal" && req.method === "POST") {
-      const { goal } = await readJson(req);
+      const { goal, name, dir } = await readJson(req);
       if (!goal?.trim()) return send(res, 400, { error: "Escribe un objetivo" });
-      const project = newProject(nombreDeObjetivo(goal).slice(0, 60));
+      const { project } = newProject(String(name || "").trim() || nombreDeObjetivo(goal).slice(0, 60), dir);
       broadcastProjects();
       const card = newCard({
         title: `Planificar: ${goal.trim().slice(0, 150)}`,
@@ -848,11 +883,50 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/projects" && req.method === "POST") {
-      const { name } = await readJson(req);
-      if (!String(name || "").trim()) return send(res, 400, { error: "Escribe un nombre" });
-      const project = newProject(name);
+      const { name, dir } = await readJson(req);
+      const { project, abierto } = newProject(name, dir);
       broadcastProjects();
-      return send(res, 200, project);
+      broadcast({ type: "files", files: listFiles() });
+      return send(res, 200, { ...project, abierto });
+    }
+
+    // Selector de carpetas del sistema (Finder, Explorador…): devuelve la ruta elegida, o null si se cancela
+    if (url.pathname === "/api/carpeta/elegir" && req.method === "POST") {
+      const { titulo } = await readJson(req);
+      return send(res, 200, await elegirCarpeta(titulo || "Elige la carpeta de trabajo del proyecto"));
+    }
+
+    // Proyectos cuya carpeta no aparece: quitarlos de la lista o decir dónde están ahora
+    if (parts[0] === "api" && parts[1] === "faltantes" && parts[2] && req.method === "POST") {
+      const f = faltantes.find((x) => x.id === parts[2]);
+      if (!f) return send(res, 404, { error: "Ese proyecto ya no está en la lista" });
+      if (parts[3] === "quitar") faltantes = faltantes.filter((x) => x !== f);
+      else if (parts[3] === "ubicar") {
+        const { dir } = await readJson(req);
+        const { project } = newProject(f.name, dir);
+        if (project.id !== f.id) return send(res, 400, { error: `En esa carpeta hay otro proyecto («${project.name}»): se ha abierto también` });
+      } else return send(res, 404, { error: "no encontrado" });
+      guardarAhora();
+      broadcastProjects();
+      broadcast({ type: "files", files: listFiles() });
+      return send(res, 200, { ok: true });
+    }
+
+    // Cambiar la carpeta de trabajo de un proyecto (su carpeta orbita/ se mueve con él)
+    if (parts[0] === "api" && parts[1] === "projects" && parts[2] && parts[3] === "carpeta" && req.method === "POST") {
+      const project = findProject(parts[2]);
+      if (!project) return send(res, 404, { error: "Proyecto no encontrado" });
+      const { dir } = await readJson(req);
+      return send(res, 200, moverProyecto(project, dir));
+    }
+
+    // Abrir la carpeta de trabajo (o su orbita/) en el Finder / Explorador
+    if (parts[0] === "api" && parts[1] === "projects" && parts[2] && parts[3] === "mostrar" && req.method === "POST") {
+      const project = findProject(parts[2]);
+      if (!project) return send(res, 404, { error: "Proyecto no encontrado" });
+      const { orbita } = await readJson(req);
+      abrirNavegador(orbita ? baseDe(project) : project.dir); // abre cualquier ruta con la app del sistema
+      return send(res, 200, { ok: true });
     }
 
     // Solo en copias de prueba: fijar la hora del servidor para probar las programadas
@@ -941,14 +1015,7 @@ const server = http.createServer(async (req, res) => {
         project.memory = memory.slice(0, 20_000);
         project.memoryAt = Date.now();
       }
-      if (String(name || "").trim()) {
-        project.name = String(name).trim().slice(0, 80);
-        // La carpeta sigue al nombre solo mientras está vacía: con archivos dentro, se queda (no se rompen enlaces).
-        if (!fs.existsSync(path.join(WORKSPACE, project.folder))) {
-          project.folder = "";
-          project.folder = carpetaPara(project.name);
-        }
-      }
+      if (String(name || "").trim()) project.name = String(name).trim().slice(0, 80); // el prefijo de sus archivos (folder) no cambia: así no se rompen enlaces
       broadcastProjects();
       return send(res, 200, project);
     }
@@ -962,9 +1029,9 @@ const server = http.createServer(async (req, res) => {
       const contenido = Buffer.from(String(data || ""), "base64");
       if (!contenido.length) return send(res, 400, { error: "El archivo está vacío" });
       if (contenido.length > MAX_CONOCIMIENTO) return send(res, 413, { error: "El archivo pasa de 10 MB" });
-      const rel = `${findProject(card.projectId)?.folder || "sin-proyecto"}/adjuntos/${card.id}/${nombre}`;
-      fs.mkdirSync(path.dirname(path.join(WORKSPACE, rel)), { recursive: true });
-      fs.writeFileSync(path.join(WORKSPACE, rel), contenido);
+      const rel = `${findProject(card.projectId).folder}/adjuntos/${card.id}/${nombre}`;
+      fs.mkdirSync(path.dirname(safePath(rel)), { recursive: true });
+      fs.writeFileSync(safePath(rel), contenido);
       card.attachments = [...card.attachments.filter((a) => a.name !== nombre), { name: nombre, path: rel, size: contenido.length }];
       log(card, "file", `Adjuntaste ${nombre}`);
       if (card.worker && ["running", "returned"].includes(card.status)) card.inbox.push({ t: Date.now(), text: `Te adjunté un archivo: ${rel} (léelo con read_file)`, kind: "comentario" });
@@ -979,7 +1046,7 @@ const server = http.createServer(async (req, res) => {
       const nombre = nombreSeguro(decodeURIComponent(parts[4]));
       const adj = card.attachments.find((a) => a.name === nombre);
       if (!adj) return send(res, 404, { error: "Ese adjunto no existe" });
-      fs.rmSync(path.join(WORKSPACE, adj.path), { force: true }); // la persona lo quita desde el panel de la tarjeta
+      if (existeArchivo(adj.path)) fs.rmSync(safePath(adj.path), { force: true }); // la persona lo quita desde el panel de la tarjeta
       card.attachments = card.attachments.filter((a) => a !== adj);
       log(card, "file", `Quitaste el adjunto ${nombre}`);
       touch(card);
@@ -1014,7 +1081,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { knowledge: conocimiento(project) });
     }
 
-    // Solo se eliminan proyectos sin tarjetas (ni archivadas); su carpeta de archivos no se toca
+    // Solo se eliminan proyectos sin tarjetas (ni archivadas). Se quita de la lista; su carpeta (y su orbita/) no se toca:
+// si se vuelve a elegir esa carpeta, el proyecto se abre otra vez
     if (parts[0] === "api" && parts[1] === "projects" && parts[2] && !parts[3] && req.method === "DELETE") {
       const project = findProject(parts[2]);
       if (!project) return send(res, 404, { error: "Proyecto no encontrado" });
@@ -1052,7 +1120,10 @@ const server = http.createServer(async (req, res) => {
         if (typeof body.title === "string" && body.title.trim()) card.title = body.title.trim().slice(0, 200);
         if (typeof body.description === "string") card.description = body.description.slice(0, 8000);
         if (typeof body.result === "string") nuevaVersion(card, body.result.slice(0, 200_000), "Tú, a mano");
-        if (body.projectId !== undefined) card.projectId = body.projectId && findProject(body.projectId) ? body.projectId : null;
+        if (body.projectId !== undefined) {
+          if (!findProject(body.projectId)) return send(res, 400, { error: "Elige un proyecto: toda tarjeta pertenece a uno" });
+          card.projectId = body.projectId;
+        }
         if (body.dependsOn !== undefined) ponerDependencias(card, body.dependsOn);
         if (body.criterios !== undefined) ponerCriterios(card, body.criterios);
         touch(card);
@@ -1122,7 +1193,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (parts[0] === "files" && req.method === "GET") {
-      return serveFile(res, path.resolve(WORKSPACE, decodeURIComponent(parts.slice(1).join("/"))), WORKSPACE);
+      return serveFile(res, decodeURIComponent(parts.slice(1).join("/")));
     }
 
     if (req.method === "GET") {

@@ -674,3 +674,11 @@ pre.codigo .ln { display: inline-block; width: 3.2em; padding-right: 1em; text-a
 .papelera-titulo small { font-weight: 400; font-size: 12px; color: var(--faint); }
 .archive-list.papelera .link-card { cursor: default; }
 .papelera-por { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+
+/* ---------- Carpeta de trabajo de cada proyecto ---------- */
+.carpeta-trabajo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
+.carpeta-trabajo code { flex: 1; min-width: 200px; padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--line-strong); color: var(--cyan); overflow-wrap: anywhere; }
+.falta-banda { flex-direction: column; align-items: stretch; background: #f8717112; border-color: #f8717155; color: #fecaca; }
+.falta-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.falta-fila > span { flex: 1; min-width: 240px; }
+.falta-fila code { color: #fca5a5; overflow-wrap: anywhere; }

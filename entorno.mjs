@@ -29,7 +29,8 @@ const AYUDA = `${NOMBRE} ${VERSION_APP}: tu tablero kanban que trabaja con tu pr
 Uso: orbita [opciones]
 
   --port <n>      Puerto local (por defecto 4321, o el último que usaste)
-  --data <dir>    Carpeta donde se guardan el tablero y los entregables
+  --data <dir>    Carpeta de datos de Órbita (la lista de proyectos; cada
+                  proyecto se guarda en su carpeta de trabajo, en orbita/)
   --no-open       No abrir el navegador al arrancar
   --version       Muestra la versión
   --help          Muestra esta ayuda
@@ -73,13 +74,12 @@ function carpetaPorDefecto() {
 
 const args = leerArgumentos(process.argv.slice(2));
 export const DATOS = path.resolve(args.datos || process.env.ORBITA_DATA || carpetaPorDefecto());
-export const DATA_FILE = path.join(DATOS, "data", "board.json");
-export const WORKSPACE = path.join(DATOS, "entregables");
+// Aquí solo va orbita.json (la lista de proyectos y lo global) y config.json:
+// cada proyecto se guarda en su propia carpeta de trabajo (ver almacen.mjs)
 const CONFIG_FILE = path.join(DATOS, "config.json");
 
 try {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.mkdirSync(WORKSPACE, { recursive: true });
+  fs.mkdirSync(DATOS, { recursive: true });
 } catch (err) {
   salir(`No se puede usar la carpeta de datos ${DATOS}: ${err.message}`);
 }

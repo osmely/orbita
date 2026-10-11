@@ -7,6 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod/v4";
 import { VERSION_APP } from "./entorno.mjs";
+import { normalizarCarpeta, baseDe, CARPETA } from "./almacen.mjs";
 
 const INSTRUCTIONS = `Órbita es un tablero kanban. Tú eres su cerebro: la persona pone tarjetas en "En curso" y tú las trabajas.
 Columnas: backlog (Ideas), doing (En curso), review (Para revisar), done (Hecho).
@@ -18,7 +19,7 @@ Ciclo de trabajo:
 4. submit_result con el resultado en Markdown, empezando con un resumen de 1-2 frases. Puedes incluir imágenes guardadas con write_file usando ![descripción](/files/<ruta>).
 5. Vuelve a llamar a wait_for_work. Repite hasta que la persona te pida parar.
 
-Cada tarjeta puede pertenecer a un proyecto con su carpeta (campo "project" de la tarjeta): con write_file y card_id, tus archivos se guardan dentro de esa carpeta automáticamente; para enlazarlos en el resultado usa la ruta que te devuelve write_file.
+Cada tarjeta pertenece a un proyecto, y cada proyecto tiene su carpeta de trabajo (project.working_directory en la tarjeta): es donde está su código y sus archivos, y donde debes trabajar con tus propias herramientas. Dentro hay una carpeta orbita/ con el tablero del proyecto (no la toques) y sus entregables: con write_file y card_id, tus archivos (informes, capturas…) se guardan ahí automáticamente; para enlazarlos en el resultado usa la ruta que te devuelve write_file.
 
 wait_for_work puede traerte una pregunta rápida en lugar de una tarjeta (campo "question", con el contexto de su proyecto si lo tiene): respóndela enseguida con answer_question, directo y breve, y sigue con wait_for_work.
 
@@ -32,7 +33,7 @@ Si eres la IA de preguntas rápidas, pasa solo: "preguntas" en cada wait_for_wor
 
 Si eres la IA de un proyecto concreto, pasa project en cada wait_for_work: solo recibirás su trabajo, y otra IA puede llevar otro proyecto en paralelo.
 
-Si la persona te pide abrir, crear o conectarte a un proyecto («abre un proyecto para X y quédate escuchando»), usa open_project: crea el proyecto (o abre el que ya tenga ese nombre), te hace su IA y su tablero cambia solo a él; la persona no tiene que hacer nada en la app. Después llama a wait_for_work con el worker y el project que te devuelve, y repítelo cada vez que vuelva sin trabajo.
+Si la persona te pide abrir, crear o conectarte a un proyecto («abre un proyecto para X y quédate escuchando»), usa open_project con directory = tu directorio de trabajo actual (salvo que te indique otra carpeta): crea el proyecto en esa carpeta (o abre el que ya haya), te hace su IA y su tablero cambia solo a él; la persona no tiene que hacer nada en la app. Después llama a wait_for_work con el worker y el project que te devuelve, y repítelo cada vez que vuelva sin trabajo.
 
 Si la tarjeta trae acceptance_criteria («Terminado cuando…»), trabaja para cumplirlos y, al entregar, revisa cada uno con honestidad y pásalos en submit_result → criteria con su evidencia (una captura /files/…, una prueba o un enlace); lo que no cumplas, márcalo met=false y explica. Si un criterio trae person_says, la persona dice que no se cumple: corrígelo primero. Al crear tarjetas (planes), añade criteria comprobables.
 
@@ -44,7 +45,7 @@ Las tarjetas de tipo "plan" piden dividir un objetivo: crea las subtareas con cr
 const COLUMN = z.enum(["backlog", "doing", "review", "done"]);
 
 export function createMcpHandler(ops) {
-  const { board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, WORKSPACE, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject } = ops;
+  const { board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject, moverProyecto } = ops;
 
   const ok = (data) => ({ content: [{ type: "text", text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }] });
   const fail = (msg) => ({ content: [{ type: "text", text: msg }], isError: true });
@@ -107,6 +108,14 @@ export function createMcpHandler(ops) {
     return card;
   }
 
+  // Proyecto por id o nombre; lanza un error con la lista si no existe
+  function buscarProyecto(ref) {
+    if (ref == null || ref === "") return null;
+    const p = findProject(ref) || board.projects.find((x) => x.name.toLowerCase() === String(ref).toLowerCase());
+    if (!p) throw new Error(`No existe el proyecto «${ref}». Proyectos: ${board.projects.map((x) => `«${x.name}» (${x.id})`).join(", ")}.`);
+    return p;
+  }
+
   // Para las herramientas que trabajan sobre una tarjeta: ¿sigue siendo de esta IA?
   function requireWorker(card, worker) {
     if (card.revocada && (!worker || worker === card.revocada.worker)) throw detener(card.id, card.revocada.worker, card.title, card.revocada.motivo);
@@ -123,7 +132,7 @@ export function createMcpHandler(ops) {
     return archivos.map((a) => {
       if (TEXTO.test(a.name) && a.size <= presupuesto) {
         presupuesto -= a.size;
-        return { path: a.path, content: fs.readFileSync(path.join(WORKSPACE, a.path), "utf8") };
+        return { path: a.path, content: fs.readFileSync(safePath(a.path), "utf8") };
       }
       return { path: a.path, size: a.size, note: "léelo con read_file" };
     });
@@ -134,7 +143,8 @@ export function createMcpHandler(ops) {
     const knowledge = leerConPresupuesto(conocimiento(p));
     return {
       name: p.name,
-      files_folder: p.folder + "/",
+      working_directory: p.dir,
+      files_folder: `${p.folder}/ (rutas de write_file/read_file; en disco: ${baseDe(p)})`,
       instructions: p.instructions || undefined,
       memory: p.memory || undefined,
       knowledge: knowledge.length ? knowledge : undefined,
@@ -283,21 +293,37 @@ export function createMcpHandler(ops) {
       {
         title: "Abrir un proyecto y ser su IA",
         description:
-          "Crea un proyecto en el tablero (o abre el que ya tenga ese nombre) y te hace su IA: solo tú recibirás sus tarjetas y preguntas, y otras IAs pueden llevar otros proyectos en paralelo. El tablero de la persona cambia solo a ese proyecto: no tiene que hacer nada en la app. Úsala cuando te pidan «abre/crea un proyecto…», «conéctate al proyecto…» o «trabaja en…». Después llama a wait_for_work con el worker y el project que te devuelve, en bucle, para quedarte escuchando.",
+          "Crea un proyecto en una carpeta de trabajo (o abre el que ya haya en ella, o uno existente por su nombre) y te hace su IA: solo tú recibirás sus tarjetas y preguntas, y otras IAs pueden llevar otros proyectos en paralelo. El proyecto se guarda en <carpeta>/orbita/. El tablero de la persona cambia solo a ese proyecto: no tiene que hacer nada en la app. Úsala cuando te pidan «abre/crea un proyecto…», «conéctate al proyecto…» o «trabaja en…». Después llama a wait_for_work con el worker y el project que te devuelve, en bucle, para quedarte escuchando.",
         inputSchema: {
-          name: z.string().min(1).max(80).describe("Nombre del proyecto (o su id, si ya existe)"),
+          directory: z.string().optional().describe("Ruta completa de la carpeta de trabajo del proyecto: normalmente tu directorio de trabajo actual. Obligatoria para crear un proyecto nuevo"),
+          name: z.string().min(1).max(80).optional().describe("Nombre del proyecto (o su id, si ya existe). Por defecto, el nombre de la carpeta"),
+          move_here: z.boolean().optional().describe("Si el proyecto ya existe con otra carpeta de trabajo, trasladarlo (con su orbita/) a directory"),
           worker: z.string().min(1).max(60).optional().describe("Tu nombre visible en el tablero. Por defecto «Claude · <proyecto>», para distinguirte de otras sesiones"),
           goal: z.string().max(5000).optional().describe("Objetivo grande del proyecto: se crea una tarjeta de planificación y será lo primero que recibas para dividirlo en tarjetas"),
           instructions: z.string().max(20_000).optional().describe("Reglas fijas para todas las tarjetas del proyecto (idioma, tecnología, formato…). Solo se ponen si el proyecto aún no tiene"),
         },
       },
-      safe(async ({ name, worker, goal, instructions }) => {
-        const buscado = name.trim();
-        let p = findProject(buscado) || board.projects.find((x) => x.name.toLowerCase() === buscado.toLowerCase());
-        const creado = !p;
-        worker = (worker?.trim() || `Claude · ${buscado.length > 28 ? buscado.slice(0, 27).trimEnd() + "…" : buscado}`).slice(0, 60);
-        if (p?.ia && p.ia !== worker && conectada(p.ia)) throw new Error(`El proyecto «${p.name}» ya lo lleva «${p.ia}», que está conectada ahora. Elige otro nombre de proyecto o pide a la persona que la cambie.`);
-        if (creado) p = newProject(buscado);
+      safe(async ({ directory, name, move_here, worker, goal, instructions }) => {
+        const dir = directory ? normalizarCarpeta(directory) : null;
+        const buscado = name?.trim();
+        const porNombre = buscado && (findProject(buscado) || board.projects.find((x) => x.name.toLowerCase() === buscado.toLowerCase()));
+        let p = (dir && board.projects.find((x) => x.dir === dir)) || null;
+        if (!p && porNombre) {
+          if (dir && porNombre.dir !== dir) {
+            if (!move_here) throw new Error(`«${porNombre.name}» ya existe y su carpeta de trabajo es ${porNombre.dir}. Para usarlo tal cual, llama a open_project sin directory (o con esa carpeta). Para trasladarlo a ${dir} junto con su carpeta ${CARPETA}/, repite con move_here: true (pregúntaselo antes a la persona).`);
+            moverProyecto(porNombre, dir);
+          }
+          p = porNombre;
+        }
+        let creado = false;
+        if (!p) {
+          if (!dir) throw new Error("Para crear un proyecto hace falta su carpeta de trabajo: pasa directory (normalmente tu directorio de trabajo actual).");
+          const r = newProject(buscado || null, dir);
+          p = r.project;
+          creado = !r.abierto;
+        }
+        worker = (worker?.trim() || `Claude · ${p.name.length > 28 ? p.name.slice(0, 27).trimEnd() + "…" : p.name}`).slice(0, 60);
+        if (p.ia && p.ia !== worker && conectada(p.ia)) throw new Error(`El proyecto «${p.name}» ya lo lleva «${p.ia}», que está conectada ahora. Pide a la persona que la cambie o abre otro proyecto.`);
         if (instructions?.trim() && !p.instructions) p.instructions = instructions.trim();
         iaDeProyecto(p, worker); // también avisa a la app (proyectos) y guarda
         let plan = null;
@@ -309,7 +335,7 @@ export function createMcpHandler(ops) {
         broadcast({ type: "enfoque", projectId: p.id, por: worker, creado });
         const pendientes = board.cards.filter((c) => c.projectId === p.id && !c.archivedAt && ["queued", "returned"].includes(c.status)).length;
         return ok({
-          project: { id: p.id, name: p.name, folder: p.folder + "/", created: creado },
+          project: { id: p.id, name: p.name, working_directory: p.dir, orbita_folder: baseDe(p), created: creado },
           worker,
           paused: p.pausado ? "El proyecto está en pausa: no recibirás sus tarjetas hasta que la persona lo reanude." : undefined,
           queued_cards: pendientes,
@@ -332,7 +358,7 @@ export function createMcpHandler(ops) {
           .filter((c) => (include_archived || !c.archivedAt) && (!column || c.column === column))
           .filter((c) => !p || (findProject(c.projectId)?.name || "").toLowerCase().includes(p))
           .map((c) => ({ ...summary(c), archived: c.archivedAt ? true : undefined }));
-        const proyectos = board.projects.map((x) => `${x.name} (carpeta ${x.folder}/)`);
+        const proyectos = board.projects.map((x) => `${x.name} (id ${x.id}, carpeta de trabajo ${x.dir})`);
         return ok(cards.length ? { projects: proyectos, cards } : "No hay tarjetas con ese filtro.");
       }),
     );
@@ -532,9 +558,10 @@ export function createMcpHandler(ops) {
           depends_on: z.array(z.string()).optional().describe("Ids de tarjetas que tienen que estar hechas antes que esta"),
           criteria: z.array(z.string()).optional().describe("Criterios de aceptación («Terminado cuando…»), uno por elemento, comprobables"),
           request_ai: z.boolean().optional(),
+          project: z.string().optional().describe("Id o nombre del proyecto (si no, el de parent_id)"),
         },
       },
-      safe(async ({ title, description, parent_id, depends_on, criteria, request_ai }) => {
+      safe(async ({ title, description, parent_id, depends_on, criteria, request_ai, project }) => {
         for (const d of depends_on || []) if (!findCard(d)) throw new Error(`depends_on: no existe la tarjeta ${d}`);
         const parent = parent_id && findCard(parent_id);
         const card = newCard({
@@ -543,7 +570,7 @@ export function createMcpHandler(ops) {
           origin: "ia",
           parentId: parent ? parent.id : null,
           tag: parent?.kind === "plan" ? parent.title.replace(/^Planificar:\s*/, "").slice(0, 120) : null,
-          projectId: parent?.projectId || null,
+          projectId: parent?.projectId || buscarProyecto(project)?.id || null, // sin ninguno, va a «General»
           criterios: criteria,
         });
         if (depends_on?.length) ponerDependencias(card, depends_on);
@@ -584,7 +611,7 @@ export function createMcpHandler(ops) {
           title: z.string().min(1).optional(),
           description: z.string().optional(),
           criteria: z.array(z.string()).optional().describe("Lista completa de criterios («Terminado cuando…»); sustituye a la anterior y conserva lo revisado de los que no cambian"),
-          project: z.string().nullable().optional().describe("Id o nombre del proyecto; null para dejarla sin proyecto"),
+          project: z.string().optional().describe("Id o nombre del proyecto al que pasa"),
           depends_on: z.array(z.string()).optional().describe("Lista completa de ids a las que espera"),
           worker: z.string().optional().describe("Tu nombre"),
         },
@@ -597,9 +624,8 @@ export function createMcpHandler(ops) {
         if (description !== undefined && description !== card.description) (card.description = description.slice(0, 8000)), cambios.push("descripción");
         if (criteria !== undefined) ponerCriterios(card, criteria), cambios.push("criterios");
         if (project !== undefined) {
-          const p = project === null ? null : findProject(project) || board.projects.find((x) => x.name.toLowerCase() === String(project).toLowerCase());
-          if (project !== null && !p) throw new Error(`No existe el proyecto «${project}». Proyectos: ${board.projects.map((x) => `«${x.name}» (${x.id})`).join(", ")}.`);
-          if ((p?.id || null) !== card.projectId) (card.projectId = p?.id || null), cambios.push("proyecto");
+          const p = buscarProyecto(project);
+          if (p.id !== card.projectId) (card.projectId = p.id), cambios.push("proyecto");
         }
         if (depends_on !== undefined) {
           for (const d of depends_on) if (!findCard(d)) throw new Error(`depends_on: no existe la tarjeta ${d}`);
@@ -657,7 +683,7 @@ export function createMcpHandler(ops) {
       "list_files",
       {
         title: "Ver entregables",
-        description: "Lista los archivos de la carpeta compartida de entregables del tablero.",
+        description: "Lista los entregables de todos los proyectos (lo que hay en la carpeta orbita/ de cada carpeta de trabajo), como rutas «<carpeta del proyecto>/…».",
         inputSchema: {},
         annotations: { readOnlyHint: true },
       },
@@ -671,7 +697,7 @@ export function createMcpHandler(ops) {
       "read_file",
       {
         title: "Leer entregable",
-        description: "Lee un archivo de la carpeta compartida de entregables. Las imágenes se devuelven como imagen.",
+        description: "Lee un entregable (ruta «<carpeta del proyecto>/…», como las de list_files). Las imágenes se devuelven como imagen. Para el código del proyecto usa tus propias herramientas en su working_directory.",
         inputSchema: { path: z.string() },
         annotations: { readOnlyHint: true },
       },
@@ -688,7 +714,7 @@ export function createMcpHandler(ops) {
       {
         title: "Guardar entregable",
         description:
-          "Crea o sobrescribe un archivo en la carpeta de entregables del tablero. Con card_id, el archivo aparece en esa tarjeta. Para imágenes (png, jpg, gif, webp) pasa el contenido en base64 con encoding=base64; luego puedes mostrarlas en tu resultado con ![descripción](/files/<ruta>).",
+          "Crea o sobrescribe un entregable en la carpeta orbita/ del proyecto (informes, capturas, datos…; el código del proyecto escríbelo con tus propias herramientas en su working_directory). Con card_id, la ruta es relativa a la carpeta de su proyecto y el archivo aparece en esa tarjeta; sin card_id, empieza la ruta por la carpeta del proyecto («<carpeta>/…»). Para imágenes (png, jpg, gif, webp) pasa el contenido en base64 con encoding=base64; luego puedes mostrarlas en tu resultado con ![descripción](/files/<ruta>).",
         inputSchema: {
           path: z.string(),
           content: z.string(),
@@ -707,7 +733,7 @@ export function createMcpHandler(ops) {
         const full = safePath(rel);
         fs.mkdirSync(path.dirname(full), { recursive: true });
         fs.writeFileSync(full, encoding === "base64" ? Buffer.from(content, "base64") : content);
-        const relPath = path.relative(WORKSPACE, full);
+        const relPath = rel.replaceAll("\\", "/").replace(/^\.?\/+/, "");
         const card = deTarjeta;
         if (card) {
           if (!card.files.includes(relPath)) card.files.push(relPath);
@@ -725,18 +751,19 @@ export function createMcpHandler(ops) {
         title: "Abrir un proyecto en Órbita y escucharlo",
         description: "Crea (o abre) un proyecto en el tablero, hace a esta IA su IA y la deja escuchando sus tarjetas. La app cambia sola al proyecto.",
         argsSchema: {
-          nombre: z.string().describe("Nombre del proyecto"),
+          nombre: z.string().optional().describe("Nombre del proyecto (por defecto, el de la carpeta)"),
+          carpeta: z.string().optional().describe("Carpeta de trabajo (por defecto, el directorio actual de la IA)"),
           objetivo: z.string().optional().describe("Objetivo grande, para que la IA lo divida en tarjetas"),
           ia: z.string().optional().describe("Cómo aparecerá la IA en el tablero"),
         },
       },
-      ({ nombre, objetivo, ia }) => ({
+      ({ nombre, carpeta, objetivo, ia }) => ({
         messages: [
           {
             role: "user",
             content: {
               type: "text",
-              text: `Abre en Órbita el proyecto «${nombre}» con open_project (name: "${nombre}"${ia ? `, worker: "${ia}"` : ""}${objetivo ? `, goal: ${JSON.stringify(objetivo)}` : ""}) y quédate escuchándolo: llama a wait_for_work con el worker y el project que te devuelva, trabaja cada tarjeta que llegue y vuelve a wait_for_work, sin pedirme confirmación entre tarjetas.\n\n${INSTRUCTIONS}`,
+              text: `Abre en Órbita ${nombre ? `el proyecto «${nombre}»` : "un proyecto"} con open_project (directory: ${carpeta ? JSON.stringify(carpeta) : "la ruta completa de tu directorio de trabajo actual"}${nombre ? `, name: ${JSON.stringify(nombre)}` : ""}${ia ? `, worker: ${JSON.stringify(ia)}` : ""}${objetivo ? `, goal: ${JSON.stringify(objetivo)}` : ""}) y quédate escuchándolo: llama a wait_for_work con el worker y el project que te devuelva, trabaja cada tarjeta que llegue y vuelve a wait_for_work, sin pedirme confirmación entre tarjetas.\n\n${INSTRUCTIONS}`,
             },
           },
         ],

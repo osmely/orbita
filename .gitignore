@@ -6,4 +6,6 @@ dist/
 # Son el tablero y los entregables de quien desarrolla, no parte del producto.
 data/
 entregables/
+general/
+orbita.json
 config.json

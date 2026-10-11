@@ -16,7 +16,22 @@ Descarga el ejecutable de tu sistema, ábrelo y se abre el tablero en el navegad
 
 Opciones: `--port <n>` (por defecto 4321; se recuerda), `--data <carpeta>`, `--no-open`, `--version`, `--help`.
 
-Los datos se guardan en la carpeta de datos del sistema, no junto al programa (así una actualización no los toca):
+### Dónde se guarda todo
+
+**Cada proyecto vive en su carpeta de trabajo** (la del código o los documentos con los que trabaja la IA). Órbita guarda dentro una carpeta `orbita/`:
+
+```
+mi-web/                 ← la carpeta de trabajo: aquí trabaja la IA
+└── orbita/
+    ├── tablero.json    ← el proyecto: instrucciones, memoria y todas sus tarjetas
+    ├── adjuntos/       ← lo que adjuntas a las tarjetas
+    ├── conocimiento/   ← archivos de referencia del proyecto
+    └── …               ← lo que entrega la IA (informes, capturas…)
+```
+
+Si copias la carpeta, o la subes a un repositorio, el proyecto va con ella: al elegir esa carpeta en otra máquina, Órbita abre el proyecto tal cual. Al crear un proyecto se elige su carpeta con el selector del sistema; desde la IA, `open_project` usa su directorio de trabajo.
+
+En la carpeta de datos de Órbita solo queda `orbita.json`, con la lista de proyectos (y dónde está cada uno) y lo que no es de ningún proyecto: preguntas rápidas, plantillas y papelera. Está en la carpeta de datos del sistema, no junto al programa, así que una actualización no la toca:
 
 | Sistema | Carpeta |
 |---|---|
@@ -33,7 +48,7 @@ npm install
 npm start
 ```
 
-Abre http://localhost:4321. `npm start` usa esta misma carpeta como carpeta de datos (`data/board.json` y `entregables/`).
+Abre http://localhost:4321. `npm start` usa esta misma carpeta como carpeta de datos (`orbita.json`). Si encuentra un `data/board.json` del formato anterior, todo en un JSON, lo migra solo: cada proyecto pasa a `entregables/<proyecto>/` como carpeta de trabajo, y el JSON antiguo queda como `data/board.v1.json`.
 
 - `npm run build`: crea el ejecutable para tu sistema en `dist/` (ver [DISTRIBUCION.md](DISTRIBUCION.md)).
 - `npm run vendor`: vuelve a copiar fuentes y librerías de la interfaz a `public/vendor/` (tras cambiar sus versiones).
@@ -97,7 +112,7 @@ Para Cursor, Claude Desktop y otras, pulsa **Conectar IA** en el tablero: ahí e
 - Cada tarjeta tiene **enlace directo**: `http://localhost:4321/#t=<id>` abre su panel.
 - Si no hay ninguna IA conectada, las tarjetas esperan en cola hasta que llegue una.
 
-Lo que escribe la IA queda en `entregables/` y el tablero en `data/board.json`, dentro de la carpeta de datos.
+Lo que escribe la IA con `write_file` queda en `<carpeta de trabajo>/orbita/`; el código del proyecto lo escribe la IA con sus propias herramientas en la carpeta de trabajo, que recibe en cada tarjeta (`project.working_directory`).
 
 ## Herramientas MCP
 
@@ -105,7 +120,7 @@ Lo que escribe la IA queda en `entregables/` y el tablero en `data/board.json`, 
 |---|---|
 | `wait_for_work` | Escucha el tablero y toma la siguiente tarjeta (o la que le devolviste). En `notices` le cuenta las tarjetas que le quitaste |
 | `report_progress` | Mueve la barra de progreso y, con `detalle` (Markdown, con imágenes), publica el avance intermedio en la sección «En vivo» de la tarjeta |
-| `open_project` | Crea un proyecto (o abre uno que ya existe), hace a la IA su IA y cambia el tablero a ese proyecto. Con `goal` deja además una tarjeta de planificación que será lo primero que reciba |
+| `open_project` | Crea un proyecto en una carpeta de trabajo (`directory`, normalmente la de la propia IA), o abre el que ya haya. Hace a la IA su IA y cambia el tablero a ese proyecto. Con `goal` deja además una tarjeta de planificación que será lo primero que reciba |
 | `wait_for_work` (con `project`) | Ser la IA de un solo proyecto: solo recibe su trabajo |
 | `update_card` | Edita una tarjeta: título, descripción, criterios, proyecto o dependencias (queda en su actividad) |
 | `delete_card` | Borra una o varias tarjetas: van a la **Papelera** (Archivo), con aviso y «Deshacer» |
