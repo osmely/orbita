@@ -8,6 +8,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { z } from "zod/v4";
 import { VERSION_APP } from "./entorno.mjs";
 import { normalizarCarpeta, baseDe, CARPETA } from "./almacen.mjs";
+// El tablero y sus operaciones (antes llegaban por parámetro desde server.mjs)
+import { PLAN_INSTRUCCIONES, aLaPapelera, board, brainList, broadcast, broadcastProjects, broadcastQuestions, changes, claim, conectada, conocimiento, dependenciasPendientes, elegible, enPausa, evaluarCriterios, findCard, findProject, hilo, iaDeProyecto, listFiles, log, moveCard, moverProyecto, newCard, newProject, nuevaVersion, papeleraPublica, ponerCriterios, ponerDependencias, preguntasIA, requestAI, restaurarDePapelera, safePath, save, seen, touch } from "./estado.mjs";
 import { nombresSecretos, leerSecreto, taparSecretos } from "./secretos.mjs";
 import { guardarEntidad, quitarEntidad, indiceEntidades, buscarEntidades, IMAGEN } from "./entidades.mjs";
 
@@ -18,7 +20,7 @@ La persona te habla y te lee SOLO en Órbita: no mira tu chat ni tu terminal mie
 
 Ciclo de trabajo:
 1. wait_for_work con tu nombre: espera hasta que haya una tarjeta para ti y te la asigna. Devuelve la tarjeta completa, con los mensajes de la persona en "inbox".
-2. Trabaja la tarjeta con tus propias capacidades (código, búsqueda, archivos…). Llama a report_progress al cambiar de fase: la persona lo ve en vivo. Usa su campo "detalle" para enseñar lo que llevas hecho (hallazgos, borradores, tablas, capturas con ![](/files/…)): aparece en la sección «En vivo» de la tarjeta antes de que entregues.
+2. Trabaja la tarjeta con tus propias capacidades (código, búsqueda, archivos…). Llama a report_progress en cada paso y al menos cada 30–60 segundos: la persona lo ve en vivo. El «step» es una frase corta y concreta («Leyendo server.mjs», «Probando el login en Chrome»), y el «percent», tu estimación real. Usa su campo "detalle" para enseñar lo que llevas hecho (hallazgos, borradores, tablas, capturas con ![](/files/…)): aparece en la sección «En vivo» de la tarjeta antes de que entregues.
 3. Si produces un documento o datos que valga la pena guardar, usa write_file con card_id.
 4. submit_result con el resultado en Markdown, empezando con un resumen de 1-2 frases. Puedes incluir imágenes guardadas con write_file usando ![descripción](/files/<ruta>).
 5. Vuelve a llamar a wait_for_work. Repite hasta que la persona te pida parar.
@@ -41,7 +43,7 @@ Si la persona te pide abrir, crear o conectarte a un proyecto («abre un proyect
 
 Si la tarjeta trae acceptance_criteria («Terminado cuando…»), trabaja para cumplirlos y, al entregar, revisa cada uno con honestidad y pásalos en submit_result → criteria con su evidencia (una captura /files/…, una prueba o un enlace); lo que no cumplas, márcalo met=false y explica. Si un criterio trae person_says, la persona dice que no se cumple: corrígelo primero. Al crear tarjetas (planes), añade criteria comprobables.
 
-Pasa siempre tu nombre en "worker" al llamar a report_progress, write_file, ask_human y submit_result. Si una herramienta responde «DETENTE», la persona te quitó esa tarjeta (la movió, la eliminó, la dio por hecha o pausó su proyecto): deja de trabajar en ella, no la entregues y vuelve a wait_for_work. Si fue una pausa, lo que llevas se conserva y la tarjeta te volverá al reanudar el proyecto. Solo te enteras de estos avisos al llamar a una herramienta: mientras trabajas, llama a report_progress al menos cada 2–3 minutos y antes de cada paso largo, para que una pausa o un cambio de la persona te llegue a tiempo. wait_for_work también te trae esos avisos en "notices".
+Pasa siempre tu nombre en "worker" al llamar a report_progress, write_file, ask_human y submit_result. Si una herramienta responde «DETENTE», la persona te quitó esa tarjeta (la movió, la eliminó, la dio por hecha o pausó su proyecto): deja de trabajar en ella, no la entregues y vuelve a wait_for_work. Si fue una pausa, lo que llevas se conserva y la tarjeta te volverá al reanudar el proyecto. Solo te enteras de estos avisos al llamar a una herramienta: mientras trabajas, llama a report_progress al menos cada 30–60 segundos y cada vez que empieces un paso, para que la persona vea en vivo lo que haces y una pausa o un cambio suyo te llegue a tiempo. wait_for_work también te trae esos avisos en "notices".
 
 Si el proyecto tiene secretos (claves de API, tokens…), "project.secrets" trae solo sus nombres. Cuando necesites uno, pide su valor con get_secret y úsalo directamente en tu trabajo (por ejemplo en el .env del proyecto). No lo copies en resultados, comentarios ni entregables: el tablero lo taparía igualmente.
 
@@ -52,8 +54,7 @@ Las tarjetas de tipo "plan" piden dividir un objetivo: crea las subtareas con cr
 
 const COLUMN = z.enum(["backlog", "doing", "review", "done"]);
 
-export function createMcpHandler(ops) {
-  const { board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject, moverProyecto } = ops;
+export function createMcpHandler() {
 
   const ok = (data) => ({ content: [{ type: "text", text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }] });
   const fail = (msg) => ({ content: [{ type: "text", text: msg }], isError: true });
@@ -404,12 +405,12 @@ export function createMcpHandler(ops) {
       {
         title: "Informar progreso",
         description:
-          "Actualiza la línea de estado y la barra de progreso de tu tarjeta; la persona lo ve en vivo. Con «detalle» publicas tu avance intermedio (Markdown, puede llevar imágenes) en la sección «En vivo» de la tarjeta: sustituye al anterior, así que manda el avance completo hasta ahora.",
+          "Actualiza la línea de estado y la barra de progreso de tu tarjeta; la persona lo ve en vivo, con la historia de tus pasos. Llámala en cada paso y al menos cada 30–60 segundos. Con «detalle» publicas tu avance intermedio (Markdown, puede llevar imágenes) en la sección «En vivo»: sustituye al anterior, así que manda el avance completo hasta ahora (lo hecho, lo que haces ahora, lo que sigue, archivos tocados y hallazgos).",
         inputSchema: {
           id: z.string(),
-          step: z.string().describe("Qué estás haciendo ahora, en una frase corta"),
+          step: z.string().describe("Qué estás haciendo ahora, en una frase corta y concreta (p. ej. «Leyendo server.mjs», «Probando el login»)"),
           percent: z.number().min(0).max(100).optional(),
-          detalle: z.string().optional().describe("Avance intermedio en Markdown: hallazgos, borrador, tabla, capturas con ![](/files/…)"),
+          detalle: z.string().optional().describe("Avance completo hasta ahora, en Markdown: **Hecho**, **Ahora**, **Después**, archivos tocados, hallazgos, borradores, tablas, capturas con ![](/files/…)"),
           worker: z.string().optional().describe("Tu nombre (el mismo de wait_for_work): si la tarjeta ya no es tuya, te avisa para que te detengas"),
         },
       },

@@ -149,6 +149,28 @@ export function leerPublico(rel) {
   }
 }
 
+// Los archivos de la interfaz que cuentan para su versión (si cambian al reiniciar, las páginas abiertas se recargan).
+// En el ejecutable, los módulos de js/ van empaquetados en js/main.js.
+export function archivosDeLaInterfaz() {
+  const base = ["index.html", "styles.css"];
+  if (sea) return [...base, "js/main.js"];
+  try {
+    return [...base, ...fs.readdirSync(path.join(PUBLIC, "js")).filter((f) => f.endsWith(".js")).sort().map((f) => `js/${f}`)];
+  } catch {
+    return base;
+  }
+}
+
+// Versión de la interfaz: si cambia al reiniciar, las páginas abiertas se recargan solas
+export const VERSION = crypto
+  .createHash("sha1")
+  .update([VERSION_APP, ...archivosDeLaInterfaz().map((f) => leerPublico(f)?.toString("utf8") ?? "")].join("\n"))
+  .digest("hex")
+  .slice(0, 10);
+
+// La vista previa aislada de los entregables: /vista/<clave>/…
+export const VISTA = `/vista/${CLAVE_VISTA}/`;
+
 // --- Navegador ---------------------------------------------------------------------------
 
 // La ventana de Órbita. Con un navegador Chromium (Chrome, Edge, Brave, Chromium) se abre en «modo app»: una

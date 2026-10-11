@@ -406,89 +406,6 @@
    "pausada": false
   },
   {
-   "id": "05e8e786",
-   "title": "Montar pruebas automáticas con node --test",
-   "description": "El repositorio no tiene pruebas, aunque ya hay ganchos para ellas (`ORBITA_PRUEBAS`, `/api/_reloj`). Hay que añadir `npm test` con `node --test`. Debe arrancar el servidor en un puerto y una carpeta de datos temporales y cubrir lo crítico: migración v1→v2, `rutaReal` (intentos de salir de la carpeta), `proximaVez` (día 31 y meses cortos), y el ciclo MCP `wait_for_work` → `report_progress` → `submit_result` con criterios.",
-   "kind": "task",
-   "column": "backlog",
-   "status": "idle",
-   "origin": "ia",
-   "parentId": "48cbcba8",
-   "tag": null,
-   "projectId": "034dfa34",
-   "archivedAt": null,
-   "dependsOn": [],
-   "order": 1791740412561,
-   "thread": [],
-   "attachments": [],
-   "versions": [],
-   "criterios": [
-    {
-     "id": "330511",
-     "texto": "npm test existe y pasa en limpio",
-     "estado": null,
-     "evidencia": "",
-     "falla": false
-    },
-    {
-     "id": "cbde6c",
-     "texto": "Cubre migración v1→v2, rutaReal, proximaVez y el ciclo MCP con criterios",
-     "estado": null,
-     "evidencia": "",
-     "falla": false
-    },
-    {
-     "id": "097e9a",
-     "texto": "Las pruebas usan una carpeta temporal y no tocan los datos reales",
-     "estado": null,
-     "evidencia": "",
-     "falla": false
-    }
-   ],
-   "programa": null,
-   "worker": null,
-   "inbox": [],
-   "progress": 0,
-   "step": "",
-   "live": "",
-   "liveAt": null,
-   "startedAt": 1791743426682,
-   "log": [
-    {
-     "t": 1791743426682,
-     "kind": "start",
-     "text": "Claude · ia la tomó"
-    },
-    {
-     "t": 1791743435524,
-     "kind": "stop",
-     "text": "Se avisará a Claude · ia para que se detenga (la persona la devolvió a Ideas)"
-    },
-    {
-     "t": 1791743435524,
-     "kind": "stop",
-     "text": "Se la quitaste a Claude · ia"
-    },
-    {
-     "t": 1791743438433,
-     "kind": "stop",
-     "text": "Claude · ia recibió el aviso y se detuvo"
-    }
-   ],
-   "result": "",
-   "question": "",
-   "files": [],
-   "createdAt": 1791740409561,
-   "updatedAt": 1791743438433,
-   "revocada": {
-    "worker": "Claude · ia",
-    "motivo": "la persona la devolvió a Ideas",
-    "at": 1791743435524,
-    "avisada": true
-   },
-   "pausada": false
-  },
-  {
    "id": "7f48aed7",
    "title": "Endurecer /vista/ y los enlaces simbólicos",
    "description": "Son dos endurecimientos de bajo riesgo:\n1. `/vista/` acepta peticiones GET sin `Origin`, así que una web ajena podría cargar un entregable con `<script src>`. Hay que rechazar las peticiones con `Sec-Fetch-Site: cross-site` sin romper el iframe ni la pestaña aparte.\n2. `rutaReal` (almacen.mjs) usa `path.resolve`, que no sigue enlaces simbólicos: un enlace dentro de `orbita/` podría servir archivos de fuera. Hay que comprobar la ruta real con `fs.realpathSync`.",
@@ -759,51 +676,81 @@
    "title": "Refactor: router en tabla y módulo de estado",
    "description": "`server.mjs` encamina con unos 40 `if (parts[0] === \"api\" && …)` encadenados y pasa unas 37 funciones a `createMcpHandler(ops)`. Hay que pasar las rutas a una tabla `[método, patrón, manejador]` y sacar el tablero y sus operaciones a un `estado.mjs` que importen tanto `server.mjs` como `mcp.mjs`. El comportamiento no cambia.",
    "kind": "task",
-   "column": "backlog",
-   "status": "idle",
+   "column": "done",
+   "status": "done",
    "origin": "ia",
    "parentId": "48cbcba8",
    "tag": null,
    "projectId": "034dfa34",
    "archivedAt": null,
-   "dependsOn": [
-    "05e8e786"
+   "dependsOn": [],
+   "order": 1791666068905,
+   "thread": [
+    {
+     "t": 1791746738797,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** `server.mjs` pasa de 1468 a 188 líneas. La API es ahora una **tabla declarativa de 43 rutas** en `rutas.mjs`, y el tablero y sus operaciones viven en `estado.mjs`. `mcp.mjs` **importa** de ahí las 36 operaciones que antes recibía por parámetro. El comportamiento no cambia: `npm test` 5/5 "
+    }
    ],
-   "order": 1791740412061,
-   "thread": [],
    "attachments": [],
-   "versions": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791746738795,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** `server.mjs` pasa de 1468 a 188 líneas. La API es ahora una **tabla declarativa de 43 rutas** en `rutas.mjs`, y el tablero y sus operaciones viven en `estado.mjs`. `mcp.mjs` **importa** de ahí las 36 operaciones que antes recibía por parámetro. El comportamiento no cambia: `npm test` 5/5 y toda la batería anterior, también con el ejecutable.\n\n## Cómo queda el servidor\n| Archivo | Líneas | Qué hace |\n|---|---|---|\n| `server.mjs` | 188 | HTTP en 127.0.0.1: seguridad (Host/Origin), `/mcp`, eventos en vivo, `/vista/<clave>/`, archivos e interfaz. Consulta la tabla |\n| `estado.mjs` | 712 | El tablero: cargar y guardar, tarjetas, proyectos, dependencias, papelera, IAs conectadas, colas y pausas |\n| `rutas.mjs` | 456 | **La API como tabla** `[método, ruta, manejador]`, con `deTarjeta`, `deProyecto` y `dePregunta` (404 si no existe) |\n| `programadas.mjs` | 115 | Tareas programadas y recurrentes |\n| `mcp.mjs` | 950 | Herramientas de la IA. `createMcpHandler()` ya no recibe parámetros |\n\nLa tabla tiene este aspecto:\n```js\n[\"POST\",   \"/api/cards/:id/attachments\", async ({ req, res, parts }) => { … }],\n[\"*\",      \"/api/cards/:id/move\",        deTarjeta(async ({ res, card, body }) => { … })],\n[\"DELETE\", \"/api/projects/:id/entidades/:eid\", deProyecto(async ({ res, parts, project }) => { … })],\n[\"POST\",   \"/api/faltantes/:id/:accion?\", …],   // «:x?» = trozo opcional; «*» = cualquier método\n```\nLos bloques que antes despachaban por dentro (`action === \"edit\"/\"move\"/…`, preguntas, entidades y secretos) son ahora una fila por acción.\n\n## Cómo lo hice sin cambiar nada\n- **Generado, no reescrito a mano.** Cada `if` del servidor pasó tal cual a su manejador. Herramientas con `acorn` calcularon las importaciones de cada archivo y avisaron de dos reasignaciones cruzadas (`faltantes` y `desfase`), que ahora pasan por `quitarFaltante()` y `fijarReloj()`.\n- **Sin ciclos:** `send` y `readJson` viven en `rutas.mjs`, y `VERSION` y `VISTA` en `entorno.mjs`.\n- **Comprobación estática:** ningún archivo usa un identificador sin declarar o importar (encontró y arreglé `VERSION_APP` y `VISTA`).\n\n## Pruebas (antes y después, sin diferencias)\n| Prueba | Resultado |\n|---|---|\n| `npm test` | **5/5** ✅ |\n| Interfaz en Chrome (crear, ⌘K, panel, vista previa, entidades, en vivo…) | **15/15**, 0 errores JS ✅ |\n| Ejecutable de `npm run build` | **15/15**, 0 errores JS ✅ |\n| Secretos | 17/17 ✅ |\n| Entidades | 15/15 ✅ |\n| Responder a la IA | 4/4 ✅ |\n| Tareas programadas con error + reloj adelantado 2 días | servidor vivo, error anotado una vez ✅ |\n| UTF-8 de 250 KB · límite de 5 MB | idéntico · 400 ✅ |\n| `/vista/` sin clave · enlace simbólico · Host u Origin ajenos | 403 · 403 · 403 · 403 ✅ |\n| Ruta inexistente · tarjeta inexistente | 404 · «Tarjeta no encontrada» ✅ |\n| Emparejador: segmento opcional, método `*`, rutas de entidades | 13 casos correctos ✅ |\n\nREADME actualizado («Desarrollar»). Queda sin commit, junto con los módulos de la interfaz de la tarjeta anterior.",
+     "criterios": [
+      {
+       "texto": "Las rutas de la API están en una tabla declarativa",
+       "estado": "cumple",
+       "evidencia": "rutas.mjs exporta RUTAS: 43 filas [método, ruta, manejador] (p. ej. [\"*\", \"/api/cards/:id/move\", deTarjeta(…)]) y encontrarRuta(método, partes); server.mjs ya no tiene la cadena de if: solo `const manejar = encontrarRuta(req.method, parts)`"
+      },
+      {
+       "texto": "mcp.mjs importa las operaciones de estado.mjs en vez de recibirlas por parámetro",
+       "estado": "cumple",
+       "evidencia": "mcp.mjs: `import { aLaPapelera, board, …, touch } from \"./estado.mjs\"` (36 operaciones) y `export function createMcpHandler()` sin parámetros; server.mjs llama a createMcpHandler() sin pasar nada"
+      },
+      {
+       "texto": "npm test pasa igual que antes del refactor",
+       "estado": "cumple",
+       "evidencia": "npm test: ℹ pass 5 ℹ fail 0 (igual que antes); además, humo de la interfaz 15/15 (npm start y ejecutable), secretos 17/17, entidades 15/15, responder 4/4, programadas, UTF-8 y seguridad de /vista/ sin cambios"
+      }
+     ]
+    }
+   ],
    "criterios": [
     {
      "id": "47e8b3",
      "texto": "Las rutas de la API están en una tabla declarativa",
-     "estado": null,
-     "evidencia": "",
+     "estado": "cumple",
+     "evidencia": "rutas.mjs exporta RUTAS: 43 filas [método, ruta, manejador] (p. ej. [\"*\", \"/api/cards/:id/move\", deTarjeta(…)]) y encontrarRuta(método, partes); server.mjs ya no tiene la cadena de if: solo `const manejar = encontrarRuta(req.method, parts)`",
      "falla": false
     },
     {
      "id": "093beb",
      "texto": "mcp.mjs importa las operaciones de estado.mjs en vez de recibirlas por parámetro",
-     "estado": null,
-     "evidencia": "",
+     "estado": "cumple",
+     "evidencia": "mcp.mjs: `import { aLaPapelera, board, …, touch } from \"./estado.mjs\"` (36 operaciones) y `export function createMcpHandler()` sin parámetros; server.mjs llama a createMcpHandler() sin pasar nada",
      "falla": false
     },
     {
      "id": "dbc62c",
      "texto": "npm test pasa igual que antes del refactor",
-     "estado": null,
-     "evidencia": "",
+     "estado": "cumple",
+     "evidencia": "npm test: ℹ pass 5 ℹ fail 0 (igual que antes); además, humo de la interfaz 15/15 (npm start y ejecutable), secretos 17/17, entidades 15/15, responder 4/4, programadas, UTF-8 y seguridad de /vista/ sin cambios",
      "falla": false
     }
    ],
    "programa": null,
-   "worker": null,
+   "worker": "Claude · ia",
    "inbox": [],
-   "progress": 0,
-   "step": "",
+   "progress": 100,
+   "step": "Listo para revisar",
    "live": "",
    "liveAt": null,
-   "startedAt": null,
+   "startedAt": 1791746257684,
    "log": [
     {
      "t": 1791740415274,
@@ -814,64 +761,136 @@
      "t": 1791740415274,
      "kind": "step",
      "text": "✎ Claude · ia editó: dependencias"
+    },
+    {
+     "t": 1791745590937,
+     "kind": "step",
+     "text": "Una de las tarjetas a las que esperaba se eliminó"
+    },
+    {
+     "t": 1791746257684,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791746270030,
+     "kind": "step",
+     "text": "Leyendo server.mjs entero para planear la separación"
+    },
+    {
+     "t": 1791746428899,
+     "kind": "step",
+     "text": "Ensamblando estado.mjs, programadas.mjs, rutas.mjs y server.mjs con importaciones calculadas"
+    },
+    {
+     "t": 1791746524340,
+     "kind": "step",
+     "text": "Instalando estado.mjs, rutas.mjs, programadas.mjs y el server.mjs nuevo; ejecutando todas las pruebas"
+    },
+    {
+     "t": 1791746595083,
+     "kind": "step",
+     "text": "npm test 5/5 ✅; pasando la batería completa (humo, secretos, entidades, programadas, vista…)"
+    },
+    {
+     "t": 1791746738797,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado (criterios: 3/3 ✓)"
+    },
+    {
+     "t": 1791746781530,
+     "kind": "done",
+     "text": "Aprobada"
     }
    ],
-   "result": "",
+   "result": "**Resumen:** `server.mjs` pasa de 1468 a 188 líneas. La API es ahora una **tabla declarativa de 43 rutas** en `rutas.mjs`, y el tablero y sus operaciones viven en `estado.mjs`. `mcp.mjs` **importa** de ahí las 36 operaciones que antes recibía por parámetro. El comportamiento no cambia: `npm test` 5/5 y toda la batería anterior, también con el ejecutable.\n\n## Cómo queda el servidor\n| Archivo | Líneas | Qué hace |\n|---|---|---|\n| `server.mjs` | 188 | HTTP en 127.0.0.1: seguridad (Host/Origin), `/mcp`, eventos en vivo, `/vista/<clave>/`, archivos e interfaz. Consulta la tabla |\n| `estado.mjs` | 712 | El tablero: cargar y guardar, tarjetas, proyectos, dependencias, papelera, IAs conectadas, colas y pausas |\n| `rutas.mjs` | 456 | **La API como tabla** `[método, ruta, manejador]`, con `deTarjeta`, `deProyecto` y `dePregunta` (404 si no existe) |\n| `programadas.mjs` | 115 | Tareas programadas y recurrentes |\n| `mcp.mjs` | 950 | Herramientas de la IA. `createMcpHandler()` ya no recibe parámetros |\n\nLa tabla tiene este aspecto:\n```js\n[\"POST\",   \"/api/cards/:id/attachments\", async ({ req, res, parts }) => { … }],\n[\"*\",      \"/api/cards/:id/move\",        deTarjeta(async ({ res, card, body }) => { … })],\n[\"DELETE\", \"/api/projects/:id/entidades/:eid\", deProyecto(async ({ res, parts, project }) => { … })],\n[\"POST\",   \"/api/faltantes/:id/:accion?\", …],   // «:x?» = trozo opcional; «*» = cualquier método\n```\nLos bloques que antes despachaban por dentro (`action === \"edit\"/\"move\"/…`, preguntas, entidades y secretos) son ahora una fila por acción.\n\n## Cómo lo hice sin cambiar nada\n- **Generado, no reescrito a mano.** Cada `if` del servidor pasó tal cual a su manejador. Herramientas con `acorn` calcularon las importaciones de cada archivo y avisaron de dos reasignaciones cruzadas (`faltantes` y `desfase`), que ahora pasan por `quitarFaltante()` y `fijarReloj()`.\n- **Sin ciclos:** `send` y `readJson` viven en `rutas.mjs`, y `VERSION` y `VISTA` en `entorno.mjs`.\n- **Comprobación estática:** ningún archivo usa un identificador sin declarar o importar (encontró y arreglé `VERSION_APP` y `VISTA`).\n\n## Pruebas (antes y después, sin diferencias)\n| Prueba | Resultado |\n|---|---|\n| `npm test` | **5/5** ✅ |\n| Interfaz en Chrome (crear, ⌘K, panel, vista previa, entidades, en vivo…) | **15/15**, 0 errores JS ✅ |\n| Ejecutable de `npm run build` | **15/15**, 0 errores JS ✅ |\n| Secretos | 17/17 ✅ |\n| Entidades | 15/15 ✅ |\n| Responder a la IA | 4/4 ✅ |\n| Tareas programadas con error + reloj adelantado 2 días | servidor vivo, error anotado una vez ✅ |\n| UTF-8 de 250 KB · límite de 5 MB | idéntico · 400 ✅ |\n| `/vista/` sin clave · enlace simbólico · Host u Origin ajenos | 403 · 403 · 403 · 403 ✅ |\n| Ruta inexistente · tarjeta inexistente | 404 · «Tarjeta no encontrada» ✅ |\n| Emparejador: segmento opcional, método `*`, rutas de entidades | 13 casos correctos ✅ |\n\nREADME actualizado («Desarrollar»). Queda sin commit, junto con los módulos de la interfaz de la tarjeta anterior.",
    "question": "",
    "files": [],
    "createdAt": 1791740409625,
-   "updatedAt": 1791743921521
+   "updatedAt": 1791746781530,
+   "revocada": null,
+   "pausada": false
   },
   {
    "id": "8d957af5",
    "title": "Partir public/app.js en módulos",
    "description": "`public/app.js` tiene unas 2900 líneas en un solo archivo. Hay que partirlo en módulos ES (tablero, panel de tarjeta, paleta ⌘K, vista previa, proyectos, preguntas…). En desarrollo pueden cargarse como módulos nativos; en el build, empaquetarse con esbuild, que ya está en las dependencias de desarrollo. Hay que respetar la CSP (`script-src 'self'`) y que el ejecutable lleve la interfaz dentro.",
    "kind": "task",
-   "column": "backlog",
-   "status": "idle",
+   "column": "done",
+   "status": "done",
    "origin": "ia",
    "parentId": "48cbcba8",
    "tag": null,
    "projectId": "034dfa34",
    "archivedAt": null,
-   "dependsOn": [
-    "05e8e786"
+   "dependsOn": [],
+   "order": 1791666066905,
+   "thread": [
+    {
+     "t": 1791746078674,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** `public/app.js`, de 3236 líneas, ya no existe. Ahora son **9 módulos ES** en `public/js/`, el mayor de 496 líneas, más un `main.js` que los arranca. En desarrollo se cargan como módulos nativos y en el ejecutable van empaquetados con esbuild en un solo `js/main.js`. La misma prueba de 15 "
+    }
    ],
-   "order": 1791740411561,
-   "thread": [],
    "attachments": [],
-   "versions": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791746078673,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** `public/app.js`, de 3236 líneas, ya no existe. Ahora son **9 módulos ES** en `public/js/`, el mayor de 496 líneas, más un `main.js` que los arranca. En desarrollo se cargan como módulos nativos y en el ejecutable van empaquetados con esbuild en un solo `js/main.js`. La misma prueba de 15 pasos en Chrome da **0 errores** antes y después, también con el ejecutable.\n\n## Los módulos\n| Módulo | Líneas | Qué contiene |\n|---|---|---|\n| `nucleo.js` | 302 | Estado, utilidades, API, conexión en vivo, barra de arriba |\n| `tablero.js` | 495 | Columnas y tarjetas, pestañas de proyecto, secciones |\n| `paginas.js` | 457 | Instrucciones, entidades, conocimiento, entregables, archivo |\n| `panel.js` | 496 | Arrastrar y soltar, panel de la tarjeta y sus pestañas |\n| `detalle.js` | 323 | Versiones, conversación, dependencias, vista previa, conectar una IA |\n| `acciones.js` | 366 | Objetivo, nueva tarjeta, atajos, avisos, preguntas rápidas |\n| `busqueda.js` | 348 | Búsqueda global y paleta ⌘K |\n| `exportar.js` | 262 | Exportar resultados, visor de imágenes, play / pausa |\n| `extras.js` | 358 | Criterios, IA por proyecto, IA de preguntas, programadas, plantillas |\n| `main.js` | 17 | Arranca los módulos en orden |\n\n## Cómo lo partí sin romper nada\nNo lo partí a mano. Una herramienta con el parser `acorn` (instalado solo en mi carpeta temporal, no en el proyecto):\n- calcula qué **exporta** cada módulo y qué **importa** de los demás;\n- convierte las 31 funciones flecha de nivel superior en `function`. Así existen desde el primer momento y las importaciones circulares no pueden dar `ReferenceError`;\n- pasa las 56 sentencias que se ejecutaban al cargar (listeners, primeras llamadas) a un `iniciarModulo()` por módulo, que `main.js` llama **en el orden original**.\n\nAdemás comprobé que:\n- ningún módulo reasigna una variable de otro;\n- no hay variables globales implícitas, que fallarían en el modo estricto de los módulos;\n- las 10 piezas tienen sintaxis de módulo válida.\n\n## Otros cambios\n- `index.html` carga `<script type=\"module\" src=\"js/main.js\">`, que la CSP `script-src 'self'` permite.\n- `scripts/build.mjs` empaqueta la interfaz con esbuild en `js/main.js` (122 KB) y no mete los módulos sueltos en el ejecutable.\n- La versión de la interfaz (la que recarga sola las páginas abiertas al reiniciar) cuenta ahora todos los archivos de `js/`.\n- README actualizado (sección «Desarrollar»).\n\n## Pruebas\nLa prueba de humo usa Órbita como una persona en Chrome y recoge cualquier excepción o error de consola. Sus 15 pasos:\n- cargar la página;\n- crear una tarjeta;\n- abrir el panel y pasar por todas sus pestañas;\n- añadir un criterio y un comentario;\n- **⌘K → mover a En curso**;\n- **búsqueda global**;\n- **vista previa** de un HTML;\n- las 5 secciones del proyecto;\n- crear una entidad;\n- tema, avisos y preguntas;\n- ver en vivo la entrega de la IA.\n\n| | Pasos | Errores JS |\n|---|---|---|\n| Antes (`app.js` en un archivo) | 15/15 ✅ | 0 |\n| Después, `npm start` (módulos) | 15/15 ✅ | 0 |\n| Después, **ejecutable** de `npm run build` | 15/15 ✅ | 0 |\n\n`npm test`: 5/5. `dist/Órbita.app` ya está recompilada. Queda sin commit.",
+     "criterios": [
+      {
+       "texto": "Ningún módulo pasa de unas 600 líneas",
+       "estado": "cumple",
+       "evidencia": "wc -l public/js/*.js: el mayor es panel.js con 496 líneas (tablero.js 495, paginas.js 457; el resto, entre 17 y 366)"
+      },
+      {
+       "texto": "npm start y el ejecutable de npm run build funcionan igual",
+       "estado": "cumple",
+       "evidencia": "Prueba de humo en Chrome: npm start (módulos nativos) 15/15 ✅ y el ejecutable de npm run build 15/15 ✅, igual que la versión anterior (15/15). El ejecutable sirve js/main.js empaquetado (122 KB, 0 import) y 404 para app.js y los módulos sueltos"
+      },
+      {
+       "texto": "No hay errores en la consola del navegador al usar las funciones principales (crear, mover, abrir panel, ⌘K, vista previa)",
+       "estado": "cumple",
+       "evidencia": "0 excepciones y 0 console.error en los 15 pasos: crear, mover (⌘K), abrir panel y sus pestañas, ⌘K búsqueda, vista previa HTML, secciones, entidad, tema/avisos/preguntas y entrega en vivo, tanto con npm start como con el ejecutable"
+      }
+     ]
+    }
+   ],
    "criterios": [
     {
      "id": "2a873e",
      "texto": "Ningún módulo pasa de unas 600 líneas",
-     "estado": null,
-     "evidencia": "",
+     "estado": "cumple",
+     "evidencia": "wc -l public/js/*.js: el mayor es panel.js con 496 líneas (tablero.js 495, paginas.js 457; el resto, entre 17 y 366)",
      "falla": false
     },
     {
      "id": "2ae585",
      "texto": "npm start y el ejecutable de npm run build funcionan igual",
-     "estado": null,
-     "evidencia": "",
+     "estado": "cumple",
+     "evidencia": "Prueba de humo en Chrome: npm start (módulos nativos) 15/15 ✅ y el ejecutable de npm run build 15/15 ✅, igual que la versión anterior (15/15). El ejecutable sirve js/main.js empaquetado (122 KB, 0 import) y 404 para app.js y los módulos sueltos",
      "falla": false
     },
     {
      "id": "80f90c",
      "texto": "No hay errores en la consola del navegador al usar las funciones principales (crear, mover, abrir panel, ⌘K, vista previa)",
-     "estado": null,
-     "evidencia": "",
+     "estado": "cumple",
+     "evidencia": "0 excepciones y 0 console.error en los 15 pasos: crear, mover (⌘K), abrir panel y sus pestañas, ⌘K búsqueda, vista previa HTML, secciones, entidad, tema/avisos/preguntas y entrega en vivo, tanto con npm start como con el ejecutable",
      "falla": false
     }
    ],
    "programa": null,
-   "worker": null,
+   "worker": "Claude · ia",
    "inbox": [],
-   "progress": 0,
-   "step": "",
-   "live": "",
-   "liveAt": null,
-   "startedAt": null,
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Inventario de `app.js`** (3236 líneas): 125 funciones, 55 `const`, 10 `let` y 56 sentencias que se ejecutan al cargar.\n\n**Cómo lo parto sin romper nada:**\n- 9 módulos contiguos, por secciones y de menos de 500 líneas cada uno:\n  - `nucleo` (estado, API, conexión);\n  - `tablero` (columnas y pestañas de proyecto);\n  - `paginas` (instrucciones, entidades, conocimiento, entregables, archivo);\n  - `panel` (arrastrar y panel de la tarjeta);\n  - `detalle` (versiones, conversación, vista previa);\n  - `acciones` (objetivo, nueva tarjeta, atajos, avisos, preguntas);\n  - `busqueda` (⌘K, paleta);\n  - `exportar` (exportar, visor, pausa);\n  - `extras` (criterios, IA por proyecto, programadas, plantillas).\n- Una herramienta con `acorn` calcula qué importa y exporta cada módulo. Las flechas pasan a `function`, que se elevan. Lo que se ejecuta al cargar va a un `iniciar()` por módulo, y `main.js` los llama en el orden original. Así las importaciones circulares no pueden dar `ReferenceError`.\n- **Desarrollo:** módulos nativos (`<script type=\"module\">`). **Build:** esbuild los empaqueta en un solo `app.js` dentro del ejecutable.",
+   "liveAt": 1791745768643,
+   "startedAt": 1791745636314,
    "log": [
     {
      "t": 1791740415314,
@@ -882,13 +901,55 @@
      "t": 1791740415314,
      "kind": "step",
      "text": "✎ Claude · ia editó: dependencias"
+    },
+    {
+     "t": 1791745590937,
+     "kind": "step",
+     "text": "Una de las tarjetas a las que esperaba se eliminó"
+    },
+    {
+     "t": 1791745636314,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791745655191,
+     "kind": "step",
+     "text": "Mapeando app.js: funciones, estado compartido y código que se ejecuta al cargar"
+    },
+    {
+     "t": 1791745768643,
+     "kind": "step",
+     "text": "Diseñando la partición segura (orden de evaluación, importaciones circulares)"
+    },
+    {
+     "t": 1791745857941,
+     "kind": "step",
+     "text": "Montando los módulos en public/js y el empaquetado en el build"
+    },
+    {
+     "t": 1791745991263,
+     "kind": "step",
+     "text": "Módulos en desarrollo: 15/15 sin errores. Probando el ejecutable compilado"
+    },
+    {
+     "t": 1791746078674,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado (criterios: 3/3 ✓)"
+    },
+    {
+     "t": 1791746098055,
+     "kind": "done",
+     "text": "Aprobada"
     }
    ],
-   "result": "",
+   "result": "**Resumen:** `public/app.js`, de 3236 líneas, ya no existe. Ahora son **9 módulos ES** en `public/js/`, el mayor de 496 líneas, más un `main.js` que los arranca. En desarrollo se cargan como módulos nativos y en el ejecutable van empaquetados con esbuild en un solo `js/main.js`. La misma prueba de 15 pasos en Chrome da **0 errores** antes y después, también con el ejecutable.\n\n## Los módulos\n| Módulo | Líneas | Qué contiene |\n|---|---|---|\n| `nucleo.js` | 302 | Estado, utilidades, API, conexión en vivo, barra de arriba |\n| `tablero.js` | 495 | Columnas y tarjetas, pestañas de proyecto, secciones |\n| `paginas.js` | 457 | Instrucciones, entidades, conocimiento, entregables, archivo |\n| `panel.js` | 496 | Arrastrar y soltar, panel de la tarjeta y sus pestañas |\n| `detalle.js` | 323 | Versiones, conversación, dependencias, vista previa, conectar una IA |\n| `acciones.js` | 366 | Objetivo, nueva tarjeta, atajos, avisos, preguntas rápidas |\n| `busqueda.js` | 348 | Búsqueda global y paleta ⌘K |\n| `exportar.js` | 262 | Exportar resultados, visor de imágenes, play / pausa |\n| `extras.js` | 358 | Criterios, IA por proyecto, IA de preguntas, programadas, plantillas |\n| `main.js` | 17 | Arranca los módulos en orden |\n\n## Cómo lo partí sin romper nada\nNo lo partí a mano. Una herramienta con el parser `acorn` (instalado solo en mi carpeta temporal, no en el proyecto):\n- calcula qué **exporta** cada módulo y qué **importa** de los demás;\n- convierte las 31 funciones flecha de nivel superior en `function`. Así existen desde el primer momento y las importaciones circulares no pueden dar `ReferenceError`;\n- pasa las 56 sentencias que se ejecutaban al cargar (listeners, primeras llamadas) a un `iniciarModulo()` por módulo, que `main.js` llama **en el orden original**.\n\nAdemás comprobé que:\n- ningún módulo reasigna una variable de otro;\n- no hay variables globales implícitas, que fallarían en el modo estricto de los módulos;\n- las 10 piezas tienen sintaxis de módulo válida.\n\n## Otros cambios\n- `index.html` carga `<script type=\"module\" src=\"js/main.js\">`, que la CSP `script-src 'self'` permite.\n- `scripts/build.mjs` empaqueta la interfaz con esbuild en `js/main.js` (122 KB) y no mete los módulos sueltos en el ejecutable.\n- La versión de la interfaz (la que recarga sola las páginas abiertas al reiniciar) cuenta ahora todos los archivos de `js/`.\n- README actualizado (sección «Desarrollar»).\n\n## Pruebas\nLa prueba de humo usa Órbita como una persona en Chrome y recoge cualquier excepción o error de consola. Sus 15 pasos:\n- cargar la página;\n- crear una tarjeta;\n- abrir el panel y pasar por todas sus pestañas;\n- añadir un criterio y un comentario;\n- **⌘K → mover a En curso**;\n- **búsqueda global**;\n- **vista previa** de un HTML;\n- las 5 secciones del proyecto;\n- crear una entidad;\n- tema, avisos y preguntas;\n- ver en vivo la entrega de la IA.\n\n| | Pasos | Errores JS |\n|---|---|---|\n| Antes (`app.js` en un archivo) | 15/15 ✅ | 0 |\n| Después, `npm start` (módulos) | 15/15 ✅ | 0 |\n| Después, **ejecutable** de `npm run build` | 15/15 ✅ | 0 |\n\n`npm test`: 5/5. `dist/Órbita.app` ya está recompilada. Queda sin commit.",
    "question": "",
    "files": [],
    "createdAt": 1791740409640,
-   "updatedAt": 1791743364669
+   "updatedAt": 1791746098066,
+   "revocada": null,
+   "pausada": false
   },
   {
    "id": "b1503449",
@@ -1278,50 +1339,6 @@
    "pausada": false
   },
   {
-   "id": "2360ec66",
-   "title": "Recompilar y generar app",
-   "description": "cada vez que una card termine debes generar el app",
-   "kind": "task",
-   "column": "backlog",
-   "status": "idle",
-   "origin": "tú",
-   "parentId": null,
-   "tag": null,
-   "projectId": "034dfa34",
-   "archivedAt": null,
-   "dependsOn": [],
-   "order": 1791743793882,
-   "thread": [],
-   "attachments": [],
-   "versions": [],
-   "criterios": [],
-   "programa": null,
-   "worker": null,
-   "inbox": [],
-   "progress": 0,
-   "step": "",
-   "live": "",
-   "liveAt": null,
-   "startedAt": null,
-   "log": [
-    {
-     "t": 1791743801867,
-     "kind": "step",
-     "text": "Programada: próxima, lunes, 12 de octubre de 2026, 9:00"
-    },
-    {
-     "t": 1791743805636,
-     "kind": "step",
-     "text": "Ya no se repite"
-    }
-   ],
-   "result": "",
-   "question": "",
-   "files": [],
-   "createdAt": 1791743793882,
-   "updatedAt": 1791743805636
-  },
-  {
    "id": "a15c9ee2",
    "title": "Agregar un almacenamiento de entidades categorizadas",
    "description": "Agregar un almacenamiento de entidades categorizadas.. las entidades son unidades de memoria extraidas en el proyecto y que siguen existiendo.. por ejemplo los personajes de un proyecto de un juego.. las armas, items, personas.. etc pero de forma visual y por categorias",
@@ -1422,15 +1439,15 @@
    "title": "responderle a la ia en orbita",
    "description": "a veces la ia me dice que le responda en cloude no en orbita y tenemos que permitir respuestas en orbita",
    "kind": "task",
-   "column": "review",
-   "status": "ready",
+   "column": "done",
+   "status": "done",
    "origin": "tú",
    "parentId": null,
    "tag": null,
    "projectId": "034dfa34",
    "archivedAt": null,
    "dependsOn": [],
-   "order": 2000,
+   "order": 1791666054905,
    "thread": [
     {
      "t": 1791745402866,
@@ -1478,13 +1495,18 @@
      "t": 1791745402866,
      "kind": "done",
      "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791745522644,
+     "kind": "done",
+     "text": "Aprobada"
     }
    ],
    "result": "**Resumen:** Ahora a la IA siempre se le responde desde Órbita. Sus instrucciones le dicen que tú solo la lees en Órbita y que nunca pregunte en su chat. Además, en una tarjeta entregada el botón ya no es «Devolver», sino **«↩ Responder a la IA»**: lo que escribes le llega y sigue con esa misma tarjeta.\n\n![Responder a la IA desde la tarjeta](/files/ia/capturas/responder-a-la-ia.png)\n\n## Por qué pasaba\nNada le decía a la IA que no miras su chat. Cuando al terminar ofrecía algo («¿quieres que también…?») o necesitaba una decisión, lo escribía en Claude y esperaba la respuesta allí. Yo mismo lo hice hoy, con «Si quieres, lo quito».\n\n## Cambios\n**Instrucciones de la IA (`mcp.mjs`).** Las reciben todas las IAs, también con los prompts `trabajar` y `nuevo_proyecto`:\n- *«La persona te habla y te lee SOLO en Órbita… Nunca le preguntes nada ni le pidas que te responda ahí.»*\n- Si necesita una decisión, usa `ask_human`.\n- Si ofrece algo o pregunta al entregar, lo pone en el resultado, y tu respuesta le llega por `wait_for_work`.\n\nLo mismo se le recuerda en la descripción de `submit_result` y en el «next» de cada tarjeta que toma.\n\n**Panel de la tarjeta (`app.js`).** En una tarjeta entregada:\n- **arriba:** ✓ Aprobar · **↩ Responder…** (antes, «↩ Devolver…»). Te lleva a la conversación con el cursor en el cuadro;\n- **el cuadro:** *«Responde a Claude o pide cambios: lo recibe y sigue con esta tarjeta…»*;\n- **el botón:** **↩ Responder a la IA** (antes, «↺ Devolver a la IA»), con el aviso *«Enviado a la IA: sigue con esta tarjeta»*.\n\n**La instrucción para lanzar una IA por proyecto** (🧠 Su propia IA) añade: *«Lo que necesites de mí, pregúntamelo en Órbita (ask_human o en el resultado), no en este chat.»*\n\n## Pruebas (Órbita aparte)\n- ✅ La IA recibe en cada tarjeta que pregunte con `ask_human` y no en su chat.\n- ✅ Las instrucciones del servidor (al conectarse) lo dicen.\n- ✅ La IA entrega «¿Quieres que cree también a Pedro?», respondes «Sí, crea a Pedro en Personas» desde la tarjeta, y vuelve a En curso para la IA.\n- ✅ La IA recibe tu respuesta por `wait_for_work` (en `inbox`).\n- ✅ En Chrome, «↩ Responder…» abre la conversación con el foco en el cuadro.\n- `npm test`: 5/5.\n\n`Órbita.app` ya está recompilada con esto. Para usarla, ciérrala (⌘K → Cerrar Órbita) y ábrela de nuevo. Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse.\n\n**Lo que no se puede arreglar desde Órbita:** cuando Claude Code pide **permiso** para ejecutar algo (el aviso de aprobar una herramienta), ese aviso es de Claude y solo se aprueba allí. Para evitarlo, se pueden dar esos permisos de antemano en la configuración de Claude Code.",
    "question": "",
    "files": [],
    "createdAt": 1791745293253,
-   "updatedAt": 1791745402866,
+   "updatedAt": 1791745522652,
    "revocada": null,
    "pausada": false
   },
@@ -1492,6 +1514,385 @@
    "id": "30cce8ab",
    "title": "publica",
    "description": "crea y sube commit",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666065905,
+   "thread": [
+    {
+     "t": 1791745480914,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Commit creado y subido: **`7f8fbcd` «Secretos, entidades, panel con pestañas y Órbita.app»**, en `main` de [osmely/orbita](https://github.com/osmely/orbita/commit/7f8fbcd) (`dd11f05..7f8fbcd`). Recoge todo el trabajo de hoy: 31 archivos, +2769 / −115."
+    },
+    {
+     "t": 1791745508919,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "ok"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791745480913,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Commit creado y subido: **`7f8fbcd` «Secretos, entidades, panel con pestañas y Órbita.app»**, en `main` de [osmely/orbita](https://github.com/osmely/orbita/commit/7f8fbcd) (`dd11f05..7f8fbcd`). Recoge todo el trabajo de hoy: 31 archivos, +2769 / −115.\n\n## Qué incluye\n- **Correcciones:**\n  - el UTF-8 de los cuerpos grandes ya no se corrompe;\n  - un error inesperado se anota y Órbita sigue en marcha;\n  - `/vista/` va con clave y los enlaces simbólicos no sacan de `orbita/`;\n  - las secciones del proyecto vuelven a verse entre 901 y 1200 px.\n- **Guardado por proyecto**, y la primera prueba automática (`npm test`).\n- **Secretos por proyecto**: `secretos.mjs` y `get_secret`.\n- **Entidades**: `entidades.mjs`, la sección visual y `save_entity`, `list_entities` y `delete_entity`.\n- **Panel de la tarjeta con pestañas**.\n- **A la IA se le responde en Órbita**: sus instrucciones y «↩ Responder a la IA».\n- **Órbita.app**: icono en `recursos/`, ventana propia en modo app y «Cerrar Órbita».\n- El tablero del proyecto (`orbita/tablero.json`) y sus capturas (`orbita/capturas/`, que enlazan los resultados de las tarjetas).\n\n## Comprobaciones antes de subir\n- Ningún archivo sensible: `secretos.json`, `orbita.json` y `config.json` están en `.gitignore` y no entraron.\n- Busqué patrones de claves (`sk_live/test`, `ghp_`, `AKIA…`, claves privadas) en todo lo nuevo: ninguno.\n- `npm test`: 5/5.\n\n**Nota:** subí directamente a `main`, como los commits anteriores del repositorio. El binario (`dist/`) no va en el commit. Para publicar los ejecutables en una release, sube la versión en `package.json` y crea una etiqueta (`git tag v1.1.0 && git push --tags`): GitHub Actions construirá los zips, con `Órbita.app` en macOS."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [
+    {
+     "t": 1791745508918,
+     "text": "ok",
+     "kind": "comentario"
+    }
+   ],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791745443404,
+   "log": [
+    {
+     "t": 1791745443404,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791745453225,
+     "kind": "step",
+     "text": "Revisando cambios pendientes y el remoto"
+    },
+    {
+     "t": 1791745480914,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791745508919,
+     "kind": "you",
+     "text": "ok"
+    },
+    {
+     "t": 1791745514135,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Commit creado y subido: **`7f8fbcd` «Secretos, entidades, panel con pestañas y Órbita.app»**, en `main` de [osmely/orbita](https://github.com/osmely/orbita/commit/7f8fbcd) (`dd11f05..7f8fbcd`). Recoge todo el trabajo de hoy: 31 archivos, +2769 / −115.\n\n## Qué incluye\n- **Correcciones:**\n  - el UTF-8 de los cuerpos grandes ya no se corrompe;\n  - un error inesperado se anota y Órbita sigue en marcha;\n  - `/vista/` va con clave y los enlaces simbólicos no sacan de `orbita/`;\n  - las secciones del proyecto vuelven a verse entre 901 y 1200 px.\n- **Guardado por proyecto**, y la primera prueba automática (`npm test`).\n- **Secretos por proyecto**: `secretos.mjs` y `get_secret`.\n- **Entidades**: `entidades.mjs`, la sección visual y `save_entity`, `list_entities` y `delete_entity`.\n- **Panel de la tarjeta con pestañas**.\n- **A la IA se le responde en Órbita**: sus instrucciones y «↩ Responder a la IA».\n- **Órbita.app**: icono en `recursos/`, ventana propia en modo app y «Cerrar Órbita».\n- El tablero del proyecto (`orbita/tablero.json`) y sus capturas (`orbita/capturas/`, que enlazan los resultados de las tarjetas).\n\n## Comprobaciones antes de subir\n- Ningún archivo sensible: `secretos.json`, `orbita.json` y `config.json` están en `.gitignore` y no entraron.\n- Busqué patrones de claves (`sk_live/test`, `ghp_`, `AKIA…`, claves privadas) en todo lo nuevo: ninguno.\n- `npm test`: 5/5.\n\n**Nota:** subí directamente a `main`, como los commits anteriores del repositorio. El binario (`dist/`) no va en el commit. Para publicar los ejecutables en una release, sube la versión en `package.json` y crea una etiqueta (`git tag v1.1.0 && git push --tags`): GitHub Actions construirá los zips, con `Órbita.app` en macOS.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791745443403,
+   "updatedAt": 1791745514135,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "005371a0",
+   "title": "publicar en github pages de este proyecto",
+   "description": "Publicar esta web en github pages de este proyecto. vamos a abandonar la idea de compilar como ejecutable.. ahora va a ser una web publicada en github.. analiza la tecnologia para qe funcione",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666067905,
+   "thread": [
+    {
+     "t": 1791746257617,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Órbita **puede** publicarse en GitHub Pages, pero Pages solo sirve archivos estáticos: no puede recibir a la IA por MCP, ni guardar datos, ni avisar en vivo. Algo tiene que hacer de servidor. Veo tres arquitecturas y recomiendo empezar por la **A**. **Necesito que elijas una** antes de re"
+    },
+    {
+     "t": 1791746554468,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "sigamos con la idea del ejecutable entonces.."
+    },
+    {
+     "t": 1791746746557,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Seguimos con el ejecutable, como pediste. No he publicado nada en GitHub Pages ni he retirado nada: `npm run build` sigue generando `dist/orbita` y `dist/Órbita.app`, y la release de GitHub Actions sigue igual."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791746257616,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Órbita **puede** publicarse en GitHub Pages, pero Pages solo sirve archivos estáticos: no puede recibir a la IA por MCP, ni guardar datos, ni avisar en vivo. Algo tiene que hacer de servidor. Veo tres arquitecturas y recomiendo empezar por la **A**. **Necesito que elijas una** antes de reescribir nada; respóndeme aquí mismo, en la tarjeta.\n\n📄 Análisis completo: [analisis-github-pages.md](/files/ia/analisis-github-pages.md)\n\n## Qué depende hoy de un servidor\n- **MCP de la IA:** `/mcp`, con 24 herramientas y `wait_for_work` esperando trabajo. ❌ Una web no puede escuchar conexiones.\n- **El tablero y los entregables en la carpeta del proyecto.** ⚠️ Desde una web solo se puede en Chrome y Edge (`showDirectoryPicker`); Firefox y Safari no lo tienen.\n- **Cambios en vivo (SSE)**, el selector de carpetas nativo y la vista previa aislada.\n\n## Las opciones\n| | A · Pages + `npx orbita` | B · Web pura + MCP stdio | C · Pages + nube |\n|---|---|---|---|\n| Qué arranca la persona | `npx orbita` (sin ejecutable) | **Nada**: Claude arranca el MCP solo | Nada |\n| Navegadores | Todos los Chromium (pide el permiso «red local» en Chrome 142+); Safari, por probar | Solo Chrome, Edge, Brave y Opera | Todos |\n| Datos | En tu equipo | En tu equipo | En la nube (rompe «no salen de tu equipo») |\n| Trabajo | **Poco**: se reutiliza todo | **Alto**: reescritura (estado en archivos, bloqueos) | Alto + cuentas y costes |\n\n**Mi recomendación:** la **A** ahora. Se publica la interfaz en `https://osmely.github.io/orbita/`, el servidor se reparte por npm (`npx orbita`) en lugar del ejecutable, y la web se conecta a `localhost` con CORS. Si más adelante quieres que no haya **nada** que arrancar, se puede migrar a la B por partes, porque A no lo impide.\n\nYa comprobé que el repositorio `osmely/orbita` es **público**, así que Pages es gratis, y que todavía no tiene Pages activado.\n\n## ¿Qué hago?\nRespóndeme con **A**, **B** o **C** (o con dudas).\n\nSi eliges **A**, lo siguiente será:\n1. workflow de GitHub Actions que publique `public/` en Pages;\n2. URL del servidor configurable en la interfaz, más CORS y el permiso de red local para ese origen;\n3. preparar el paquete para `npx orbita` (te pediré confirmación antes de publicar en npm);\n4. retirar el ejecutable (`scripts/build.mjs`, `Órbita.app` y la release) y actualizar el README.\n\n**Fuentes:** [Chrome · Local Network Access](https://developer.chrome.com/blog/local-network-access) · [Chromium 142 y LNA](https://www.dynamsoft.com/web-twain/docs/faq/chromium-142-local-network-access-issue.md) · [Guía de LNA](https://blog.openreplay.com/es/chrome-local-network-access-lna-permiso/) · [web.dev · `showDirectoryPicker`](https://web.dev/articles/files/open-a-directory?hl=es)"
+    },
+    {
+     "n": 2,
+     "t": 1791746746556,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Seguimos con el ejecutable, como pediste. No he publicado nada en GitHub Pages ni he retirado nada: `npm run build` sigue generando `dist/orbita` y `dist/Órbita.app`, y la release de GitHub Actions sigue igual.\n\n- El análisis queda guardado por si algún día cambias de idea: [analisis-github-pages.md](/files/ia/analisis-github-pages.md).\n- Lo único que sí tendría sentido en Pages, si un día lo quieres, es una **página de descarga** (una web estática con los enlaces a la última release). Funciona sin servidor, porque Órbita sigue ejecutándose en el equipo de cada persona.\n- **Recordatorio para repartirlo:** el ejecutable no está firmado. Firmar y notarizar en macOS necesita una cuenta de Apple Developer (ver `DISTRIBUCION.md`); en Windows, un certificado de firma de código."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791746738886,
+   "log": [
+    {
+     "t": 1791746078698,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791746106823,
+     "kind": "step",
+     "text": "Analizando qué necesita Órbita de un servidor y qué permite GitHub Pages"
+    },
+    {
+     "t": 1791746243963,
+     "kind": "step",
+     "text": "Redactando el análisis con las tres arquitecturas posibles"
+    },
+    {
+     "t": 1791746244010,
+     "kind": "file",
+     "text": "Claude · ia escribió ia/analisis-github-pages.md"
+    },
+    {
+     "t": 1791746257617,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791746554468,
+     "kind": "you",
+     "text": "sigamos con la idea del ejecutable entonces.."
+    },
+    {
+     "t": 1791746738886,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791746746557,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791746764889,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Seguimos con el ejecutable, como pediste. No he publicado nada en GitHub Pages ni he retirado nada: `npm run build` sigue generando `dist/orbita` y `dist/Órbita.app`, y la release de GitHub Actions sigue igual.\n\n- El análisis queda guardado por si algún día cambias de idea: [analisis-github-pages.md](/files/ia/analisis-github-pages.md).\n- Lo único que sí tendría sentido en Pages, si un día lo quieres, es una **página de descarga** (una web estática con los enlaces a la última release). Funciona sin servidor, porque Órbita sigue ejecutándose en el equipo de cada persona.\n- **Recordatorio para repartirlo:** el ejecutable no está firmado. Firmar y notarizar en macOS necesita una cuenta de Apple Developer (ver `DISTRIBUCION.md`); en Windows, un certificado de firma de código.",
+   "question": "",
+   "files": [
+    "ia/analisis-github-pages.md"
+   ],
+   "createdAt": 1791745761390,
+   "updatedAt": 1791746764890,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "e8232d2f",
+   "title": "Pagina web",
+   "description": "Una web que explica el funcionamiento de esta herramienta.. usemos githubpages",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666069905,
+   "thread": [
+    {
+     "t": 1791747177357,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** La web de Órbita ya está publicada en GitHub Pages: **https://osmely.github.io/orbita/**. Explica qué es, cómo funciona, qué hace y cómo empezar, con capturas reales del tablero. Se actualiza sola cada vez que cambia la carpeta `web/` en `main`."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791747177356,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** La web de Órbita ya está publicada en GitHub Pages: **https://osmely.github.io/orbita/**. Explica qué es, cómo funciona, qué hace y cómo empezar, con capturas reales del tablero. Se actualiza sola cada vez que cambia la carpeta `web/` en `main`.\n\n![La web publicada](/files/ia/capturas/web-publicada.png)\n\n## Qué cuenta la página\n1. **Portada:** «El tablero que trabaja con tu IA», con *Empezar ahora* y *Ver en GitHub*, y una captura del tablero que sigue el tema claro u oscuro del sistema.\n2. **Cómo funciona**, en 4 pasos: abre Órbita → conecta tu IA → arrastra a «En curso» → revisa y decide. Debajo, un esquema: tú → Órbita (en tu equipo, 127.0.0.1) → tu IA por MCP, y la carpeta del proyecto con `orbita/`.\n3. **Qué hace**, con tres capturas grandes (verla trabajar en vivo, «Terminado cuando…» y entidades) y 8 funciones más: una IA por proyecto, te pregunta, planificar objetivos, tareas programadas, secretos, ⌘K, vista previa segura y versiones y exportar.\n4. **Tus datos no salen de tu equipo:** sin servidor central, sin API keys, el proyecto va con su carpeta y está protegida del navegador.\n5. **Empezar:** `git clone` + `npm start` y el comando para conectar Claude Code. Para Cursor y otras IAs, se remite a «Conectar IA».\n6. **Preguntas frecuentes.**\n\nLas capturas salen de un tablero de demostración que monté aparte (una tienda online y un juego de rol); tus datos no aparecen.\n\n## Cómo está hecha\n- **`web/`:** `index.html` y `estilos.css`, sin JavaScript ni dependencias externas, con la fuente Inter que ya lleva Órbita. Pesa 1,1 MB en total.\n- **Claro y oscuro** según el sistema. **Móvil:** comprobada a 390 px, sin scroll horizontal.\n- **`.github/workflows/pages.yml`:** publica `web/` en Pages con GitHub Actions.\n- **Pages:** activado en el repositorio con `build_type: workflow`.\n\n## Comprobaciones\n- El despliegue de Actions terminó con **éxito**. La web responde 200, igual que `estilos.css`, las imágenes, el icono y las fuentes.\n- En Chrome, sobre la web publicada: las 4 imágenes y la fuente cargan, y no hay errores.\n- **Commit `94f6835`**, subido a `main`, con **solo** la web y su workflow. El resto del trabajo de hoy (módulos de la interfaz, refactor del servidor…) sigue sin commit, como estaba.\n\n**Nota:** todavía no hay ninguna release, así que la web explica cómo arrancar Órbita desde el código y avisa de que los ejecutables se publicarán en *Releases*. Cuando publiques la primera (`git tag v1.1.0 && git push --tags`), puedo cambiar el botón principal por «Descargar»."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Plan de la web** (`web/` → GitHub Pages con Actions):\n1. **Portada:** «Tu tablero kanban que trabaja con tu propia IA», con Descargar y Ver en GitHub.\n2. **Cómo funciona** en 3 pasos: abres Órbita, conectas tu IA por MCP y arrastras a «En curso».\n3. **Esquema:** tú → tablero → servidor en 127.0.0.1 → tu IA por MCP, y la carpeta del proyecto.\n4. **Lo que puede hacer**, con capturas reales.\n5. **Privacidad:** los datos se quedan en tu equipo y no hay API keys.\n6. **Empezar** (descarga y el comando para conectar la IA) y preguntas frecuentes.",
+   "liveAt": 1791746783823,
+   "startedAt": 1791746746595,
+   "log": [
+    {
+     "t": 1791746746595,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791746783823,
+     "kind": "step",
+     "text": "Preparando un tablero de demostración para las capturas de la web"
+    },
+    {
+     "t": 1791746922633,
+     "kind": "step",
+     "text": "Escribiendo los estilos de la web (claro, oscuro y móvil)"
+    },
+    {
+     "t": 1791747018352,
+     "kind": "step",
+     "text": "Activando GitHub Pages y subiendo la web"
+    },
+    {
+     "t": 1791747177357,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791747442155,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** La web de Órbita ya está publicada en GitHub Pages: **https://osmely.github.io/orbita/**. Explica qué es, cómo funciona, qué hace y cómo empezar, con capturas reales del tablero. Se actualiza sola cada vez que cambia la carpeta `web/` en `main`.\n\n![La web publicada](/files/ia/capturas/web-publicada.png)\n\n## Qué cuenta la página\n1. **Portada:** «El tablero que trabaja con tu IA», con *Empezar ahora* y *Ver en GitHub*, y una captura del tablero que sigue el tema claro u oscuro del sistema.\n2. **Cómo funciona**, en 4 pasos: abre Órbita → conecta tu IA → arrastra a «En curso» → revisa y decide. Debajo, un esquema: tú → Órbita (en tu equipo, 127.0.0.1) → tu IA por MCP, y la carpeta del proyecto con `orbita/`.\n3. **Qué hace**, con tres capturas grandes (verla trabajar en vivo, «Terminado cuando…» y entidades) y 8 funciones más: una IA por proyecto, te pregunta, planificar objetivos, tareas programadas, secretos, ⌘K, vista previa segura y versiones y exportar.\n4. **Tus datos no salen de tu equipo:** sin servidor central, sin API keys, el proyecto va con su carpeta y está protegida del navegador.\n5. **Empezar:** `git clone` + `npm start` y el comando para conectar Claude Code. Para Cursor y otras IAs, se remite a «Conectar IA».\n6. **Preguntas frecuentes.**\n\nLas capturas salen de un tablero de demostración que monté aparte (una tienda online y un juego de rol); tus datos no aparecen.\n\n## Cómo está hecha\n- **`web/`:** `index.html` y `estilos.css`, sin JavaScript ni dependencias externas, con la fuente Inter que ya lleva Órbita. Pesa 1,1 MB en total.\n- **Claro y oscuro** según el sistema. **Móvil:** comprobada a 390 px, sin scroll horizontal.\n- **`.github/workflows/pages.yml`:** publica `web/` en Pages con GitHub Actions.\n- **Pages:** activado en el repositorio con `build_type: workflow`.\n\n## Comprobaciones\n- El despliegue de Actions terminó con **éxito**. La web responde 200, igual que `estilos.css`, las imágenes, el icono y las fuentes.\n- En Chrome, sobre la web publicada: las 4 imágenes y la fuente cargan, y no hay errores.\n- **Commit `94f6835`**, subido a `main`, con **solo** la web y su workflow. El resto del trabajo de hoy (módulos de la interfaz, refactor del servidor…) sigue sin commit, como estaba.\n\n**Nota:** todavía no hay ninguna release, así que la web explica cómo arrancar Órbita desde el código y avisa de que los ejecutables se publicarán en *Releases*. Cuando publiques la primera (`git tag v1.1.0 && git push --tags`), puedo cambiar el botón principal por «Descargar».",
+   "question": "",
+   "files": [],
+   "createdAt": 1791746588586,
+   "updatedAt": 1791747442156,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "ca594b80",
+   "title": "El en vivo debe actualizarse con mas frecuencia",
+   "description": "El en vivo debe actualizarse con mas frecuencia y dar mas info",
+   "kind": "task",
+   "column": "doing",
+   "status": "returned",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 3000,
+   "thread": [
+    {
+     "t": 1791747389424,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** «En vivo» da ahora mucha más información y se mueve más:"
+    },
+    {
+     "t": 1791747703504,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "no se muestra informacion en tiempo real.. debe enviarse todo lo que esta pasando en claude"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791747389422,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** «En vivo» da ahora mucha más información y se mueve más:\n- **Arriba:** el paso actual, una barra de progreso, el tiempo que lleva, **hace cuánto dio la IA su última señal** (en ámbar si se calla más de 3 minutos), los pasos y los archivos.\n- **Debajo:** la **historia de pasos** de esta vuelta, que se actualiza sola.\n- **Las IAs** se instruyen ahora para informar **cada 30–60 segundos y en cada paso** (antes, cada 2–3 minutos), con el detalle completo.\n\n![El nuevo «En vivo»](/files/ia/capturas/en-vivo.jpg)\n\n## Qué cambió\n**En el panel (pestaña En vivo):**\n- **Estado:** el paso en grande, la barra de progreso (violeta → cian), `85 % · lleva 8 s · última señal hace 1 s · 7 pasos · ✎ 1 archivo`. Todo cuenta solo cada segundo.\n- **Aviso de silencio:** si la IA lleva más de 3 minutos sin dar noticias, pasa a **«sin noticias hace 4 min»** en ámbar.\n- **El detalle de la IA**, como antes.\n- **Pasos:** los últimos 25 de esta vuelta, del más reciente al más antiguo, con hace cuánto (pasos, archivos escritos, notas…). Salen del registro que Órbita ya guardaba, así que **hay información aunque la IA no escriba detalle**.\n\n**A las IAs (`mcp.mjs`):**\n- Informar en cada paso y al menos cada 30–60 segundos, con un «step» corto y concreto («Leyendo server.mjs», «Probando el login») y un porcentaje real.\n- El «detalle» completo: **Hecho / Ahora / Después**, archivos tocados y hallazgos.\n- Se lo dicen las instrucciones del servidor, la descripción de `report_progress` y la instrucción para lanzar una IA por proyecto, que pasa de «cada 2-3 minutos» a «en cada paso y al menos cada 30 segundos, con detalle».\n\n## Pruebas\nCon una IA simulada que informa cada pocos segundos y el panel abierto en Chrome:\n```\nal abrir:           paso «Leyendo la página actual» · 5 % · 2 pasos\ntras 4 pasos más:   paso «Probando el envío en Chrome» · 85 % · 7 pasos · ✎ 1 archivo   (sin recargar)\nsi se calla 4 min:  «sin noticias hace …», en ámbar\nerrores de JavaScript: ninguno\n```\n`npm test` 5/5 y la prueba de humo de la interfaz 15/15, sin errores. `Órbita.app` está recompilada. Queda sin commit.\n\n**Para verlo:** reinicia Órbita (⌘K → Cerrar Órbita y ábrela de nuevo). Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [
+    {
+     "t": 1791747703504,
+     "text": "no se muestra informacion en tiempo real.. debe enviarse todo lo que esta pasando en claude",
+     "kind": "comentario"
+    }
+   ],
+   "progress": 100,
+   "step": "Devuelta a Claude · ia",
+   "live": "**Hecho:**\n- localizado dónde se pinta «En vivo» (`panel.js`) y dónde se dice a las IAs cada cuánto informar (`mcp.mjs`, «cada 2–3 minutos»; y la instrucción para lanzar una IA por proyecto).\n\n**Ahora:**\n- la cabecera de estado (paso, barra de %, lleva, última señal, pasos, archivos);\n- la lista «Pasos» a partir del registro de la tarjeta.\n\n**Después:**\n- pedir a las IAs que informen cada 30–60 s y en cada paso, con detalle completo;\n- probarlo con una IA de prueba que informa cada pocos segundos.",
+   "liveAt": 1791747220058,
+   "startedAt": 1791747177385,
+   "log": [
+    {
+     "t": 1791747177385,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791747199549,
+     "kind": "step",
+     "text": "Viendo cómo se pinta «En vivo» y qué datos hay de cada paso"
+    },
+    {
+     "t": 1791747220058,
+     "kind": "step",
+     "text": "Escribiendo el nuevo «En vivo»: estado, última señal e historia de pasos"
+    },
+    {
+     "t": 1791747283491,
+     "kind": "step",
+     "text": "Probando en Chrome con una IA simulada que informa cada pocos segundos"
+    },
+    {
+     "t": 1791747389424,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791747703505,
+     "kind": "you",
+     "text": "no se muestra informacion en tiempo real.. debe enviarse todo lo que esta pasando en claude"
+    }
+   ],
+   "result": "**Resumen:** «En vivo» da ahora mucha más información y se mueve más:\n- **Arriba:** el paso actual, una barra de progreso, el tiempo que lleva, **hace cuánto dio la IA su última señal** (en ámbar si se calla más de 3 minutos), los pasos y los archivos.\n- **Debajo:** la **historia de pasos** de esta vuelta, que se actualiza sola.\n- **Las IAs** se instruyen ahora para informar **cada 30–60 segundos y en cada paso** (antes, cada 2–3 minutos), con el detalle completo.\n\n![El nuevo «En vivo»](/files/ia/capturas/en-vivo.jpg)\n\n## Qué cambió\n**En el panel (pestaña En vivo):**\n- **Estado:** el paso en grande, la barra de progreso (violeta → cian), `85 % · lleva 8 s · última señal hace 1 s · 7 pasos · ✎ 1 archivo`. Todo cuenta solo cada segundo.\n- **Aviso de silencio:** si la IA lleva más de 3 minutos sin dar noticias, pasa a **«sin noticias hace 4 min»** en ámbar.\n- **El detalle de la IA**, como antes.\n- **Pasos:** los últimos 25 de esta vuelta, del más reciente al más antiguo, con hace cuánto (pasos, archivos escritos, notas…). Salen del registro que Órbita ya guardaba, así que **hay información aunque la IA no escriba detalle**.\n\n**A las IAs (`mcp.mjs`):**\n- Informar en cada paso y al menos cada 30–60 segundos, con un «step» corto y concreto («Leyendo server.mjs», «Probando el login») y un porcentaje real.\n- El «detalle» completo: **Hecho / Ahora / Después**, archivos tocados y hallazgos.\n- Se lo dicen las instrucciones del servidor, la descripción de `report_progress` y la instrucción para lanzar una IA por proyecto, que pasa de «cada 2-3 minutos» a «en cada paso y al menos cada 30 segundos, con detalle».\n\n## Pruebas\nCon una IA simulada que informa cada pocos segundos y el panel abierto en Chrome:\n```\nal abrir:           paso «Leyendo la página actual» · 5 % · 2 pasos\ntras 4 pasos más:   paso «Probando el envío en Chrome» · 85 % · 7 pasos · ✎ 1 archivo   (sin recargar)\nsi se calla 4 min:  «sin noticias hace …», en ámbar\nerrores de JavaScript: ninguno\n```\n`npm test` 5/5 y la prueba de humo de la interfaz 15/15, sin errores. `Órbita.app` está recompilada. Queda sin commit.\n\n**Para verlo:** reinicia Órbita (⌘K → Cerrar Órbita y ábrela de nuevo). Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791747008179,
+   "updatedAt": 1791747703505,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "e2a5ef97",
+   "title": "mejora la web",
+   "description": "mejora la web con mas detalles, y sube todo",
    "kind": "task",
    "column": "doing",
    "status": "running",
@@ -1509,28 +1910,38 @@
    "programa": null,
    "worker": "Claude · ia",
    "inbox": [],
-   "progress": 10,
-   "step": "Revisando cambios pendientes y el remoto",
-   "live": "",
-   "liveAt": null,
-   "startedAt": 1791745443404,
+   "progress": 80,
+   "step": "Revisando lo pendiente y subiendo todo a GitHub",
+   "live": "**Plan:**\n1. **Capturas nuevas:** el nuevo «En vivo», planificar un objetivo, preguntas rápidas y el ciclo de una tarjeta.\n2. **Secciones nuevas en la web:**\n   - el ciclo de vida de una tarjeta (Ideas → En curso → Para revisar → Hecho, con «te pregunta» y «responder»);\n   - ejemplos de uso;\n   - lo que puede hacer la IA (sus herramientas MCP);\n   - por dentro (arquitectura y seguridad);\n   - atajos de teclado y requisitos.\n3. **Subirlo todo:** un commit del código pendiente (módulos, refactor, En vivo…) y otro de la web, revisando antes que no haya nada sensible.",
+   "liveAt": 1791747514475,
+   "startedAt": 1791747488537,
    "log": [
     {
-     "t": 1791745443404,
+     "t": 1791747488537,
      "kind": "start",
      "text": "Claude · ia la tomó"
     },
     {
-     "t": 1791745453225,
+     "t": 1791747514475,
      "kind": "step",
-     "text": "Revisando cambios pendientes y el remoto"
+     "text": "Sacando capturas nuevas con la interfaz actual"
+    },
+    {
+     "t": 1791747737527,
+     "kind": "step",
+     "text": "Reescribiendo la web con las secciones nuevas"
+    },
+    {
+     "t": 1791747862602,
+     "kind": "step",
+     "text": "Revisando lo pendiente y subiendo todo a GitHub"
     }
    ],
    "result": "",
    "question": "",
    "files": [],
-   "createdAt": 1791745443403,
-   "updatedAt": 1791745453225,
+   "createdAt": 1791747488536,
+   "updatedAt": 1791747862602,
    "revocada": null,
    "pausada": false
   }

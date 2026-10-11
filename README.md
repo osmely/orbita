@@ -55,6 +55,9 @@ npm start
 
 Abre http://localhost:4321. `npm start` usa esta misma carpeta como carpeta de datos (`orbita.json`). Si encuentra un `data/board.json` del formato anterior, todo en un JSON, lo migra solo: cada proyecto pasa a `entregables/<proyecto>/` como carpeta de trabajo, y el JSON antiguo queda como `data/board.v1.json`.
 
+- El servidor: `server.mjs` (HTTP, solo en 127.0.0.1), `estado.mjs` (el tablero y sus operaciones), `rutas.mjs` (la API como tabla `[método, ruta, manejador]`), `mcp.mjs` (las herramientas de la IA), `programadas.mjs`, `almacen.mjs` (dónde se guarda cada cosa), `secretos.mjs` y `entidades.mjs`.
+- La interfaz está en `public/`: `index.html`, `styles.css` y sus módulos en `public/js/` (`main.js` los arranca en orden; ninguno pasa de unas 500 líneas). En desarrollo se cargan como módulos nativos; en el ejecutable van empaquetados en un solo `js/main.js`.
+- `npm test`: las pruebas automáticas (`node --test`, en `test/`).
 - `npm run build`: crea el ejecutable para tu sistema en `dist/` (ver [DISTRIBUCION.md](DISTRIBUCION.md)).
 - `npm run vendor`: vuelve a copiar fuentes y librerías de la interfaz a `public/vendor/` (tras cambiar sus versiones).
 

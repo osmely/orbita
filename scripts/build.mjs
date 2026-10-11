@@ -40,12 +40,16 @@ await esbuild.build({
   logLevel: "warning",
 });
 
-// 3. La interfaz como recursos del ejecutable
+// 3. La interfaz como recursos del ejecutable. Sus módulos (public/js/) van empaquetados en un solo js/main.js.
+paso("Empaquetando la interfaz");
 const PUBLIC = path.join(RAIZ, "public");
-const recursos = {};
+const INTERFAZ = path.join(OBRA, "main.js");
+await esbuild.build({ entryPoints: [path.join(PUBLIC, "js", "main.js")], bundle: true, format: "esm", target: "es2022", minify: true, outfile: INTERFAZ, logLevel: "warning" });
+const recursos = { "public/js/main.js": INTERFAZ };
 for (const archivo of fs.readdirSync(PUBLIC, { recursive: true })) {
   const completo = path.join(PUBLIC, archivo);
-  if (fs.statSync(completo).isFile() && !archivo.endsWith(".DS_Store")) recursos[`public/${archivo.split(path.sep).join("/")}`] = completo;
+  const rel = archivo.split(path.sep).join("/");
+  if (fs.statSync(completo).isFile() && !archivo.endsWith(".DS_Store") && !rel.startsWith("js/")) recursos[`public/${rel}`] = completo;
 }
 paso(`${Object.keys(recursos).length} archivos de interfaz dentro del ejecutable`);
 

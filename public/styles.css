@@ -320,6 +320,23 @@ dialog input:focus, dialog textarea:focus { border-color: #a78bfa88; }
 .live-at { margin-left: auto; color: var(--faint); text-transform: none; letter-spacing: 0; font-weight: 400; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: blink 1.4s ease-in-out infinite; }
 .live-box.flash { animation: destello 1.2s ease-out; }
+/* «En vivo»: estado de la IA y la historia de pasos */
+.vivo-estado { margin: 4px 0 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: rgb(var(--ink) / .03); }
+.vivo-estado[hidden] { display: none; }
+.vivo-paso { font-weight: 600; font-size: 15px; margin-bottom: 10px; }
+.vivo-barra { height: 6px; border-radius: 99px; background: rgb(var(--ink) / .08); overflow: hidden; }
+.vivo-barra i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--violet), var(--cyan)); transition: width .6s ease; }
+.vivo-datos { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.vivo-datos b { color: var(--text); font-weight: 600; }
+.vivo-senal.callada, .vivo-senal.callada b { color: #f59e0b; }
+.vivo-pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.vivo-pasos li { display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: baseline; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.vivo-pasos li:last-child { border-bottom: 0; }
+.vivo-pasos .k { color: var(--faint); text-align: center; }
+.vivo-pasos .x { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.vivo-pasos li.actual .x { color: var(--text); font-weight: 600; }
+.vivo-pasos li.actual .k { color: var(--cyan); }
+.vivo-pasos time { color: var(--faint); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @keyframes destello { from { box-shadow: 0 0 0 3px #67e8f966; } to { box-shadow: 0 0 0 0 #67e8f900; } }
 
 /* ---------- Proyectos y archivo ---------- */
