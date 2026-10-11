@@ -9,6 +9,7 @@ import { baseDe, serializados } from "./almacen.mjs";
 import { elegirCarpeta } from "./carpetas.mjs";
 import { IMAGEN, guardarEntidad, quitarEntidad } from "./entidades.mjs";
 import { PORT, VERSION, VISTA, abrirNavegador } from "./entorno.mjs";
+import { configuracionHooks, registrarEvento, ultimoEvento } from "./claude.mjs";
 import { nombresSecretos, ponerSecreto, quitarSecreto, quitarSecretosDe } from "./secretos.mjs";
 import { MAX_CONOCIMIENTO, board, brainList, broadcast, broadcastProjects, broadcastQuestions, carpetaConocimiento, colocar, conocimiento, existeArchivo, faltantes, findCard, findProject, guardarAhora, hilo, iaDeProyecto, listFiles, log, moveCard, moverProyecto, newCard, newProject, nombreDeObjetivo, nombreSeguro, nuevaVersion, papeleraPublica, pausarProyecto, ponerCriterios, ponerDependencias, preguntasIA, proyectosPublicos, quitarFaltante, removeCard, requestAI, restaurarDePapelera, revocar, safePath, save, touch } from "./estado.mjs";
 import { ahora, fijarReloj, programar, revisarProgramadas } from "./programadas.mjs";
@@ -55,7 +56,18 @@ function borrarImagenDeEntidad(project, e) {
   if (e?.imagen?.startsWith(`${project.folder}/entidades/`) && existeArchivo(e.imagen)) fs.rmSync(safePath(e.imagen), { force: true });
 }
 
+// Adónde mandan sus eventos los hooks de Claude Code que la persona añada (ver claude.mjs)
+const URL_EVENTOS = `http://127.0.0.1:${PORT}/api/claude/evento`;
+
 export const RUTAS = [
+  // Lo que hace Claude Code, por sus hooks http. Se responde sin cuerpo: Claude Code no espera nada
+  ["POST", "/api/claude/evento", async ({ req, res }) => {
+    registrarEvento(await readJson(req, 20e6));
+    res.writeHead(204);
+    res.end();
+  }],
+  // El bloque de hooks para copiar, y si están llegando eventos
+  ["GET", "/api/claude/hooks", async ({ res }) => send(res, 200, { url: URL_EVENTOS, configuracion: configuracionHooks(URL_EVENTOS), ultimoEvento: ultimoEvento() })],
   ["POST", "/api/salir", async ({ res }) => {
         guardarAhora();
         send(res, 200, { ok: true });

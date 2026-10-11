@@ -337,6 +337,41 @@ dialog input:focus, dialog textarea:focus { border-color: #a78bfa88; }
 .vivo-pasos li.actual .x { color: var(--text); font-weight: 600; }
 .vivo-pasos li.actual .k { color: var(--cyan); }
 .vivo-pasos time { color: var(--faint); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* «Claude ahora»: lo que llega de los hooks de Claude Code */
+.claude-ahora[hidden] { display: none; }
+.claude-ahora > h4 { color: var(--violet) !important; }
+.claude-todos { list-style: none; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: rgb(var(--ink) / .03); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.claude-todos:empty { display: none; }
+.claude-todos li { display: flex; gap: 8px; color: var(--muted); }
+.claude-todos li span { width: 14px; text-align: center; color: var(--faint); }
+.claude-todos .todo-in_progress { color: var(--text); font-weight: 600; }
+.claude-todos .todo-in_progress span { color: var(--cyan); }
+.claude-todos .todo-completed { text-decoration: line-through; opacity: .7; }
+.claude-todos .todo-completed span { color: #22c55e; text-decoration: none; }
+.claude-feed { list-style: none; margin: 0; padding: 0; max-height: 460px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--line); }
+.claude-feed li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: baseline; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.claude-feed li:last-child { border-bottom: 0; }
+.claude-feed .k { text-align: center; color: var(--faint); font-family: var(--mono); }
+.claude-feed .x { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+.claude-feed .x code { font-size: 12.5px; color: var(--text); background: none; padding: 0; }
+.claude-feed .x i { font-style: normal; color: var(--faint); font-size: 12px; }
+.claude-feed .x > span { margin-left: 8px; font-size: 12px; white-space: nowrap; }
+.claude-feed .x .result, .claude-feed .cl-dice .x { color: var(--text); }
+.claude-feed .cl-dice .x p { margin: 0 0 6px; }
+.claude-feed .cl-dice .x p:last-child { margin: 0; }
+.claude-feed time { color: var(--faint); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.claude-feed li.corriendo { background: rgb(103 232 249 / .06); }
+.claude-feed li.corriendo .k { color: var(--cyan); }
+.cl-corriendo { color: var(--cyan); }
+.cl-ok { color: #22c55e; }
+.cl-mal { color: #f87171; white-space: normal !important; }
+.claude-feed .cl-permiso { background: rgb(245 158 11 / .1); }
+.claude-feed .cl-permiso .x, .claude-feed .cl-permiso .k { color: #f59e0b; font-weight: 600; }
+.claude-feed .cl-fin .x, .claude-feed .cl-instruccion .x { color: var(--faint); }
+.meta-claude { display: flex; gap: 6px; align-items: baseline; margin-top: 6px; font-size: 11.5px; color: var(--faint); min-width: 0; }
+.meta-claude code { font-size: 11.5px; background: none; padding: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta-claude.corriendo span, .meta-claude.corriendo code { color: var(--cyan); }
+.meta-claude.permiso { color: #f59e0b; font-weight: 600; }
 @keyframes destello { from { box-shadow: 0 0 0 3px #67e8f966; } to { box-shadow: 0 0 0 0 #67e8f900; } }
 
 /* ---------- Proyectos y archivo ---------- */

@@ -99,6 +99,14 @@ export function corto(texto, max = 26) {
 }
 
 // "lleva 3 min" / "hace 12 s"
+// Lo último que hace Claude en la tarjeta (de sus hooks), si es de hace menos de 2 minutos: «$ npm test …»
+function lineaClaude(c) {
+  const a = [...(c.claude?.actividad || [])].reverse().find((x) => x.tipo === "herramienta" || x.tipo === "permiso");
+  if (!a || Date.now() - a.t > 120_000) return "";
+  if (a.tipo === "permiso") return `<div class="meta-claude permiso">⚠ ${esc(corto(a.texto, 70))}</div>`;
+  return `<div class="meta-claude${a.estado === "corriendo" ? " corriendo" : ""}"><span>${esc(a.icono || "·")}</span><code>${esc(corto(a.texto, 60))}</code></div>`;
+}
+
 export function duracion(desde) {
   const s = Math.max(0, Math.round((Date.now() - desde) / 1000));
   if (s < 60) return `${s} s`;
@@ -183,6 +191,7 @@ export function cardHTML(c) {
       <div class="bar"><i style="width:${Math.max(c.status === "queued" ? 0 : 4, c.progress)}%"></i></div>
       <div class="step">${trabajando ? '<i class="spinner"></i>' : ""}<span>${esc(linea)}</span></div>
       ${trabajando ? `<div class="meta-live"><span>${c.progress} %</span>${c.startedAt ? `<span>lleva <b class="since" data-since="${c.startedAt}">${duracion(c.startedAt)}</b></span>` : ""}${c.live ? "<span>📝 avance en vivo</span>" : ""}</div>` : ""}
+      ${trabajando ? lineaClaude(c) : ""}
       ${pasos.length > 1 ? `<ol class="mini-pasos">${pasos.slice(0, -1).reverse().map((p) => `<li>${esc(p.text)}</li>`).join("")}</ol>` : ""}
     </div>`;
   }

@@ -93,6 +93,7 @@ export function openDrawer(id) {
         <h4><i class="live-dot"></i>En vivo <span class="live-at" id="dLiveAt"></span></h4>
         <div class="result" id="dLive"></div>
       </div>
+      <div class="d-section claude-ahora" id="dClaudeWrap"><h4><i class="live-dot"></i>Claude ahora <span class="live-at" id="dClaudeAt"></span></h4><ul class="claude-todos" id="dClaudeTodos"></ul><ol class="claude-feed" id="dClaudeFeed"></ol></div>
       <div class="d-section" id="dVivoPasosWrap"><h4>Pasos <span class="live-at" id="dVivoPasosN"></span></h4><ol class="vivo-pasos" id="dVivoPasos"></ol></div>
     </div>
     <div class="d-tab" role="tabpanel" data-panel="tarea">
@@ -321,6 +322,33 @@ export function updateDrawer(c) {
 // «En vivo», más allá de lo que escriba la IA: su paso y su progreso, hace cuánto dio señales de vida (si se calla
 // más de 3 minutos se avisa) y la historia de pasos de esta vuelta, que sale del registro de la tarjeta.
 const CALLADA = 3 * 60_000;
+// «Claude ahora»: lo que llega de los hooks de Claude Code (ver claude.mjs en el servidor). Cada herramienta con
+// su estado (corriendo, ✓ con lo que tardó, ✗ con el error), sus avisos de permiso, lo que dice y su lista de tareas.
+const ICONO_CLAUDE = { dice: "💬", permiso: "⚠", aviso: "🔔", instruccion: "▶", fin: "■" };
+function pintarClaude(c, trabajando) {
+  const cl = c.claude;
+  const reciente = cl?.ultimo && (trabajando || Date.now() - cl.ultimo < 10 * 60_000);
+  $("#dClaudeWrap").hidden = !reciente;
+  if (!reciente) return;
+  $("#dClaudeAt").innerHTML = `hace <span data-since="${cl.ultimo}">${duracion(cl.ultimo)}</span>`;
+  const todos = cl.todos || [];
+  $("#dClaudeTodos").innerHTML = todos
+    .map((x) => `<li class="todo-${esc(x.estado)}"><span>${x.estado === "completed" ? "✓" : x.estado === "in_progress" ? "◐" : "○"}</span>${esc(x.texto)}</li>`)
+    .join("");
+  const ms = (n) => (n == null ? "" : n < 1000 ? `${n} ms` : `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)} s`);
+  $("#dClaudeFeed").innerHTML = [...(cl.actividad || [])]
+    .slice(-40)
+    .reverse()
+    .map((a) => {
+      if (a.tipo === "herramienta") {
+        const fin = a.estado === "corriendo" ? `<span class="cl-corriendo">en marcha…</span>` : a.estado === "ok" ? `<span class="cl-ok">✓ ${ms(a.ms)}</span>` : `<span class="cl-mal">✗ ${esc(a.error || a.estado)}</span>`;
+        return `<li class="cl-h ${a.estado === "corriendo" ? "corriendo" : ""}"><span class="k">${esc(a.icono || "·")}</span><span class="x"><code>${esc(a.texto)}</code>${a.nota ? ` <i>${esc(a.nota)}</i>` : ""}${fin}</span><time>hace <span data-since="${a.t}">${duracion(a.t)}</span></time></li>`;
+      }
+      return `<li class="cl-${a.tipo}"><span class="k">${ICONO_CLAUDE[a.tipo] || "·"}</span><span class="x">${a.tipo === "dice" ? md(a.texto) : esc(a.texto)}</span><time>hace <span data-since="${a.t}">${duracion(a.t)}</span></time></li>`;
+    })
+    .join("");
+}
+
 function pintarEnVivo(c) {
   const desde = c.startedAt || 0;
   const pasos = (c.log || []).filter((l) => l.t >= desde && l.kind !== "you");
@@ -340,6 +368,7 @@ function pintarEnVivo(c) {
         ${archivos ? `<span>✎ ${archivos} archivo${archivos === 1 ? "" : "s"}</span>` : ""}
       </div>`;
   marcarCallada();
+  pintarClaude(c, trabajando);
   const lista = pasos.slice(-25).reverse();
   $("#dVivoPasosWrap").hidden = !lista.length;
   $("#dVivoPasosN").textContent = pasos.length > 25 ? `los 25 últimos de ${pasos.length}` : "";

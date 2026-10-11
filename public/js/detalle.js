@@ -1,7 +1,7 @@
 // Órbita · Versiones, conversación, dependencias, vista previa de archivos y conectar una IA.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, LIVE, api, esc, md, proyecto, state, toast } from "./nucleo.js";
-import { corto } from "./tablero.js";
+import { corto, duracion } from "./tablero.js";
 import { action, closeDrawer, openDrawer, showDrawer } from "./panel.js";
 
 // Versiones del resultado: ‹ Versión 2 de 3 › y «Ver cambios» respecto a la anterior
@@ -303,6 +303,7 @@ export function openConnect() {
       <div class="snippet"><pre>/mcp__orbita__trabajar</pre><button class="btn" data-copy="/mcp__orbita__trabajar">Copiar</button></div>
       <p class="sub" style="margin:10px 0 0;font-size:13px">En cualquier otra IA, pídele: <i>«Sé el cerebro de mi tablero Órbita: usa wait_for_work y trabaja las tarjetas una tras otra»</i>.</p>
     </div>
+    <div class="d-section" id="dClaudeHooks"><h4>Todo lo que hace Claude, en vivo</h4><p class="sub" style="margin:0;font-size:13px">Cargando…</p></div>
     <div class="d-section"><h4>Un proyecto nuevo, desde tu IA</h4>
       <p class="sub" style="margin:0 0 8px;font-size:13px">No hace falta tocar la app: pídeselo en su chat y el tablero cambia solo al proyecto. En Claude Code:</p>
       <div class="snippet"><pre>/mcp__orbita__nuevo_proyecto Mi proyecto</pre><button class="btn" data-copy="/mcp__orbita__nuevo_proyecto ">Copiar</button></div>
@@ -310,14 +311,30 @@ export function openConnect() {
     </div>
     <div class="d-section"><h4>Lo que puede hacer</h4><ul class="tool-list">${tools.map(([t, d]) => `<li><code>${t}</code><span>${d}</span></li>`).join("")}</ul></div>`;
   $("#dClose").onclick = closeDrawer;
-  for (const b of document.querySelectorAll("[data-copy]"))
-    b.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(b.dataset.copy);
-        toast("Copiado ✓");
-      } catch {
-        toast("No se pudo copiar; selecciónalo a mano", true);
-      }
-    };
+  const copiables = () => {
+    for (const b of document.querySelectorAll("#drawerBody [data-copy]"))
+      b.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(b.dataset.copy);
+          toast("Copiado ✓");
+        } catch {
+          toast("No se pudo copiar; selecciónalo a mano", true);
+        }
+      };
+  };
+  copiables();
   showDrawer();
+  // Los hooks de Claude Code que mandan a Órbita todo lo que hace (Órbita no toca su configuración: tú la añades)
+  api("/api/claude/hooks")
+    .then(({ configuracion, ultimoEvento }) => {
+      const caja = $("#dClaudeHooks");
+      if (!caja || state.view !== "connect") return;
+      const json = JSON.stringify(configuracion, null, 2);
+      caja.innerHTML = `<h4>Todo lo que hace Claude, en vivo</h4>
+        <p class="sub" style="margin:0 0 8px;font-size:13px">Para ver en la pestaña «En vivo» cada comando, cada archivo que lee o edita, sus búsquedas, lo que dice y cuándo espera tu permiso, añade estos hooks a los ajustes de Claude Code: <code>~/.claude/settings.json</code> (en todos tus proyectos) o <code>.claude/settings.json</code> de un proyecto. Si ya tienes una sección <code>"hooks"</code>, añade estas entradas dentro. Si Órbita no está abierta, Claude sigue igual.</p>
+        <div class="snippet"><pre>${esc(json)}</pre><button class="btn" data-copy="${esc(json)}">Copiar</button></div>
+        <p class="sub" style="margin:10px 0 0;font-size:13px">${ultimoEvento ? `✓ Llegan eventos de Claude: el último, hace <span data-since="${ultimoEvento}">${duracion(ultimoEvento)}</span>.` : "Aún no ha llegado ningún evento: se verán en la tarjeta que Claude esté trabajando."}</p>`;
+      copiables();
+    })
+    .catch(() => {});
 }

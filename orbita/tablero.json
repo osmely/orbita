@@ -1802,7 +1802,7 @@
    "description": "El en vivo debe actualizarse con mas frecuencia y dar mas info",
    "kind": "task",
    "column": "doing",
-   "status": "returned",
+   "status": "running",
    "origin": "tú",
    "parentId": null,
    "tag": null,
@@ -1823,6 +1823,38 @@
      "de": "persona",
      "tipo": "comentario",
      "texto": "no se muestra informacion en tiempo real.. debe enviarse todo lo que esta pasando en claude"
+    },
+    {
+     "t": 1791748169053,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "pregunta",
+     "texto": "Para ver en tiempo real **todo** lo que hace Claude (cada comando, archivo leído o editado, búsqueda, lo que va diciendo, cuándo espera tu permiso), la vía correcta son los **hooks de Claude Code**. Claude Code enviaría cada evento a Órbita (`http://127.0.0.1:4321/...`) y Órbita lo pintaría en «En vivo». Si Órbita no está abierta, no bloquea nada.\n\n**El sistema de permisos de Claude Code me ha bloqueado al hacerlo**, porque cambiar o preparar la configuración de hooks de Claude es modificar la herramienta que me ejecuta a mí. No he intentado esquivarlo. Quité lo que había escrito y el proyecto ha quedado como estaba.\n\n¿Cómo seguimos?\n- **A)** Me das permiso para seguir con esto. Por ejemplo, aprobando la acción cuando aparezca o con una regla de permisos en tu configuración de Claude Code. Entonces hago el receptor en Órbita y te doy el bloque de hooks **para que lo añadas tú** a `~/.claude/settings.json`; Órbita no lo tocaría.\n- **B)** Lo dejamos como está: «En vivo» con paso, barra, "
+    },
+    {
+     "t": 1791748267874,
+     "de": "persona",
+     "tipo": "respuesta",
+     "texto": "A"
+    },
+    {
+     "t": 1791748525670,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen (opción A):** Órbita ya recibe **todo lo que hace Claude Code** y lo muestra en vivo en la tarjeta, en la sección **«Claude ahora»**:"
+    },
+    {
+     "t": 1791748714615,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "si sube"
+    },
+    {
+     "t": 1791752983918,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "esto sigue funcionando mal y no se comunica del todo bien con claude.. a veces claude espera respuesta y orbita no se entera"
     }
    ],
    "attachments": [],
@@ -1832,23 +1864,23 @@
      "t": 1791747389422,
      "quien": "Claude · ia",
      "result": "**Resumen:** «En vivo» da ahora mucha más información y se mueve más:\n- **Arriba:** el paso actual, una barra de progreso, el tiempo que lleva, **hace cuánto dio la IA su última señal** (en ámbar si se calla más de 3 minutos), los pasos y los archivos.\n- **Debajo:** la **historia de pasos** de esta vuelta, que se actualiza sola.\n- **Las IAs** se instruyen ahora para informar **cada 30–60 segundos y en cada paso** (antes, cada 2–3 minutos), con el detalle completo.\n\n![El nuevo «En vivo»](/files/ia/capturas/en-vivo.jpg)\n\n## Qué cambió\n**En el panel (pestaña En vivo):**\n- **Estado:** el paso en grande, la barra de progreso (violeta → cian), `85 % · lleva 8 s · última señal hace 1 s · 7 pasos · ✎ 1 archivo`. Todo cuenta solo cada segundo.\n- **Aviso de silencio:** si la IA lleva más de 3 minutos sin dar noticias, pasa a **«sin noticias hace 4 min»** en ámbar.\n- **El detalle de la IA**, como antes.\n- **Pasos:** los últimos 25 de esta vuelta, del más reciente al más antiguo, con hace cuánto (pasos, archivos escritos, notas…). Salen del registro que Órbita ya guardaba, así que **hay información aunque la IA no escriba detalle**.\n\n**A las IAs (`mcp.mjs`):**\n- Informar en cada paso y al menos cada 30–60 segundos, con un «step» corto y concreto («Leyendo server.mjs», «Probando el login») y un porcentaje real.\n- El «detalle» completo: **Hecho / Ahora / Después**, archivos tocados y hallazgos.\n- Se lo dicen las instrucciones del servidor, la descripción de `report_progress` y la instrucción para lanzar una IA por proyecto, que pasa de «cada 2-3 minutos» a «en cada paso y al menos cada 30 segundos, con detalle».\n\n## Pruebas\nCon una IA simulada que informa cada pocos segundos y el panel abierto en Chrome:\n```\nal abrir:           paso «Leyendo la página actual» · 5 % · 2 pasos\ntras 4 pasos más:   paso «Probando el envío en Chrome» · 85 % · 7 pasos · ✎ 1 archivo   (sin recargar)\nsi se calla 4 min:  «sin noticias hace …», en ámbar\nerrores de JavaScript: ninguno\n```\n`npm test` 5/5 y la prueba de humo de la interfaz 15/15, sin errores. `Órbita.app` está recompilada. Queda sin commit.\n\n**Para verlo:** reinicia Órbita (⌘K → Cerrar Órbita y ábrela de nuevo). Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse."
+    },
+    {
+     "n": 2,
+     "t": 1791748525666,
+     "quien": "Claude · ia",
+     "result": "**Resumen (opción A):** Órbita ya recibe **todo lo que hace Claude Code** y lo muestra en vivo en la tarjeta, en la sección **«Claude ahora»**:\n- cada comando, archivo leído o editado y búsqueda, mientras corre y cuando acaba (✓ con lo que tardó o ✗ con el error);\n- cuándo **espera tu permiso**;\n- su **lista de tareas** y lo que dice al terminar.\n\nPara activarlo solo falta que **tú añadas los hooks** a tus ajustes de Claude Code. Órbita no toca esa configuración.\n\n![«Claude ahora» en la pestaña En vivo](/files/ia/capturas/claude-ahora.jpg)\n\n## Cómo activarlo (una vez)\n1. En Órbita: **Conectar IA → «Todo lo que hace Claude, en vivo»** → **Copiar**. Ahí está el bloque de hooks con tu puerto.\n2. Pégalo en `~/.claude/settings.json` (para todos tus proyectos) o en `.claude/settings.json` de un proyecto. Si ya tienes una sección `\"hooks\"`, añade las entradas dentro.\n\nEl bloque tiene esta forma, para 7 eventos:\n```json\n{ \"hooks\": { \"PreToolUse\": [{ \"matcher\": \"*\", \"hooks\": [{ \"type\": \"http\", \"url\": \"http://127.0.0.1:4321/api/claude/evento\", \"timeout\": 3 }] }], … } }\n```\nLos eventos son `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop` y `SubagentStop`.\n\n- Son hooks **http**: no hay scripts y funcionan en macOS, Windows y Linux.\n- Si Órbita no está abierta, Claude Code **sigue sin bloquearse**. Según su documentación, un hook http que no responde es un error no bloqueante.\n- El panel te dice si ya están llegando eventos.\n\n## Qué se ve\n- **En el panel (En vivo → «Claude ahora»):**\n  - su **lista de tareas** (○ pendiente · ◐ en curso · ✓ hecha);\n  - cada herramienta, con un resumen legible:\n    - `$ npm test` con su descripción;\n    - 👁 `src/pages/contacto.astro` (rutas relativas a la carpeta);\n    - ✎ edita…;\n    - 🔎 «onSubmit» en src;\n    - 🌐 búsquedas y webs;\n    - 🤖 subagentes;\n  - el estado de cada herramienta: **en marcha…**, ✓ con su duración o ✗ con el error («Exit code 1»);\n  - ⚠ **«Claude espera tu permiso»** resaltado en ámbar;\n  - 💬 **lo que dijo** al terminar su turno, ▶ la instrucción que recibió y ■ el fin del turno.\n- **En la tarjeta del tablero:** una línea con lo que está corriendo ahora (`$ npm run build`) o el aviso de permiso.\n- **Sin ruido:** lo que la IA hace con Órbita (`report_progress`…) no se repite, porque ya se ve.\n\n## Cómo funciona\n`claude.mjs` recibe en `POST /api/claude/evento` el JSON de cada hook y lo asigna a la tarjeta en curso del proyecto cuya carpeta es la de esa sesión (`cwd`). Junta el inicio y el fin de cada herramienta por `tool_use_id` y guarda las últimas 150 entradas en la tarjeta. La conexión en vivo actualiza el panel al momento.\n\n## Pruebas (eventos con la forma exacta de los hooks de Claude Code, 13/13 ✅)\n- Un evento sin tarjeta en curso se ignora (204).\n- Los 8 eventos llegan a la tarjeta, y el inicio y el fin de cada herramienta se juntan, con su duración.\n- El fallo se ve con su error, el aviso de permiso queda apuntado, la lista de tareas se recoge y las rutas salen relativas a la carpeta.\n- Las llamadas a Órbita no se repiten.\n- En Chrome: el panel y la tarjeta lo muestran, y **se actualiza sin recargar** (`✓ 5.4 s` y lo que dijo).\n- Sin errores de JavaScript.\n- `npm test` 5/5 y la prueba de humo de la interfaz 15/15. `Órbita.app` está recompilada.\n\n**Nota sobre lo que pasó antes:** el sistema de permisos de Claude Code bloqueó mi primera versión, porque escribía ella misma esos ajustes en `~/.claude/settings.json`. Por eso ahora los añades tú y Órbita solo los recibe.\n\nQueda sin commit; dime si lo subo."
     }
    ],
    "criterios": [],
    "programa": null,
    "worker": "Claude · ia",
-   "inbox": [
-    {
-     "t": 1791747703504,
-     "text": "no se muestra informacion en tiempo real.. debe enviarse todo lo que esta pasando en claude",
-     "kind": "comentario"
-    }
-   ],
-   "progress": 100,
-   "step": "Devuelta a Claude · ia",
-   "live": "**Hecho:**\n- localizado dónde se pinta «En vivo» (`panel.js`) y dónde se dice a las IAs cada cuánto informar (`mcp.mjs`, «cada 2–3 minutos»; y la instrucción para lanzar una IA por proyecto).\n\n**Ahora:**\n- la cabecera de estado (paso, barra de %, lleva, última señal, pasos, archivos);\n- la lista «Pasos» a partir del registro de la tarjeta.\n\n**Después:**\n- pedir a las IAs que informen cada 30–60 s y en cada paso, con detalle completo;\n- probarlo con una IA de prueba que informa cada pocos segundos.",
-   "liveAt": 1791747220058,
-   "startedAt": 1791747177385,
+   "inbox": [],
+   "progress": 5,
+   "step": "Comprobando si llegan eventos de Claude a Órbita",
+   "live": "**Confirmado en la documentación de Claude Code:**\n- hooks `type: \"http\"`, que hacen un POST con el JSON de cada evento;\n- si Órbita no responde, **no bloquean** («non-blocking error, execution continues»);\n- eventos: `PreToolUse` y `PostToolUse` (con `tool_use_id` y `duration_ms`), `PostToolUseFailure` (`error`), `Notification` (`message`, `notification_type: permission_prompt`), `UserPromptSubmit` (`prompt`), `Stop` (`last_assistant_message`) y `transcript_path`.\n\n**Ahora:** el receptor `POST /api/claude/evento`, que asigna cada evento a la tarjeta en curso del proyecto de esa carpeta (`cwd`).\n\n**Después:**\n- la sección «Claude ahora» en En vivo;\n- el botón para conectar la actividad (escribe los hooks en `~/.claude/settings.json`, con copia de seguridad);\n- probarlo con eventos reales.",
+   "liveAt": 1791748078903,
+   "startedAt": 1791753089490,
    "log": [
     {
      "t": 1791747177385,
@@ -1879,13 +1911,78 @@
      "t": 1791747703505,
      "kind": "you",
      "text": "no se muestra informacion en tiempo real.. debe enviarse todo lo que esta pasando en claude"
+    },
+    {
+     "t": 1791747918866,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791747959586,
+     "kind": "step",
+     "text": "Estudiando los hooks de Claude Code para enviar a Órbita todo lo que hace"
+    },
+    {
+     "t": 1791748078903,
+     "kind": "step",
+     "text": "Escribiendo el receptor de eventos de Claude (claude.mjs)"
+    },
+    {
+     "t": 1791748169053,
+     "kind": "ask",
+     "text": "Para ver en tiempo real **todo** lo que hace Claude (cada comando, archivo leído o editado, búsqueda, lo que va diciendo, cuándo espera tu permiso), la vía correcta son los **hooks de Claude Code**. Claude Code enviaría cada evento a Órbita (`http://127.0.0.1:4321/...`) y Órbita lo pintaría en «En vivo». Si Órbita no está abierta, no bloquea nada.\n\n**El sistema de permisos de Claude Code me ha bloqueado al hacerlo**, porque cambiar o preparar la configuración de hooks de Claude es modificar la herramienta que me ejecuta a mí. No he intentado esquivarlo. Quité lo que había escrito y el proyecto ha quedado como estaba.\n\n¿Cómo seguimos?\n- **A)** Me das permiso para seguir con esto. Por ejemplo, aprobando la acción cuando aparezca o con una regla de permisos en tu configuración de Claude Code. Entonces hago el receptor en Órbita y te doy el bloque de hooks **para que lo añadas tú** a `~/.claude/settings.json`; Órbita no lo tocaría.\n- **B)** Lo dejamos como está: «En vivo» con paso, barra, "
+    },
+    {
+     "t": 1791748267874,
+     "kind": "you",
+     "text": "A"
+    },
+    {
+     "t": 1791748331113,
+     "kind": "step",
+     "text": "Opción A: receptor de eventos de Claude en Órbita (sin tocar su configuración)"
+    },
+    {
+     "t": 1791748467806,
+     "kind": "step",
+     "text": "Probando con eventos como los de Claude Code (Bash, Read, Edit, permiso, fallo, fin)"
+    },
+    {
+     "t": 1791748525670,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791748547056,
+     "kind": "done",
+     "text": "Aprobada"
+    },
+    {
+     "t": 1791748714615,
+     "kind": "you",
+     "text": "si sube"
+    },
+    {
+     "t": 1791752983919,
+     "kind": "you",
+     "text": "esto sigue funcionando mal y no se comunica del todo bien con claude.. a veces claude espera respuesta y orbita no se entera"
+    },
+    {
+     "t": 1791753089490,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791753123136,
+     "kind": "step",
+     "text": "Comprobando si llegan eventos de Claude a Órbita"
     }
    ],
-   "result": "**Resumen:** «En vivo» da ahora mucha más información y se mueve más:\n- **Arriba:** el paso actual, una barra de progreso, el tiempo que lleva, **hace cuánto dio la IA su última señal** (en ámbar si se calla más de 3 minutos), los pasos y los archivos.\n- **Debajo:** la **historia de pasos** de esta vuelta, que se actualiza sola.\n- **Las IAs** se instruyen ahora para informar **cada 30–60 segundos y en cada paso** (antes, cada 2–3 minutos), con el detalle completo.\n\n![El nuevo «En vivo»](/files/ia/capturas/en-vivo.jpg)\n\n## Qué cambió\n**En el panel (pestaña En vivo):**\n- **Estado:** el paso en grande, la barra de progreso (violeta → cian), `85 % · lleva 8 s · última señal hace 1 s · 7 pasos · ✎ 1 archivo`. Todo cuenta solo cada segundo.\n- **Aviso de silencio:** si la IA lleva más de 3 minutos sin dar noticias, pasa a **«sin noticias hace 4 min»** en ámbar.\n- **El detalle de la IA**, como antes.\n- **Pasos:** los últimos 25 de esta vuelta, del más reciente al más antiguo, con hace cuánto (pasos, archivos escritos, notas…). Salen del registro que Órbita ya guardaba, así que **hay información aunque la IA no escriba detalle**.\n\n**A las IAs (`mcp.mjs`):**\n- Informar en cada paso y al menos cada 30–60 segundos, con un «step» corto y concreto («Leyendo server.mjs», «Probando el login») y un porcentaje real.\n- El «detalle» completo: **Hecho / Ahora / Después**, archivos tocados y hallazgos.\n- Se lo dicen las instrucciones del servidor, la descripción de `report_progress` y la instrucción para lanzar una IA por proyecto, que pasa de «cada 2-3 minutos» a «en cada paso y al menos cada 30 segundos, con detalle».\n\n## Pruebas\nCon una IA simulada que informa cada pocos segundos y el panel abierto en Chrome:\n```\nal abrir:           paso «Leyendo la página actual» · 5 % · 2 pasos\ntras 4 pasos más:   paso «Probando el envío en Chrome» · 85 % · 7 pasos · ✎ 1 archivo   (sin recargar)\nsi se calla 4 min:  «sin noticias hace …», en ámbar\nerrores de JavaScript: ninguno\n```\n`npm test` 5/5 y la prueba de humo de la interfaz 15/15, sin errores. `Órbita.app` está recompilada. Queda sin commit.\n\n**Para verlo:** reinicia Órbita (⌘K → Cerrar Órbita y ábrela de nuevo). Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse.",
+   "result": "**Resumen (opción A):** Órbita ya recibe **todo lo que hace Claude Code** y lo muestra en vivo en la tarjeta, en la sección **«Claude ahora»**:\n- cada comando, archivo leído o editado y búsqueda, mientras corre y cuando acaba (✓ con lo que tardó o ✗ con el error);\n- cuándo **espera tu permiso**;\n- su **lista de tareas** y lo que dice al terminar.\n\nPara activarlo solo falta que **tú añadas los hooks** a tus ajustes de Claude Code. Órbita no toca esa configuración.\n\n![«Claude ahora» en la pestaña En vivo](/files/ia/capturas/claude-ahora.jpg)\n\n## Cómo activarlo (una vez)\n1. En Órbita: **Conectar IA → «Todo lo que hace Claude, en vivo»** → **Copiar**. Ahí está el bloque de hooks con tu puerto.\n2. Pégalo en `~/.claude/settings.json` (para todos tus proyectos) o en `.claude/settings.json` de un proyecto. Si ya tienes una sección `\"hooks\"`, añade las entradas dentro.\n\nEl bloque tiene esta forma, para 7 eventos:\n```json\n{ \"hooks\": { \"PreToolUse\": [{ \"matcher\": \"*\", \"hooks\": [{ \"type\": \"http\", \"url\": \"http://127.0.0.1:4321/api/claude/evento\", \"timeout\": 3 }] }], … } }\n```\nLos eventos son `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop` y `SubagentStop`.\n\n- Son hooks **http**: no hay scripts y funcionan en macOS, Windows y Linux.\n- Si Órbita no está abierta, Claude Code **sigue sin bloquearse**. Según su documentación, un hook http que no responde es un error no bloqueante.\n- El panel te dice si ya están llegando eventos.\n\n## Qué se ve\n- **En el panel (En vivo → «Claude ahora»):**\n  - su **lista de tareas** (○ pendiente · ◐ en curso · ✓ hecha);\n  - cada herramienta, con un resumen legible:\n    - `$ npm test` con su descripción;\n    - 👁 `src/pages/contacto.astro` (rutas relativas a la carpeta);\n    - ✎ edita…;\n    - 🔎 «onSubmit» en src;\n    - 🌐 búsquedas y webs;\n    - 🤖 subagentes;\n  - el estado de cada herramienta: **en marcha…**, ✓ con su duración o ✗ con el error («Exit code 1»);\n  - ⚠ **«Claude espera tu permiso»** resaltado en ámbar;\n  - 💬 **lo que dijo** al terminar su turno, ▶ la instrucción que recibió y ■ el fin del turno.\n- **En la tarjeta del tablero:** una línea con lo que está corriendo ahora (`$ npm run build`) o el aviso de permiso.\n- **Sin ruido:** lo que la IA hace con Órbita (`report_progress`…) no se repite, porque ya se ve.\n\n## Cómo funciona\n`claude.mjs` recibe en `POST /api/claude/evento` el JSON de cada hook y lo asigna a la tarjeta en curso del proyecto cuya carpeta es la de esa sesión (`cwd`). Junta el inicio y el fin de cada herramienta por `tool_use_id` y guarda las últimas 150 entradas en la tarjeta. La conexión en vivo actualiza el panel al momento.\n\n## Pruebas (eventos con la forma exacta de los hooks de Claude Code, 13/13 ✅)\n- Un evento sin tarjeta en curso se ignora (204).\n- Los 8 eventos llegan a la tarjeta, y el inicio y el fin de cada herramienta se juntan, con su duración.\n- El fallo se ve con su error, el aviso de permiso queda apuntado, la lista de tareas se recoge y las rutas salen relativas a la carpeta.\n- Las llamadas a Órbita no se repiten.\n- En Chrome: el panel y la tarjeta lo muestran, y **se actualiza sin recargar** (`✓ 5.4 s` y lo que dijo).\n- Sin errores de JavaScript.\n- `npm test` 5/5 y la prueba de humo de la interfaz 15/15. `Órbita.app` está recompilada.\n\n**Nota sobre lo que pasó antes:** el sistema de permisos de Claude Code bloqueó mi primera versión, porque escribía ella misma esos ajustes en `~/.claude/settings.json`. Por eso ahora los añades tú y Órbita solo los recibe.\n\nQueda sin commit; dime si lo subo.",
    "question": "",
    "files": [],
    "createdAt": 1791747008179,
-   "updatedAt": 1791747703505,
+   "updatedAt": 1791753123136,
    "revocada": null,
    "pausada": false
   },
@@ -1894,8 +1991,8 @@
    "title": "mejora la web",
    "description": "mejora la web con mas detalles, y sube todo",
    "kind": "task",
-   "column": "doing",
-   "status": "running",
+   "column": "review",
+   "status": "ready",
    "origin": "tú",
    "parentId": null,
    "tag": null,
@@ -1903,15 +2000,30 @@
    "archivedAt": null,
    "dependsOn": [],
    "order": 2000,
-   "thread": [],
+   "thread": [
+    {
+     "t": 1791747918813,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** La web tiene ahora muchos más detalles y está publicada en **https://osmely.github.io/orbita/**. Además está **todo subido**: el código pendiente y la web van en dos commits en `main`, y ya no queda nada sin commit."
+    }
+   ],
    "attachments": [],
-   "versions": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791747918811,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** La web tiene ahora muchos más detalles y está publicada en **https://osmely.github.io/orbita/**. Además está **todo subido**: el código pendiente y la web van en dos commits en `main`, y ya no queda nada sin commit.\n\n## Qué añadí a la web\n- **La vida de una tarjeta:** Ideas → En curso (en cola, trabajando, te pregunta) → Para revisar (apruebas o respondes) → Hecho (versiones, desbloquea dependencias, se archiva).\n- **Capturas nuevas**, de un tablero de demostración:\n  - el nuevo **En vivo**, con barra de progreso, última señal e historia de pasos;\n  - una tarjeta en la que la **IA te pregunta**;\n  - las **preguntas rápidas**.\n- **8 funciones más:** dependencias, pausa y prioridad, adjuntos y conocimiento, plantillas, memoria e instrucciones, papelera, avisos, y claro y oscuro.\n- **Para qué sirve:** desarrollar software, investigar e informar, juegos e historias (con entidades) y rutinas programadas.\n- **Lo que puede hacer la IA:** sus 24 herramientas MCP, agrupadas en Trabajar, Organizar, Recordar y Archivos.\n- **Por dentro:** servidor local en 127.0.0.1, MCP por HTTP, `wait_for_work` en espera, todo en archivos, seguridad, ejecutable único y código abierto.\n- **Empezar, ampliado:** configuración para Cursor, Windsurf, VS Code y Claude Desktop, **atajos de teclado** y **requisitos**.\n- **4 preguntas frecuentes más:** cerrar la ventana, si la IA se equivoca, quitarle una tarjeta…\n\nRevisada en Chrome a 1280, 800 y 390 px, en oscuro y en claro: sin scroll horizontal ni errores.\n\n## Lo que se subió\n| Commit | Contenido |\n|---|---|\n| `4143d87` | Interfaz en 9 módulos ES, servidor por partes (`estado.mjs`, `rutas.mjs`, `programadas.mjs`), el nuevo «En vivo», el tablero del proyecto y sus capturas |\n| `397fa58` | La web mejorada |\n\n- **Antes de subir:** `npm test` 5/5. No entra ningún archivo sensible (`secretos.json`, `orbita.json` y `config.json` están ignorados) ni patrones de claves.\n- **GitHub Actions:** el workflow «Web» terminó con éxito y la web publicada ya muestra las secciones nuevas; todas sus imágenes responden 200.\n- **`git status`:** limpio.\n\nSigue sin haber releases. Cuando publiques la primera (`git tag v1.1.0 && git push --tags`), la web puede pasar a ofrecer «Descargar» como botón principal."
+    }
+   ],
    "criterios": [],
    "programa": null,
    "worker": "Claude · ia",
    "inbox": [],
-   "progress": 80,
-   "step": "Revisando lo pendiente y subiendo todo a GitHub",
+   "progress": 100,
+   "step": "Listo para revisar",
    "live": "**Plan:**\n1. **Capturas nuevas:** el nuevo «En vivo», planificar un objetivo, preguntas rápidas y el ciclo de una tarjeta.\n2. **Secciones nuevas en la web:**\n   - el ciclo de vida de una tarjeta (Ideas → En curso → Para revisar → Hecho, con «te pregunta» y «responder»);\n   - ejemplos de uso;\n   - lo que puede hacer la IA (sus herramientas MCP);\n   - por dentro (arquitectura y seguridad);\n   - atajos de teclado y requisitos.\n3. **Subirlo todo:** un commit del código pendiente (módulos, refactor, En vivo…) y otro de la web, revisando antes que no haya nada sensible.",
    "liveAt": 1791747514475,
    "startedAt": 1791747488537,
@@ -1935,15 +2047,53 @@
      "t": 1791747862602,
      "kind": "step",
      "text": "Revisando lo pendiente y subiendo todo a GitHub"
+    },
+    {
+     "t": 1791747918813,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
     }
    ],
-   "result": "",
+   "result": "**Resumen:** La web tiene ahora muchos más detalles y está publicada en **https://osmely.github.io/orbita/**. Además está **todo subido**: el código pendiente y la web van en dos commits en `main`, y ya no queda nada sin commit.\n\n## Qué añadí a la web\n- **La vida de una tarjeta:** Ideas → En curso (en cola, trabajando, te pregunta) → Para revisar (apruebas o respondes) → Hecho (versiones, desbloquea dependencias, se archiva).\n- **Capturas nuevas**, de un tablero de demostración:\n  - el nuevo **En vivo**, con barra de progreso, última señal e historia de pasos;\n  - una tarjeta en la que la **IA te pregunta**;\n  - las **preguntas rápidas**.\n- **8 funciones más:** dependencias, pausa y prioridad, adjuntos y conocimiento, plantillas, memoria e instrucciones, papelera, avisos, y claro y oscuro.\n- **Para qué sirve:** desarrollar software, investigar e informar, juegos e historias (con entidades) y rutinas programadas.\n- **Lo que puede hacer la IA:** sus 24 herramientas MCP, agrupadas en Trabajar, Organizar, Recordar y Archivos.\n- **Por dentro:** servidor local en 127.0.0.1, MCP por HTTP, `wait_for_work` en espera, todo en archivos, seguridad, ejecutable único y código abierto.\n- **Empezar, ampliado:** configuración para Cursor, Windsurf, VS Code y Claude Desktop, **atajos de teclado** y **requisitos**.\n- **4 preguntas frecuentes más:** cerrar la ventana, si la IA se equivoca, quitarle una tarjeta…\n\nRevisada en Chrome a 1280, 800 y 390 px, en oscuro y en claro: sin scroll horizontal ni errores.\n\n## Lo que se subió\n| Commit | Contenido |\n|---|---|\n| `4143d87` | Interfaz en 9 módulos ES, servidor por partes (`estado.mjs`, `rutas.mjs`, `programadas.mjs`), el nuevo «En vivo», el tablero del proyecto y sus capturas |\n| `397fa58` | La web mejorada |\n\n- **Antes de subir:** `npm test` 5/5. No entra ningún archivo sensible (`secretos.json`, `orbita.json` y `config.json` están ignorados) ni patrones de claves.\n- **GitHub Actions:** el workflow «Web» terminó con éxito y la web publicada ya muestra las secciones nuevas; todas sus imágenes responden 200.\n- **`git status`:** limpio.\n\nSigue sin haber releases. Cuando publiques la primera (`git tag v1.1.0 && git push --tags`), la web puede pasar a ofrecer «Descargar» como botón principal.",
    "question": "",
    "files": [],
    "createdAt": 1791747488536,
-   "updatedAt": 1791747862602,
+   "updatedAt": 1791747918813,
    "revocada": null,
    "pausada": false
+  },
+  {
+   "id": "39da9e53",
+   "title": "analiza el proyecto",
+   "description": "",
+   "kind": "task",
+   "column": "doing",
+   "status": "queued",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 4000,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [],
+   "programa": null,
+   "worker": null,
+   "inbox": [],
+   "progress": 0,
+   "step": "Esperando a una IA…",
+   "live": "",
+   "liveAt": null,
+   "startedAt": null,
+   "log": [],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791748576484,
+   "updatedAt": 1791748724424
   }
  ]
 }
