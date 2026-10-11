@@ -3,7 +3,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import crypto from "node:crypto";
+import { spawn, execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import paquete from "./package.json" with { type: "json" };
@@ -31,11 +32,12 @@ Uso: orbita [opciones]
   --port <n>      Puerto local (por defecto 4321, o el último que usaste)
   --data <dir>    Carpeta de datos de Órbita (la lista de proyectos; cada
                   proyecto se guarda en su carpeta de trabajo, en orbita/)
-  --no-open       No abrir el navegador al arrancar
+  --no-open       No abrir la ventana de Órbita al arrancar
+  --tab           Abrir Órbita en una pestaña del navegador, no en su propia ventana
   --version       Muestra la versión
   --help          Muestra esta ayuda
 
-Variables de entorno equivalentes: PORT, ORBITA_DATA, ORBITA_NO_OPEN=1
+Variables de entorno equivalentes: PORT, ORBITA_DATA, ORBITA_NO_OPEN=1, ORBITA_TAB=1
 Todo se queda en tu máquina: el servidor solo escucha en 127.0.0.1.`;
 
 function leerArgumentos(argv) {
@@ -50,6 +52,7 @@ function leerArgumentos(argv) {
     if (a === "--help" || a === "-h") salir(AYUDA, 0);
     else if (a === "--version" || a === "-v") salir(VERSION_APP, 0);
     else if (a === "--no-open") opciones.noAbrir = true;
+    else if (a === "--tab") opciones.pestana = true;
     else if (a.startsWith("--port")) opciones.puerto = valor();
     else if (a.startsWith("--data")) opciones.datos = valor();
     else salir(`Opción desconocida: ${a}\n\n${AYUDA}`);
@@ -57,8 +60,17 @@ function leerArgumentos(argv) {
   return opciones;
 }
 
+// ¿Se abrió como Órbita.app (doble clic en el Finder)? Entonces no hay Terminal donde leer los mensajes.
+export const EN_APP_MAC = process.platform === "darwin" && /\.app\/Contents\/MacOS\//.test(process.execPath);
+
 export function salir(mensaje, codigo = 1) {
   (codigo ? console.error : console.log)(mensaje);
+  // Sin Terminal, un error que impide arrancar se cuenta en un aviso del sistema
+  if (codigo && EN_APP_MAC) {
+    try {
+      execFileSync("osascript", ["-e", `display alert "Órbita no pudo arrancar" message ${JSON.stringify(String(mensaje))} as critical`], { timeout: 5 * 60_000 });
+    } catch {}
+  }
   process.exit(codigo);
 }
 
@@ -103,7 +115,17 @@ if (config.port !== PORT) {
   } catch {}
 }
 
+// Clave de la vista previa (/vista/<clave>/…): solo la conoce el tablero, así que una web ajena no puede cargar
+// los entregables con <script src> o <img>. Se guarda para que los enlaces «Pestaña nueva» sigan valiendo al reiniciar.
+export const CLAVE_VISTA = /^[0-9a-f]{32}$/.test(config.claveVista || "") ? config.claveVista : crypto.randomBytes(16).toString("hex");
+if (config.claveVista !== CLAVE_VISTA) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...leerConfig(), claveVista: CLAVE_VISTA }, null, 2));
+  } catch {}
+}
+
 export const ABRIR_NAVEGADOR = !args.noAbrir && !process.env.ORBITA_NO_OPEN && !process.env.ORBITA_PRUEBAS;
+const EN_PESTANA = args.pestana || !!process.env.ORBITA_TAB;
 
 // --- La interfaz (public/) --------------------------------------------------------------
 
@@ -128,6 +150,48 @@ export function leerPublico(rel) {
 }
 
 // --- Navegador ---------------------------------------------------------------------------
+
+// La ventana de Órbita. Con un navegador Chromium (Chrome, Edge, Brave, Chromium) se abre en «modo app»: una
+// ventana propia, sin pestañas ni barra de direcciones, que se ve como una aplicación. Si no hay ninguno
+// (o con --tab), en una pestaña del navegador de siempre.
+export function abrirVentana(url) {
+  const chromium = EN_PESTANA ? null : buscarChromium();
+  if (!chromium) return abrirNavegador(url);
+  const argumentos = [`--app=${url}`, "--window-size=1360,880"];
+  // En macOS, «open -n» le pasa los argumentos aunque el navegador ya esté abierto
+  const [cmd, todos] = process.platform === "darwin" ? ["open", ["-na", chromium, "--args", ...argumentos]] : [chromium, argumentos];
+  try {
+    const hijo = spawn(cmd, todos, { stdio: "ignore", detached: true, windowsHide: true });
+    hijo.on("error", () => abrirNavegador(url));
+    hijo.unref();
+  } catch {
+    abrirNavegador(url);
+  }
+}
+
+function buscarChromium() {
+  const existe = (f) => {
+    try {
+      return fs.statSync(f) && f;
+    } catch {
+      return null;
+    }
+  };
+  if (process.platform === "darwin") {
+    const apps = ["Google Chrome", "Microsoft Edge", "Brave Browser", "Chromium", "Vivaldi"];
+    for (const carpeta of ["/Applications", path.join(os.homedir(), "Applications")]) for (const app of apps) if (existe(path.join(carpeta, `${app}.app`))) return path.join(carpeta, `${app}.app`);
+    return null;
+  }
+  if (process.platform === "win32") {
+    const raices = [process.env["ProgramFiles(x86)"], process.env.ProgramFiles, process.env.LOCALAPPDATA].filter(Boolean);
+    const rutas = ["Microsoft\\Edge\\Application\\msedge.exe", "Google\\Chrome\\Application\\chrome.exe", "BraveSoftware\\Brave-Browser\\Application\\brave.exe"];
+    for (const ruta of rutas) for (const raiz of raices) if (existe(path.join(raiz, ruta))) return path.join(raiz, ruta);
+    return null;
+  }
+  const nombres = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"];
+  for (const dir of (process.env.PATH || "").split(path.delimiter)) for (const n of nombres) if (dir && existe(path.join(dir, n))) return path.join(dir, n);
+  return null;
+}
 
 export function abrirNavegador(url) {
   const [cmd, argumentos] =

@@ -297,7 +297,7 @@ dialog input:focus, dialog textarea:focus { border-color: #a78bfa88; }
 @media (max-width: 1200px) and (min-width: 901px) {
   .top { gap: 14px; }
   .brand { min-width: 0; }
-  .sub { display: none; }
+  .brand .sub { display: none; } /* solo el lema de la marca: los botones de secciones (.subnav .sub) siempre se ven */
   .goal { min-width: 220px; }
   .stat { padding: 8px 10px; }
 }
@@ -413,7 +413,25 @@ dialog input:focus, dialog textarea:focus { border-color: #a78bfa88; }
 .composer textarea { width: 100%; background: rgb(var(--ink) / .03); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; outline: none; resize: vertical; min-height: 64px; }
 .composer textarea:focus { border-color: #a78bfa88; }
 .composer .actions { margin-top: 8px; }
-.card-actions { margin-top: 22px; }
+.card-actions[hidden] { display: none; }
+/* Pestañas del panel de la tarjeta */
+.d-tabs { display: flex; align-items: flex-end; gap: 2px; margin: 16px -2px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; position: sticky; top: -1px; z-index: 2; background: var(--panel-solid); }
+.d-tabs::-webkit-scrollbar { display: none; }
+.d-tabs button { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--muted); padding: 9px 11px 10px; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 8px 8px 0 0; }
+.d-tabs button:hover { color: var(--text); background: rgb(var(--ink) / .04); }
+.d-tabs button.on { color: var(--text); border-bottom-color: var(--violet); font-weight: 600; }
+.d-tabs button[hidden] { display: none; }
+.d-tabs b { font-weight: 500; font-size: 11px; color: var(--faint); }
+.d-tabs b:empty { display: none; }
+.d-tabs button.aviso b { color: #fff; background: #f59e0b; border-radius: 999px; padding: 0 6px; }
+.d-tabs .live-dot { margin: 0; }
+.d-tabs-sep { flex: 1; }
+.d-tab { padding-top: 14px; }
+.d-tab > .d-section:first-child, .d-tab > .live-box:first-child { margin-top: 4px; }
+.d-tab .d-desc:first-child { margin-top: 2px; }
+.d-vacio { color: var(--muted); font-size: 13.5px; padding: 18px 2px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.d-vacio[hidden] { display: none; }
+.card-actions { margin-top: 12px; }
 
 /* ---------- Orden ---------- */
 /* Hueco donde caerá la tarjeta (como en Trello): del alto de la tarjeta que arrastras, para que no lo tape
@@ -489,6 +507,11 @@ dialog input:focus, dialog textarea:focus { border-color: #a78bfa88; }
 .page[hidden] { display: none; }
 .page .intro { color: var(--muted); font-size: 13.5px; margin: 6px 0 16px; max-width: 760px; }
 .ajustes, .conocimiento { max-width: 760px; }
+.secreto-nuevo { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.secreto-nuevo input[name="nombre"] { flex: 1 1 40%; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+.secreto-nuevo input[name="valor"] { flex: 1 1 60%; }
+.secretos li.muted { font-size: 13px; padding: 4px 2px; }
+@media (max-width: 600px) { .secreto-nuevo { flex-wrap: wrap; } .secreto-nuevo input { flex-basis: 100%; } }
 .campo-input { width: 100%; background: rgb(var(--ink) / .03); border: 1px solid var(--line-strong); border-radius: 10px; padding: 9px 11px; color: var(--text); font: inherit; font-size: 14px; outline: none; }
 .campo-input:focus { border-color: #a78bfa88; }
 .campo-input.flash { animation: destello 1.2s ease-out; }
@@ -738,4 +761,50 @@ pre.codigo .ln { display: inline-block; width: 3.2em; padding-right: 1em; text-a
 .bienvenida h2 { margin: 18px 0 8px; font-size: 22px; letter-spacing: -.01em; }
 .bienvenida p { color: var(--muted); font-size: 14px; }
 .bienvenida .actions { justify-content: center; margin: 20px 0 14px; }
+.bienvenida.cerrada { margin-top: 22vh; padding: 0 16px; }
 .orb.grande { width: 64px; height: 64px; margin: 0 auto; }
+
+/* Entidades: fichas por categoría (cada categoría con su tono, --h) */
+.entidades { max-width: 1100px; }
+.ent-barra { display: flex; gap: 10px; align-items: center; }
+.ent-barra input { flex: 1; }
+.ent-cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.ent-cat { border: 1px solid var(--line-strong); background: rgb(var(--ink) / .03); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.ent-cat b { font-weight: 500; color: var(--faint); margin-left: 2px; font-size: 12px; }
+.ent-cat:hover { color: var(--text); }
+.ent-cat.on { color: var(--text); background: hsl(var(--h, 260) 70% 60% / .16); border-color: hsl(var(--h, 260) 70% 60% / .5); }
+.ent-grupo { margin-top: 22px; }
+.ent-grupo h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 15px; }
+.ent-grupo h3 b { font-weight: 500; color: var(--faint); font-size: 13px; }
+.ent-grupo-ico { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: hsl(var(--h) 70% 60% / .16); font-size: 15px; }
+.ent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.ent-ficha { display: flex; flex-direction: column; text-align: left; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--panel, rgb(var(--ink) / .02)); overflow: hidden; color: var(--text); transition: transform .12s, border-color .12s, box-shadow .12s; }
+.ent-ficha:hover { transform: translateY(-2px); border-color: hsl(var(--h) 70% 60% / .55); box-shadow: 0 8px 24px rgb(var(--shade) / calc(.25 * var(--k-sombra, 1))); }
+.ent-img { display: grid; place-items: center; aspect-ratio: 4 / 3; background: radial-gradient(circle at 30% 25%, hsl(var(--h) 85% 65% / .42), hsl(var(--h) 70% 45% / .2) 75%); overflow: hidden; }
+.ent-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ent-img.sin { aspect-ratio: 16 / 7; } /* sin imagen, solo el icono: más bajita */
+.ent-img-ico { font-size: 36px; filter: drop-shadow(0 4px 10px rgb(0 0 0 / .2)); }
+.ent-txt { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.ent-txt b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ent-resumen { font-size: 12.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+.ent-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.ent-tags i { font-style: normal; font-size: 11px; color: var(--muted); background: rgb(var(--ink) / .06); border-radius: 6px; padding: 1px 6px; }
+.ent-vacio { max-width: 560px; margin: 8vh auto 0; text-align: center; }
+.ent-vacio-iconos { font-size: 30px; letter-spacing: 6px; }
+.ent-vacio h3 { margin: 14px 0 8px; font-size: 18px; }
+.ent-vacio p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+.ent-nada { margin-top: 24px; }
+/* La ficha abierta en el panel */
+.ent-cabecera { display: flex; gap: 14px; margin-top: 14px; align-items: stretch; }
+.ent-foto { flex: 0 0 132px; height: 132px; border-radius: 14px; overflow: hidden; display: grid; place-items: center; align-content: center; gap: 4px; cursor: pointer; border: 1px dashed hsl(var(--h) 60% 60% / .5); background: radial-gradient(circle at 30% 25%, hsl(var(--h) 80% 70% / .35), hsl(var(--h) 60% 40% / .18) 70%); }
+.ent-foto img { width: 100%; height: 100%; object-fit: cover; }
+.ent-foto small { font-size: 11px; color: var(--muted); }
+.ent-foto.over { outline: 2px solid var(--cyan); }
+.ent-campos { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ent-campos .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--faint); }
+.ent-campos input { width: 100%; }
+.ent-meta { font-size: 12px; margin: 16px 0 0; }
+@media (max-width: 600px) { .ent-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .ent-cabecera { flex-direction: column; } .ent-foto { flex-basis: auto; height: 180px; } }
+.ent-campos .field { margin: 0; align-items: stretch; }
+.ent-campos input { background: rgb(var(--ink) / .04); border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 9px; color: var(--text); font: inherit; font-size: 13px; outline: none; }
+.ent-campos input:focus { border-color: #a78bfa88; }

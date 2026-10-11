@@ -24,6 +24,7 @@ const FORMATO = 2;
 export const baseDe = (p) => path.join(p.dir, CARPETA);
 export const tableroDe = (dir) => path.join(dir, CARPETA, TABLERO);
 const nuevoId = () => crypto.randomUUID().slice(0, 8);
+const ultimoProyecto = new Map(); // id de tarjeta -> proyecto en cuyo tablero.json está guardada (ver guardar)
 
 // Lo que se guarda del proyecto en su tablero.json (dir y knowledge se calculan al cargar)
 const datosDelProyecto = ({ dir, knowledge, ...resto }) => resto;
@@ -108,6 +109,7 @@ export function cargar() {
       if (board.projects.some((p) => p.id === proyecto.id)) throw new Error("es una copia de otro proyecto ya abierto (mismo id)");
       board.projects.push({ ...proyecto, dir: entrada.dir });
       board.cards.push(...tarjetas.map((c) => ({ ...c, projectId: proyecto.id })));
+      for (const c of tarjetas) ultimoProyecto.set(c.id, proyecto.id); // por si una cambia de proyecto antes del primer guardado
     } catch (err) {
       faltantes.push({ id: entrada.id, name: entrada.name, dir: entrada.dir, motivo: err.message });
     }
@@ -170,8 +172,10 @@ function migrar() {
 
 const escrito = new Map(); // archivo -> último contenido escrito (para no reescribir lo que no cambia)
 const fallos = new Set();
+export const serializados = []; // archivos convertidos a JSON en el último guardado (para las pruebas)
 function escribirSiCambia(archivo, datos) {
   const texto = JSON.stringify(datos, null, 1);
+  serializados.push(archivo);
   if (escrito.get(archivo) === texto) return;
   try {
     fs.mkdirSync(path.dirname(archivo), { recursive: true });
@@ -186,19 +190,31 @@ function escribirSiCambia(archivo, datos) {
   }
 }
 
-export function guardar(board, faltantes) {
+// Guarda orbita.json y el tablero.json de cada proyecto. Con soloProyectos (ids), solo esos tableros: convertir
+// a JSON todos los proyectos en cada report_progress sobra. Se añaden siempre el proyecto del que salió una
+// tarjeta que cambió de proyecto y los archivos que no se pudieron escribir la última vez.
+export function guardar(board, faltantes, soloProyectos = null) {
   const { cards, projects, ...global } = board;
-  escribirSiCambia(GLOBAL, {
-    formato: FORMATO,
-    proyectos: [...projects.map((p) => ({ id: p.id, name: p.name, dir: p.dir })), ...faltantes.map(({ id, name, dir }) => ({ id, name, dir }))],
-    ...global,
-  });
-  for (const p of projects) {
-    escribirSiCambia(tableroDe(p.dir), {
+  serializados.length = 0;
+  if (!soloProyectos || fallos.has(GLOBAL))
+    escribirSiCambia(GLOBAL, {
       formato: FORMATO,
-      proyecto: datosDelProyecto(p),
-      tarjetas: cards.filter((c) => c.projectId === p.id),
+      proyectos: [...projects.map((p) => ({ id: p.id, name: p.name, dir: p.dir })), ...faltantes.map(({ id, name, dir }) => ({ id, name, dir }))],
+      ...global,
     });
+  let aGuardar = projects;
+  if (soloProyectos) {
+    const ids = new Set(soloProyectos);
+    for (const c of cards) {
+      const antes = ultimoProyecto.get(c.id);
+      if (ids.has(c.projectId) && antes && antes !== c.projectId) ids.add(antes);
+    }
+    aGuardar = projects.filter((p) => ids.has(p.id) || fallos.has(tableroDe(p.dir)));
+  }
+  for (const p of aGuardar) {
+    const tarjetas = cards.filter((c) => c.projectId === p.id);
+    escribirSiCambia(tableroDe(p.dir), { formato: FORMATO, proyecto: datosDelProyecto(p), tarjetas });
+    for (const c of tarjetas) ultimoProyecto.set(c.id, p.id);
   }
 }
 
@@ -214,6 +230,22 @@ export function rutaReal(rel, projects) {
   const full = path.resolve(base, resto.join("/"));
   if (full !== base && !full.startsWith(base + path.sep)) throw new Error("Ruta fuera de la carpeta del proyecto");
   if (full === tableroDe(p.dir) || full.startsWith(tableroDe(p.dir) + ".")) throw new Error(`${CARPETA}/${TABLERO} es el tablero del proyecto: no es un entregable`);
+  // Un enlace simbólico dentro de orbita/ no puede llevar fuera: se mira dónde acaba de verdad (o, si el archivo
+  // aún no existe, dónde acaba la carpeta en la que se creará). Un enlace roto cuenta como existente: escribir en él
+  // crearía su destino.
+  const existe = (f) => fs.lstatSync(f, { throwIfNoEntry: false }) !== undefined;
+  let existente = full;
+  while (existente !== base && !existe(existente)) existente = path.dirname(existente);
+  if (existe(base)) {
+    let real;
+    try {
+      real = fs.realpathSync(existente);
+    } catch {
+      real = null; // enlace roto
+    }
+    const baseReal = fs.realpathSync(base);
+    if (!real || (real !== baseReal && !real.startsWith(baseReal + path.sep))) throw new Error("Ruta fuera de la carpeta del proyecto (enlace simbólico)");
+  }
   return full;
 }
 

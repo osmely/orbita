@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.mjs --data .",
     "vendor": "node scripts/vendor.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

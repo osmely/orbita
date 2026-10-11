@@ -7,7 +7,32 @@
   "instructions": "",
   "memory": "",
   "memoryAt": null,
-  "createdAt": 1791740159236
+  "createdAt": 1791740159236,
+  "ia": "Claude · ia",
+  "pausado": false,
+  "pausadoAt": null,
+  "entidades": [
+   {
+    "id": "c540fb0a",
+    "categoria": "Objetos",
+    "nombre": "Reloj",
+    "resumen": "Reloj marrón de Pedro.",
+    "detalles": "- **Dueño:** Pedro\n- **Color:** marrón",
+    "etiquetas": [
+     "Pedro",
+     "marrón"
+    ],
+    "imagen": null,
+    "creada": {
+     "t": 1791744753919,
+     "por": "Claude · ia"
+    },
+    "actualizada": {
+     "t": 1791744753919,
+     "por": "Claude · ia"
+    }
+   }
+  ]
  },
  "tarjetas": [
   {
@@ -15,15 +40,1257 @@
    "title": "Analiza el proyecto actual.. es justamente Orbita",
    "description": "Analiza el proyecto actual.. es justamente Orbita",
    "kind": "task",
-   "column": "doing",
-   "status": "queued",
+   "column": "done",
+   "status": "done",
    "origin": "tú",
    "parentId": null,
    "tag": null,
    "projectId": "034dfa34",
    "archivedAt": null,
    "dependsOn": [],
-   "order": 9000,
+   "order": 1791666055905,
+   "thread": [
+    {
+     "t": 1791740318282,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Órbita es un tablero kanban local (Node ≥22, sin framework) que deja a cualquier IA trabajar las tarjetas por MCP. El diseño es sólido y está bien pensado en seguridad. Encontré un fallo real, ya confirmado: los textos largos con tildes o eñes pueden corromperse al llegar al servidor. Hay"
+    },
+    {
+     "t": 1791740380958,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "genera las cards para corregir lo encontrado"
+    },
+    {
+     "t": 1791740421936,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Creé 7 tarjetas en «Ideas», una por cada corrección del análisis, cada una con sus criterios de aceptación. Las de más riesgo (el refactor, partir app.js y el guardado por proyecto) esperan a que existan las pruebas."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791740318281,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Órbita es un tablero kanban local (Node ≥22, sin framework) que deja a cualquier IA trabajar las tarjetas por MCP. El diseño es sólido y está bien pensado en seguridad. Encontré un fallo real, ya confirmado: los textos largos con tildes o eñes pueden corromperse al llegar al servidor. Hay además algunas mejoras de robustez y de mantenimiento.\n\n## Qué es y cómo está montado\n\n| Pieza | Archivo | Líneas | Papel |\n|---|---|---|---|\n| Servidor HTTP + estado | `server.mjs` | 1338 | Tablero en memoria, API REST, SSE (`/api/events`), tareas programadas, papelera, pausa, dependencias |\n| MCP | `mcp.mjs` | 817 | ~22 herramientas + 2 prompts. **Sin sesión**: un `McpServer` y un transporte nuevos por petición. `wait_for_work` es una espera larga (hasta 240 s) sobre un `EventEmitter` |\n| Almacenamiento | `almacen.mjs` | 255 | `orbita.json` global + `<carpeta>/orbita/tablero.json` por proyecto. Escritura atómica (`.tmp` + `rename`), solo si cambió, con 250 ms de espera. Migra desde el formato v1 |\n| Entorno | `entorno.mjs` | 142 | Argumentos, carpeta de datos por sistema, puerto que se recuerda, interfaz desde disco o desde el binario (Node SEA) |\n| Selector de carpetas | `carpetas.mjs` | 46 | Diálogo nativo: osascript, PowerShell, zenity/kdialog |\n| Interfaz | `public/app.js` | 2898 | SPA en JS puro, un solo archivo, ~120 funciones. Markdown con `marked` + `DOMPurify` |\n| Distribución | `scripts/build.mjs`, `release.yml` | — | Ejecutable único por sistema; GitHub Actions al etiquetar |\n\nSolo tiene dos dependencias de ejecución (`@modelcontextprotocol/sdk` y `zod`). La interfaz lleva sus fuentes y librerías dentro, así que funciona sin internet.\n\n## Lo que está bien\n\n- **Seguridad local cuidada**: escucha solo en `127.0.0.1` y filtra `Host` y `Origin` (frente a DNS rebinding y CSRF). La CSP es estricta (`script-src 'self'`, `frame-ancestors 'none'`). Los entregables se sirven como texto plano en `/files/`, y en `/vista/` con `CSP: sandbox` (origen aislado). `rutaReal` no deja salir de `orbita/` ni tocar `tablero.json`.\n- **Datos portables**: el proyecto viaja con su carpeta (se puede llevar en git, como este mismo repositorio).\n- **Protocolo IA ↔ persona completo**: DETENTE al quitar una tarjeta, bandeja de entrada, criterios de aceptación con evidencia, versiones del resultado, una IA por proyecto, pausa, dependencias.\n- **Guardado sin pérdidas al cerrar**: guarda lo pendiente con SIGINT/SIGTERM/SIGHUP. Una carpeta de proyecto que desaparece no tumba la app.\n\n## Hallazgos, de más a menos grave\n\n### 1. 🐞 Corrupción UTF-8 en cuerpos grandes (confirmado)\n`readJson` (`server.mjs:742`) hace `raw += chunk` con cada `Buffer`. Si un carácter multibyte (ñ, á, emoji) cae justo en el corte entre dos trozos, sale `�`. Lo reproduje con node: `\"ñññññ\"` partido en el byte 3 da `\"ñ��ñññ\"`.\n- **Cuándo pasa**: con cuerpos de más de unos 64 KB. Por ejemplo, un `write_file` grande por MCP (informes en español), descripciones largas o archivos de conocimiento. Los adjuntos van en base64 (ASCII), así que se salvan.\n- **Arreglo** (1 línea): juntar los `Buffer` y decodificar una sola vez.\n  ```js\n  const trozos = []; let n = 0;\n  for await (const c of req) { n += c.length; if (n > max) throw new Error(\"Cuerpo demasiado grande\"); trozos.push(c); }\n  const raw = Buffer.concat(trozos).toString(\"utf8\");\n  ```\n  Además, así `max` cuenta bytes y no caracteres.\n\n### 2. ⚠️ No hay red de seguridad para excepciones sueltas\nNo existe un `process.on(\"uncaughtException\" | \"unhandledRejection\")`. Un error dentro de un `setInterval` (`revisarProgramadas`, `broadcastBrains`) o de un callback cierra el proceso. Ahí se pierde lo que estaba pendiente de guardar (hasta 250 ms) y se cortan todas las IAs conectadas. Propuesta: anotar el error y llamar a `guardarAhora()`. En los temporizadores, mejor capturar el error y seguir.\n\n### 3. ⚠️ Sin pruebas automáticas\nYa existen ganchos para probar (`ORBITA_PRUEBAS`, `/api/_reloj`, el intervalo de 200 ms), pero en el repositorio no hay pruebas ni un script `test`. Lo que más merece una prueba con `node --test`:\n- la migración v1→v2;\n- `rutaReal` (intentos de salirse de la carpeta);\n- `proximaVez`, con el día 31 y los meses cortos;\n- el ciclo `wait_for_work` → `submit_result`, con criterios.\n\n### 4. Mantenimiento\n- `server.mjs` encamina las peticiones con una cadena de unos 40 `if (parts[0] === \"api\" && …)`. Una tabla `[método, patrón, manejador]` lo haría más legible y evitaría colisiones entre rutas.\n- `public/app.js` tiene 2898 líneas en un archivo. Como ya hay `esbuild` en las dependencias de desarrollo, se podría partir en módulos (tablero, panel, paleta, vista previa…) y empaquetar en el build.\n- Las ~37 funciones que `server.mjs` pasa a `createMcpHandler(ops)` son un acoplamiento fuerte. Un módulo `estado.mjs` que exporte el tablero y sus operaciones lo simplificaría.\n\n### 5. Detalles menores\n- **Rendimiento del guardado**: cada guardado convierte a JSON el tablero de *todos* los proyectos para compararlo, y `report_progress` guarda a menudo. Ahora no importa; con muchos proyectos o tarjetas grandes convendría marcar como «sucio» solo el proyecto que cambió.\n- **`/vista/` sin `Origin`**: acepta GET sin `Origin`, así que una web ajena podría cargar un entregable `.js` con `<script src>` si adivina la ruta. El riesgo es bajo (no lee el tablero), pero hacer `/vista/` estricto con `Sec-Fetch-Site` lo cerraría.\n- **Enlaces simbólicos**: `rutaReal` usa `path.resolve`, que no sigue enlaces simbólicos. Uno dentro de `orbita/` podría servir archivos de fuera. El riesgo es bajo porque quien crea el enlace ya tiene acceso al disco; `fs.realpathSync` lo cierra.\n- **Firma de código pendiente** (ya anotada en `DISTRIBUCION.md`): es el principal obstáculo para repartirla en macOS y Windows.\n\n## Próximos pasos que recomiendo\n1. Arreglar `readJson` (hallazgo 1). Es trivial y evita corromper entregables en español.\n2. Añadir el manejador global de errores (hallazgo 2).\n3. Montar una batería mínima con `node --test` aprovechando `ORBITA_PRUEBAS`.\n\nSi quieres, abro tarjetas para cada uno y los hago."
+    },
+    {
+     "n": 2,
+     "t": 1791740421936,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Creé 7 tarjetas en «Ideas», una por cada corrección del análisis, cada una con sus criterios de aceptación. Las de más riesgo (el refactor, partir app.js y el guardado por proyecto) esperan a que existan las pruebas.\n\n| # | Tarjeta | Id | Espera a |\n|---|---|---|---|\n| 1 | 🐞 Corregir: corrupción UTF-8 en readJson | `b1a2a22a` | — |\n| 2 | Añadir red de seguridad para excepciones sueltas | `17b5b4a7` | — |\n| 3 | Montar pruebas automáticas con node --test | `05e8e786` | — |\n| 4 | Endurecer /vista/ y los enlaces simbólicos | `7f48aed7` | — |\n| 5 | Guardar solo los proyectos que cambiaron | `380ee476` | 🔒 pruebas |\n| 6 | Refactor: router en tabla y módulo de estado | `d1c24fdb` | 🔒 pruebas |\n| 7 | Partir public/app.js en módulos | `8d957af5` | 🔒 pruebas |\n\n**Orden recomendado:** 1 → 2 → 3, y después el resto. Para que las trabaje, arrástralas a «En curso» en ese orden.\n\nNo creé tarjeta para la **firma de código** (macOS/Windows). Necesita tu cuenta de Apple Developer y un certificado, así que la tienes que hacer tú; los pasos ya están en `DISTRIBUCION.md`."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Hallazgo confirmado:** `readJson` (server.mjs:742) concatena los trozos del cuerpo como texto (`raw += chunk`). Si un carácter multibyte (ñ, tildes, emoji) cae entre dos trozos, se corrompe en `�`. Afecta a cuerpos grandes (>64 KB): `write_file` por MCP, descripciones largas, adjuntos… Reproducido con node.",
+   "liveAt": 1791740285690,
+   "startedAt": 1791740380959,
+   "log": [
+    {
+     "t": 1791740244601,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791740248082,
+     "kind": "step",
+     "text": "Explorando la estructura del proyecto"
+    },
+    {
+     "t": 1791740251927,
+     "kind": "step",
+     "text": "Leyendo almacenamiento, servidor y MCP"
+    },
+    {
+     "t": 1791740285690,
+     "kind": "step",
+     "text": "Revisando la interfaz y redactando el análisis"
+    },
+    {
+     "t": 1791740318282,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791740354646,
+     "kind": "done",
+     "text": "Aprobada"
+    },
+    {
+     "t": 1791740380959,
+     "kind": "you",
+     "text": "genera las cards para corregir lo encontrado"
+    },
+    {
+     "t": 1791740380959,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791740409505,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Corregir: corrupción UTF-8 en readJson»"
+    },
+    {
+     "t": 1791740409539,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Añadir red de seguridad para excepciones sueltas»"
+    },
+    {
+     "t": 1791740409561,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Montar pruebas automáticas con node --test»"
+    },
+    {
+     "t": 1791740409591,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Endurecer /vista/ y los enlaces simbólicos»"
+    },
+    {
+     "t": 1791740409608,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Guardar solo los proyectos que cambiaron»"
+    },
+    {
+     "t": 1791740409625,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Refactor: router en tabla y módulo de estado»"
+    },
+    {
+     "t": 1791740409640,
+     "kind": "spawn",
+     "text": "Creó la tarjeta «Partir public/app.js en módulos»"
+    },
+    {
+     "t": 1791740421936,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791740469683,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Creé 7 tarjetas en «Ideas», una por cada corrección del análisis, cada una con sus criterios de aceptación. Las de más riesgo (el refactor, partir app.js y el guardado por proyecto) esperan a que existan las pruebas.\n\n| # | Tarjeta | Id | Espera a |\n|---|---|---|---|\n| 1 | 🐞 Corregir: corrupción UTF-8 en readJson | `b1a2a22a` | — |\n| 2 | Añadir red de seguridad para excepciones sueltas | `17b5b4a7` | — |\n| 3 | Montar pruebas automáticas con node --test | `05e8e786` | — |\n| 4 | Endurecer /vista/ y los enlaces simbólicos | `7f48aed7` | — |\n| 5 | Guardar solo los proyectos que cambiaron | `380ee476` | 🔒 pruebas |\n| 6 | Refactor: router en tabla y módulo de estado | `d1c24fdb` | 🔒 pruebas |\n| 7 | Partir public/app.js en módulos | `8d957af5` | 🔒 pruebas |\n\n**Orden recomendado:** 1 → 2 → 3, y después el resto. Para que las trabaje, arrástralas a «En curso» en ese orden.\n\nNo creé tarjeta para la **firma de código** (macOS/Windows). Necesita tu cuenta de Apple Developer y un certificado, así que la tienes que hacer tú; los pasos ya están en `DISTRIBUCION.md`.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740185390,
+   "updatedAt": 1791740469683,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "b1a2a22a",
+   "title": "Corregir: corrupción UTF-8 en readJson",
+   "description": "`readJson` (server.mjs:742) concatena cada `Buffer` como texto (`raw += chunk`). Si una ñ, tilde o emoji queda partida entre dos trozos (cuerpos de más de unos 64 KB, por ejemplo un write_file grande por MCP), sale `�`. Hay que juntar los Buffer con `Buffer.concat` y decodificar una sola vez. El límite `max` debe contar bytes.",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666056905,
+   "thread": [
+    {
+     "t": 1791740486468,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Corregido. `readJson` junta los bytes y los decodifica una sola vez, así que un `write_file` de 250 KB en español con emojis ya se guarda idéntico byte a byte. El límite de 5 MB ahora cuenta bytes."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791740486467,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Corregido. `readJson` junta los bytes y los decodifica una sola vez, así que un `write_file` de 250 KB en español con emojis ya se guarda idéntico byte a byte. El límite de 5 MB ahora cuenta bytes.\n\n## El cambio (`server.mjs`, `readJson`)\n```js\nconst trozos = [];\nlet bytes = 0;\nfor await (const chunk of req) {\n  bytes += chunk.length;\n  if (bytes > max) throw new Error(\"Cuerpo demasiado grande\");\n  trozos.push(chunk);\n}\nconst raw = Buffer.concat(trozos).toString(\"utf8\");\n```\n\n## Cómo lo comprobé\nUsé un script (`scratchpad/prueba.mjs`) que arranca una Órbita aparte, en el puerto 4399 y con una carpeta temporal; tus datos no se tocaron. El script crea un proyecto y llama a `write_file` por MCP con unos 250 KB de texto con ñ, tildes y 🚀.\n\n| | Antes | Después |\n|---|---|---|\n| Archivo de 250 KB idéntico | ❌ no, 2 `�` | ✅ sí, 0 `�` |\n| Cuerpo de 5,2 MB en bytes (2,6 M caracteres) | ❌ aceptado (200) | ✅ rechazado: `400 Cuerpo demasiado grande`, sin crear el archivo |\n\n**Para que tenga efecto en tu Órbita**, hay que reiniciarla (`npm start`). El cambio queda sin commit, en el árbol de trabajo.",
+     "criterios": [
+      {
+       "texto": "Se reproduce el fallo antes de corregirlo (cuerpo >64 KB con ñ/tildes que llega corrupto)",
+       "estado": "cumple",
+       "evidencia": "Antes del arreglo: write_file por MCP de 250.025 bytes → 'idéntico: false', 2 caracteres U+FFFD en el archivo guardado"
+      },
+      {
+       "texto": "Tras el arreglo, un write_file por MCP de más de 200 KB con tildes, ñ y emoji se guarda idéntico byte a byte",
+       "estado": "cumple",
+       "evidencia": "Después: el mismo write_file de 250.025 bytes con ñ, tildes y 🚀 → 'idéntico: true' (Buffer.equals) y 0 caracteres corruptos"
+      },
+      {
+       "texto": "El límite de tamaño cuenta bytes y sigue devolviendo error si se supera",
+       "estado": "cumple",
+       "evidencia": "Cuerpo de 5,2 MB en bytes (2,6 M caracteres «ñ»): antes 200 y archivo creado; ahora 400 «Cuerpo demasiado grande» y no se crea el archivo"
+      }
+     ]
+    }
+   ],
+   "criterios": [
+    {
+     "id": "d1c827",
+     "texto": "Se reproduce el fallo antes de corregirlo (cuerpo >64 KB con ñ/tildes que llega corrupto)",
+     "estado": "cumple",
+     "evidencia": "Antes del arreglo: write_file por MCP de 250.025 bytes → 'idéntico: false', 2 caracteres U+FFFD en el archivo guardado",
+     "falla": false
+    },
+    {
+     "id": "5a2f77",
+     "texto": "Tras el arreglo, un write_file por MCP de más de 200 KB con tildes, ñ y emoji se guarda idéntico byte a byte",
+     "estado": "cumple",
+     "evidencia": "Después: el mismo write_file de 250.025 bytes con ñ, tildes y 🚀 → 'idéntico: true' (Buffer.equals) y 0 caracteres corruptos",
+     "falla": false
+    },
+    {
+     "id": "0a14b6",
+     "texto": "El límite de tamaño cuenta bytes y sigue devolviendo error si se supera",
+     "estado": "cumple",
+     "evidencia": "Cuerpo de 5,2 MB en bytes (2,6 M caracteres «ñ»): antes 200 y archivo creado; ahora 400 «Cuerpo demasiado grande» y no se crea el archivo",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791740451825,
+   "log": [
+    {
+     "t": 1791740451825,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791740486468,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado (criterios: 3/3 ✓)"
+    },
+    {
+     "t": 1791740521147,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Corregido. `readJson` junta los bytes y los decodifica una sola vez, así que un `write_file` de 250 KB en español con emojis ya se guarda idéntico byte a byte. El límite de 5 MB ahora cuenta bytes.\n\n## El cambio (`server.mjs`, `readJson`)\n```js\nconst trozos = [];\nlet bytes = 0;\nfor await (const chunk of req) {\n  bytes += chunk.length;\n  if (bytes > max) throw new Error(\"Cuerpo demasiado grande\");\n  trozos.push(chunk);\n}\nconst raw = Buffer.concat(trozos).toString(\"utf8\");\n```\n\n## Cómo lo comprobé\nUsé un script (`scratchpad/prueba.mjs`) que arranca una Órbita aparte, en el puerto 4399 y con una carpeta temporal; tus datos no se tocaron. El script crea un proyecto y llama a `write_file` por MCP con unos 250 KB de texto con ñ, tildes y 🚀.\n\n| | Antes | Después |\n|---|---|---|\n| Archivo de 250 KB idéntico | ❌ no, 2 `�` | ✅ sí, 0 `�` |\n| Cuerpo de 5,2 MB en bytes (2,6 M caracteres) | ❌ aceptado (200) | ✅ rechazado: `400 Cuerpo demasiado grande`, sin crear el archivo |\n\n**Para que tenga efecto en tu Órbita**, hay que reiniciarla (`npm start`). El cambio queda sin commit, en el árbol de trabajo.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409501,
+   "updatedAt": 1791740521147,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "17b5b4a7",
+   "title": "Añadir red de seguridad para excepciones sueltas",
+   "description": "No hay `process.on(\"uncaughtException\")` ni `process.on(\"unhandledRejection\")`. Un error en un temporizador (`revisarProgramadas`, `broadcastBrains`) o en un callback cierra Órbita: corta a las IAs conectadas y puede perder hasta 250 ms de cambios sin guardar. Hay que capturar los errores en los temporizadores para que sigan funcionando, y añadir un manejador global que anote el error y guarde lo pendiente con `guardarAhora()`.",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666057905,
+   "thread": [
+    {
+     "t": 1791740654149,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Órbita ya no se cae por un error inesperado. Los temporizadores anotan el fallo y siguen. Cada tarea programada falla por su cuenta, sin arrastrar a las demás. Un error que nadie captura se anota, guarda lo pendiente al momento y el servidor sigue respondiendo."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791740654149,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Órbita ya no se cae por un error inesperado. Los temporizadores anotan el fallo y siguen. Cada tarea programada falla por su cuenta, sin arrastrar a las demás. Un error que nadie captura se anota, guarda lo pendiente al momento y el servidor sigue respondiendo.\n\n## Cambios (`server.mjs`)\n- **`anotarFallo(donde, err)`**: escribe `⚠ Error en …` con su traza en la consola. Si el mismo error se repite, solo lo escribe una vez, para no llenarla.\n- **`protegido(donde, fn)`**: envuelve los temporizadores (`revisarProgramadas`, `broadcastBrains`, el ping SSE). Si una vuelta falla, la siguiente se ejecuta igual.\n- **Tareas programadas aisladas**: si una falla, las demás se ejecutan igual. La que falla **pasa a su próxima vez** (o deja de repetirse si es de una sola vez) y lo apunta en su actividad («No se pudo ejecutar su programación: …»). Esto evita un riesgo real: si fallaba después de crear la tarjeta nueva, se repetía en cada vuelta y creaba copias sin parar.\n- **Manejador global** (`uncaughtException` y `unhandledRejection`): anota el error, guarda lo pendiente con `guardarAhora()` y **sigue en marcha**.\n  - *Por qué seguir en vez de salir:* el tablero son datos simples en memoria, que casi siempre siguen siendo coherentes. Cerrarse cortaría a todas las IAs conectadas en mitad de su trabajo.\n\n## Pruebas (Órbitas aparte con `ORBITA_PRUEBAS=1`, carpetas temporales)\nUsé un proyecto con dos tareas diarias vencidas: «Rota» (con criterios corruptos, un texto en vez de una lista, así que `ejecutarProgramada` lanza un `TypeError`) y «Sana».\n\n| | Antes (HEAD) | Después |\n|---|---|---|\n| Arranque con la tarea rota | 💥 se cae (`código de salida: 1`) | ✅ sigue viva |\n| «Sana» crea su copia | ❌ | ✅ 1 copia, y 2 tras adelantar el reloj 2 días |\n| «Rota» crea copias en bucle | — | ✅ 0 copias; su próxima vez pasa a futura |\n| Veces que se anota el error | — | 1, aunque vuelva a tocar |\n\nExcepción no capturada provocada justo después de crear una tarjeta (antes de que pasen los 250 ms del guardado diferido):\n```\n⚠ Error en Órbita (error no capturado): Error: fallo provocado\nPRUEBA → tarjeta guardada 20 ms después del error: true\nPRUEBA → servidor sigue respondiendo: 200\n```\n\nLos scripts de prueba están en el scratchpad de la sesión (`prueba-fallos.mjs`, `lanzar-error.mjs`). Pueden servir de base para la tarjeta de pruebas automáticas. Los cambios quedan sin commit, y tu Órbita necesita reiniciarse para usarlos.",
+     "criterios": [
+      {
+       "texto": "Un error lanzado a propósito dentro de revisarProgramadas no detiene el servidor y queda anotado en la consola",
+       "estado": "cumple",
+       "evidencia": "Tarea programada con criterios corruptos: antes Órbita salía con código 1; ahora la consola muestra «⚠ Error en la tarea programada «Rota»: TypeError: (card.criterios || []).map is not a function» y el servidor sigue vivo"
+      },
+      {
+       "texto": "Ante una excepción no capturada se guarda lo pendiente antes de salir (o se sigue, si se decide así, y se explica por qué)",
+       "estado": "cumple",
+       "evidencia": "Error lanzado a propósito justo tras crear una tarjeta: 20 ms después la tarjeta ya está en tablero.json (antes del guardado diferido de 250 ms) y /api/board responde 200. Se decidió seguir en marcha para no cortar a las IAs conectadas; explicado en el resultado y en el comentario del código"
+      },
+      {
+       "texto": "Las tareas programadas siguen ejecutándose tras el error",
+       "estado": "cumple",
+       "evidencia": "Tras el error, la tarea «Sana» crea su copia (1) y, al adelantar el reloj 2 días, otra (2); «Rota» pasa a su próxima vez sin crear copias en bucle"
+      }
+     ]
+    }
+   ],
+   "criterios": [
+    {
+     "id": "f33511",
+     "texto": "Un error lanzado a propósito dentro de revisarProgramadas no detiene el servidor y queda anotado en la consola",
+     "estado": "cumple",
+     "evidencia": "Tarea programada con criterios corruptos: antes Órbita salía con código 1; ahora la consola muestra «⚠ Error en la tarea programada «Rota»: TypeError: (card.criterios || []).map is not a function» y el servidor sigue vivo",
+     "falla": false
+    },
+    {
+     "id": "024602",
+     "texto": "Ante una excepción no capturada se guarda lo pendiente antes de salir (o se sigue, si se decide así, y se explica por qué)",
+     "estado": "cumple",
+     "evidencia": "Error lanzado a propósito justo tras crear una tarjeta: 20 ms después la tarjeta ya está en tablero.json (antes del guardado diferido de 250 ms) y /api/board responde 200. Se decidió seguir en marcha para no cortar a las IAs conectadas; explicado en el resultado y en el comentario del código",
+     "falla": false
+    },
+    {
+     "id": "db5737",
+     "texto": "Las tareas programadas siguen ejecutándose tras el error",
+     "estado": "cumple",
+     "evidencia": "Tras el error, la tarea «Sana» crea su copia (1) y, al adelantar el reloj 2 días, otra (2); «Rota» pasa a su próxima vez sin crear copias en bucle",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Decisión:** ante una excepción no capturada, Órbita **anota el error, guarda lo pendiente y sigue en marcha**. Cortar a todas las IAs conectadas es peor que seguir con un estado que, al ser datos simples en memoria, casi siempre sigue siendo coherente.\n\n**Riesgo detectado:** si una tarea programada falla a medias (por ejemplo, después de crear la tarjeta nueva), se repetiría en cada vuelta y crearía copias sin parar. Por eso, al fallar, salta a su próxima vez.",
+   "liveAt": 1791740572314,
+   "startedAt": 1791740529423,
+   "log": [
+    {
+     "t": 1791740529423,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791740572314,
+     "kind": "step",
+     "text": "Protegiendo temporizadores y añadiendo manejador global"
+    },
+    {
+     "t": 1791740654149,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado (criterios: 3/3 ✓)"
+    },
+    {
+     "t": 1791740669564,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Órbita ya no se cae por un error inesperado. Los temporizadores anotan el fallo y siguen. Cada tarea programada falla por su cuenta, sin arrastrar a las demás. Un error que nadie captura se anota, guarda lo pendiente al momento y el servidor sigue respondiendo.\n\n## Cambios (`server.mjs`)\n- **`anotarFallo(donde, err)`**: escribe `⚠ Error en …` con su traza en la consola. Si el mismo error se repite, solo lo escribe una vez, para no llenarla.\n- **`protegido(donde, fn)`**: envuelve los temporizadores (`revisarProgramadas`, `broadcastBrains`, el ping SSE). Si una vuelta falla, la siguiente se ejecuta igual.\n- **Tareas programadas aisladas**: si una falla, las demás se ejecutan igual. La que falla **pasa a su próxima vez** (o deja de repetirse si es de una sola vez) y lo apunta en su actividad («No se pudo ejecutar su programación: …»). Esto evita un riesgo real: si fallaba después de crear la tarjeta nueva, se repetía en cada vuelta y creaba copias sin parar.\n- **Manejador global** (`uncaughtException` y `unhandledRejection`): anota el error, guarda lo pendiente con `guardarAhora()` y **sigue en marcha**.\n  - *Por qué seguir en vez de salir:* el tablero son datos simples en memoria, que casi siempre siguen siendo coherentes. Cerrarse cortaría a todas las IAs conectadas en mitad de su trabajo.\n\n## Pruebas (Órbitas aparte con `ORBITA_PRUEBAS=1`, carpetas temporales)\nUsé un proyecto con dos tareas diarias vencidas: «Rota» (con criterios corruptos, un texto en vez de una lista, así que `ejecutarProgramada` lanza un `TypeError`) y «Sana».\n\n| | Antes (HEAD) | Después |\n|---|---|---|\n| Arranque con la tarea rota | 💥 se cae (`código de salida: 1`) | ✅ sigue viva |\n| «Sana» crea su copia | ❌ | ✅ 1 copia, y 2 tras adelantar el reloj 2 días |\n| «Rota» crea copias en bucle | — | ✅ 0 copias; su próxima vez pasa a futura |\n| Veces que se anota el error | — | 1, aunque vuelva a tocar |\n\nExcepción no capturada provocada justo después de crear una tarjeta (antes de que pasen los 250 ms del guardado diferido):\n```\n⚠ Error en Órbita (error no capturado): Error: fallo provocado\nPRUEBA → tarjeta guardada 20 ms después del error: true\nPRUEBA → servidor sigue respondiendo: 200\n```\n\nLos scripts de prueba están en el scratchpad de la sesión (`prueba-fallos.mjs`, `lanzar-error.mjs`). Pueden servir de base para la tarjeta de pruebas automáticas. Los cambios quedan sin commit, y tu Órbita necesita reiniciarse para usarlos.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409538,
+   "updatedAt": 1791740669564,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "05e8e786",
+   "title": "Montar pruebas automáticas con node --test",
+   "description": "El repositorio no tiene pruebas, aunque ya hay ganchos para ellas (`ORBITA_PRUEBAS`, `/api/_reloj`). Hay que añadir `npm test` con `node --test`. Debe arrancar el servidor en un puerto y una carpeta de datos temporales y cubrir lo crítico: migración v1→v2, `rutaReal` (intentos de salir de la carpeta), `proximaVez` (día 31 y meses cortos), y el ciclo MCP `wait_for_work` → `report_progress` → `submit_result` con criterios.",
+   "kind": "task",
+   "column": "backlog",
+   "status": "idle",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791740412561,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [
+    {
+     "id": "330511",
+     "texto": "npm test existe y pasa en limpio",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    },
+    {
+     "id": "cbde6c",
+     "texto": "Cubre migración v1→v2, rutaReal, proximaVez y el ciclo MCP con criterios",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    },
+    {
+     "id": "097e9a",
+     "texto": "Las pruebas usan una carpeta temporal y no tocan los datos reales",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": null,
+   "inbox": [],
+   "progress": 0,
+   "step": "",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791743426682,
+   "log": [
+    {
+     "t": 1791743426682,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791743435524,
+     "kind": "stop",
+     "text": "Se avisará a Claude · ia para que se detenga (la persona la devolvió a Ideas)"
+    },
+    {
+     "t": 1791743435524,
+     "kind": "stop",
+     "text": "Se la quitaste a Claude · ia"
+    },
+    {
+     "t": 1791743438433,
+     "kind": "stop",
+     "text": "Claude · ia recibió el aviso y se detuvo"
+    }
+   ],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409561,
+   "updatedAt": 1791743438433,
+   "revocada": {
+    "worker": "Claude · ia",
+    "motivo": "la persona la devolvió a Ideas",
+    "at": 1791743435524,
+    "avisada": true
+   },
+   "pausada": false
+  },
+  {
+   "id": "7f48aed7",
+   "title": "Endurecer /vista/ y los enlaces simbólicos",
+   "description": "Son dos endurecimientos de bajo riesgo:\n1. `/vista/` acepta peticiones GET sin `Origin`, así que una web ajena podría cargar un entregable con `<script src>`. Hay que rechazar las peticiones con `Sec-Fetch-Site: cross-site` sin romper el iframe ni la pestaña aparte.\n2. `rutaReal` (almacen.mjs) usa `path.resolve`, que no sigue enlaces simbólicos: un enlace dentro de `orbita/` podría servir archivos de fuera. Hay que comprobar la ruta real con `fs.realpathSync`.",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666058905,
+   "thread": [
+    {
+     "t": 1791741202671,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Las dos vías están cerradas. Una web ajena ya no puede cargar entregables desde `/vista/`, porque ahora la ruta lleva una clave secreta. Ningún enlace simbólico dentro de `orbita/` permite leer ni escribir fuera. Lo comprobé en Chrome real: la vista previa en iframe y en pestaña nueva sig"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791741202671,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Las dos vías están cerradas. Una web ajena ya no puede cargar entregables desde `/vista/`, porque ahora la ruta lleva una clave secreta. Ningún enlace simbólico dentro de `orbita/` permite leer ni escribir fuera. Lo comprobé en Chrome real: la vista previa en iframe y en pestaña nueva sigue funcionando.\n\n## 1. `/vista/`: cambié el enfoque de la tarjeta\n**`Sec-Fetch-Site` no basta**, y lo comprobé registrando las cabeceras que manda Chrome. La página de la vista previa corre aislada (origen opaco) y pide sus propios archivos así:\n```\n/vista/prueba/estilo.css  cross-site  Referer: (ninguno)  Origin: (ninguno)  no-cors\n/vista/prueba/juego.js    cross-site  Referer: (ninguno)  Origin: (ninguno)  no-cors\n```\nEs exactamente lo que enviaría una web ajena con `<script src>`. Rechazar `cross-site` rompía la vista previa (el juego se quedaba en «cargando…»), y el plan B, distinguirlas por el `Referer`, tampoco vale, porque Chrome no lo envía.\n\n**Solución: una ruta con clave**, `/vista/<clave>/…`.\n- La clave tiene 128 bits aleatorios y se guarda en `config.json`, así que los enlaces «↗ Pestaña nueva» siguen valiendo después de reiniciar.\n- El tablero la recibe en `/api/board`, que ya está protegido por `Host`/`Origin`.\n- Las rutas relativas de las páginas (`juego.js`, `datos.json`…) heredan la clave solas.\n- Sin la clave, el servidor responde 403.\n\nArchivos tocados: `entorno.mjs` (`CLAVE_VISTA`), `server.mjs` (comprobación sobre la ruta ya normalizada) y `public/app.js` (`state.vista`).\n\n## 2. Enlaces simbólicos (`almacen.mjs`, `rutaReal`)\nAhora se comprueba con `realpathSync` dónde acaba de verdad la ruta. Si el archivo aún no existe, se comprueba la carpeta en la que se crearía. Un enlace roto también se rechaza, porque escribir en él crearía su destino fuera. Como todo pasa por `rutaReal`, esto cubre `/files/`, `/vista/`, `read_file`, `write_file`, los adjuntos y el conocimiento.\n\n## Pruebas (Órbita aparte en el puerto 4395, carpetas temporales)\n| Caso | Resultado |\n|---|---|\n| Chrome, web ajena (`127.0.0.1:8899`) con `<script>` + `<img>` a `/vista/`: **antes** | ❌ `{\"img\":\"CARGADA\",\"script\":\"CARGADO\"}` |\n| Lo mismo **ahora** | ✅ `{\"script\":\"bloqueado\",\"img\":\"bloqueada\"}` |\n| `/vista/` sin clave, con clave falsa o con `../` para saltársela | ✅ 403 |\n| Chrome, **iframe del tablero real** (`openFile()` de la interfaz, con `sandbox`) | ✅ `{\"js\":true,\"img\":true,\"json\":true,\"css\":\"rgb(204, 255, 204)\"}` |\n| Chrome, **pestaña nueva** con la clave | ✅ ídem: JS, CSS, imagen y `fetch` de JSON |\n| Misma clave tras reiniciar | ✅ |\n| `/files/` y `/vista/` de un enlace a un archivo de fuera o a través de una carpeta enlazada | ✅ 403 |\n| `read_file` de un enlace a fuera; `write_file` dentro de una carpeta enlazada o sobre un enlace roto | ✅ «Ruta fuera de la carpeta del proyecto (enlace simbólico)»; no se crea nada fuera |\n| Controles: `/files/` normal, `read_file` y `write_file` en subcarpeta nueva | ✅ funcionan |\n\n**Nota:** el navegador integrado de la app bloquea por su cuenta (`ERR_BLOCKED_BY_CLIENT`) todo lo que pide una página aislada, también con el código anterior. Por eso las pruebas de navegador las hice con Google Chrome sin interfaz.\n\nTambién actualicé la sección de seguridad del README. Los cambios quedan sin commit; tu Órbita necesita reiniciarse para usarlos. Al reiniciar, la página se recarga sola, porque cambió `app.js`.",
+     "criterios": [
+      {
+       "texto": "Una petición a /vista/ con Sec-Fetch-Site: cross-site recibe 403",
+       "estado": "cumple",
+       "evidencia": "Cumplido con otro mecanismo y más fuerte: rechazar todo lo cross-site rompía la vista previa (Chrome marca así las peticiones de la propia página aislada, sin Referer). Ahora toda petición sin la clave de /vista/ recibe 403, sea cross-site o no; en Chrome, una web ajena en 127.0.0.1:8899 ya no carga ni el script ni la imagen (antes sí)"
+      },
+      {
+       "texto": "La vista previa en iframe y en pestaña nueva sigue funcionando (juego HTML de prueba)",
+       "estado": "cumple",
+       "evidencia": "Chrome real (sin interfaz), juego con JS, CSS, imagen y fetch de JSON: en el iframe del tablero (openFile() de la interfaz, con sandbox) y en pestaña nueva → {\"js\":true,\"img\":true,\"json\":true,\"css\":\"rgb(204, 255, 204)\"}"
+      },
+      {
+       "texto": "Un enlace simbólico dentro de orbita/ que apunte fuera no se sirve ni por /files/ ni por /vista/ ni por read_file",
+       "estado": "cumple",
+       "evidencia": "Enlace a un archivo de fuera y a través de una carpeta enlazada: /files/ 403, /vista/ 403, read_file «Ruta fuera de la carpeta del proyecto (enlace simbólico)». También write_file en carpeta enlazada o en enlace roto: rechazado, sin crear nada fuera"
+      }
+     ]
+    }
+   ],
+   "criterios": [
+    {
+     "id": "a39fc4",
+     "texto": "Una petición a /vista/ con Sec-Fetch-Site: cross-site recibe 403",
+     "estado": "cumple",
+     "evidencia": "Cumplido con otro mecanismo y más fuerte: rechazar todo lo cross-site rompía la vista previa (Chrome marca así las peticiones de la propia página aislada, sin Referer). Ahora toda petición sin la clave de /vista/ recibe 403, sea cross-site o no; en Chrome, una web ajena en 127.0.0.1:8899 ya no carga ni el script ni la imagen (antes sí)",
+     "falla": false
+    },
+    {
+     "id": "fdf963",
+     "texto": "La vista previa en iframe y en pestaña nueva sigue funcionando (juego HTML de prueba)",
+     "estado": "cumple",
+     "evidencia": "Chrome real (sin interfaz), juego con JS, CSS, imagen y fetch de JSON: en el iframe del tablero (openFile() de la interfaz, con sandbox) y en pestaña nueva → {\"js\":true,\"img\":true,\"json\":true,\"css\":\"rgb(204, 255, 204)\"}",
+     "falla": false
+    },
+    {
+     "id": "24a949",
+     "texto": "Un enlace simbólico dentro de orbita/ que apunte fuera no se sirve ni por /files/ ni por /vista/ ni por read_file",
+     "estado": "cumple",
+     "evidencia": "Enlace a un archivo de fuera y a través de una carpeta enlazada: /files/ 403, /vista/ 403, read_file «Ruta fuera de la carpeta del proyecto (enlace simbólico)». También write_file en carpeta enlazada o en enlace roto: rechazado, sin crear nada fuera",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Ojo con `Sec-Fetch-Site`:** la página de la vista previa corre con `CSP: sandbox`, es decir, en un origen opaco. El navegador marca como `cross-site` sus propias peticiones (su JS, CSS, imágenes), igual que las de una web ajena. Rechazar todo lo `cross-site` rompería las vistas previas.\n\n**Plan:** aceptar una petición `cross-site` solo si su `Referer` es la propia Órbita. Una web ajena puede quitar el Referer, pero no falsificarlo. Lo compruebo en el navegador real.",
+   "liveAt": 1791740707927,
+   "startedAt": 1791740682837,
+   "log": [
+    {
+     "t": 1791740682837,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791740707927,
+     "kind": "step",
+     "text": "Diseñando el filtro de /vista/ y el control de enlaces simbólicos"
+    },
+    {
+     "t": 1791740771193,
+     "kind": "step",
+     "text": "Probando la vista previa en el navegador real"
+    },
+    {
+     "t": 1791741202671,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado (criterios: 3/3 ✓)"
+    },
+    {
+     "t": 1791741291964,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Las dos vías están cerradas. Una web ajena ya no puede cargar entregables desde `/vista/`, porque ahora la ruta lleva una clave secreta. Ningún enlace simbólico dentro de `orbita/` permite leer ni escribir fuera. Lo comprobé en Chrome real: la vista previa en iframe y en pestaña nueva sigue funcionando.\n\n## 1. `/vista/`: cambié el enfoque de la tarjeta\n**`Sec-Fetch-Site` no basta**, y lo comprobé registrando las cabeceras que manda Chrome. La página de la vista previa corre aislada (origen opaco) y pide sus propios archivos así:\n```\n/vista/prueba/estilo.css  cross-site  Referer: (ninguno)  Origin: (ninguno)  no-cors\n/vista/prueba/juego.js    cross-site  Referer: (ninguno)  Origin: (ninguno)  no-cors\n```\nEs exactamente lo que enviaría una web ajena con `<script src>`. Rechazar `cross-site` rompía la vista previa (el juego se quedaba en «cargando…»), y el plan B, distinguirlas por el `Referer`, tampoco vale, porque Chrome no lo envía.\n\n**Solución: una ruta con clave**, `/vista/<clave>/…`.\n- La clave tiene 128 bits aleatorios y se guarda en `config.json`, así que los enlaces «↗ Pestaña nueva» siguen valiendo después de reiniciar.\n- El tablero la recibe en `/api/board`, que ya está protegido por `Host`/`Origin`.\n- Las rutas relativas de las páginas (`juego.js`, `datos.json`…) heredan la clave solas.\n- Sin la clave, el servidor responde 403.\n\nArchivos tocados: `entorno.mjs` (`CLAVE_VISTA`), `server.mjs` (comprobación sobre la ruta ya normalizada) y `public/app.js` (`state.vista`).\n\n## 2. Enlaces simbólicos (`almacen.mjs`, `rutaReal`)\nAhora se comprueba con `realpathSync` dónde acaba de verdad la ruta. Si el archivo aún no existe, se comprueba la carpeta en la que se crearía. Un enlace roto también se rechaza, porque escribir en él crearía su destino fuera. Como todo pasa por `rutaReal`, esto cubre `/files/`, `/vista/`, `read_file`, `write_file`, los adjuntos y el conocimiento.\n\n## Pruebas (Órbita aparte en el puerto 4395, carpetas temporales)\n| Caso | Resultado |\n|---|---|\n| Chrome, web ajena (`127.0.0.1:8899`) con `<script>` + `<img>` a `/vista/`: **antes** | ❌ `{\"img\":\"CARGADA\",\"script\":\"CARGADO\"}` |\n| Lo mismo **ahora** | ✅ `{\"script\":\"bloqueado\",\"img\":\"bloqueada\"}` |\n| `/vista/` sin clave, con clave falsa o con `../` para saltársela | ✅ 403 |\n| Chrome, **iframe del tablero real** (`openFile()` de la interfaz, con `sandbox`) | ✅ `{\"js\":true,\"img\":true,\"json\":true,\"css\":\"rgb(204, 255, 204)\"}` |\n| Chrome, **pestaña nueva** con la clave | ✅ ídem: JS, CSS, imagen y `fetch` de JSON |\n| Misma clave tras reiniciar | ✅ |\n| `/files/` y `/vista/` de un enlace a un archivo de fuera o a través de una carpeta enlazada | ✅ 403 |\n| `read_file` de un enlace a fuera; `write_file` dentro de una carpeta enlazada o sobre un enlace roto | ✅ «Ruta fuera de la carpeta del proyecto (enlace simbólico)»; no se crea nada fuera |\n| Controles: `/files/` normal, `read_file` y `write_file` en subcarpeta nueva | ✅ funcionan |\n\n**Nota:** el navegador integrado de la app bloquea por su cuenta (`ERR_BLOCKED_BY_CLIENT`) todo lo que pide una página aislada, también con el código anterior. Por eso las pruebas de navegador las hice con Google Chrome sin interfaz.\n\nTambién actualicé la sección de seguridad del README. Los cambios quedan sin commit; tu Órbita necesita reiniciarse para usarlos. Al reiniciar, la página se recarga sola, porque cambió `app.js`.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409591,
+   "updatedAt": 1791741291964,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "380ee476",
+   "title": "Guardar solo los proyectos que cambiaron",
+   "description": "Cada `guardar()` convierte a JSON el tablero de todos los proyectos para compararlo con lo último escrito, y `report_progress` guarda a menudo. Hay que marcar como «sucio» solo el proyecto que cambió (o `orbita.json`) y serializar únicamente eso.",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666060905,
+   "thread": [
+    {
+     "t": 1791743480214,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "hazlo"
+    },
+    {
+     "t": 1791743664683,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Cada `report_progress` (y cualquier cambio de una sola tarjeta) convierte ahora a JSON solo el `tablero.json` del proyecto de esa tarjeta, en vez de todos los proyectos más `orbita.json`. No se pierde nada, y lo demuestra una prueba nueva (`npm test`, 5/5 ✅)."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791743664682,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Cada `report_progress` (y cualquier cambio de una sola tarjeta) convierte ahora a JSON solo el `tablero.json` del proyecto de esa tarjeta, en vez de todos los proyectos más `orbita.json`. No se pierde nada, y lo demuestra una prueba nueva (`npm test`, 5/5 ✅).\n\n## Cómo funciona\n- **`touch(card)` → `save(card)`**: marca solo el proyecto de la tarjeta. Es el camino frecuente: progreso, pasos, comentarios, entregas.\n- **`save()` sin argumentos guarda todo**, incluido `orbita.json`, como antes. Lo siguen usando los cambios globales: preguntas, plantillas, papelera, proyectos, pausas, borrados. *Ante la duda, `save()`: guardar de más nunca pierde nada.*\n- Revisé los sitios que cambian datos globales y luego solo llamaban a `touch()`, y ahora guardan también lo global:\n  - `revocar` (avisos DETENTE);\n  - restaurar desde la papelera;\n  - `detener` (avisos entregados).\n- **Tarjeta que cambia de proyecto**: `almacen.mjs` recuerda en qué `tablero.json` está cada tarjeta, desde que se carga, y también reescribe el del proyecto anterior. Sin esto, la tarjeta quedaría duplicada al reiniciar.\n- **Si un archivo no se pudo escribir**, se reintenta en cada guardado, igual que antes.\n- **Gancho de pruebas `POST /api/_guardado`**, solo con `ORBITA_PRUEBAS`, como `/api/_reloj`: guarda ya lo pendiente y dice qué archivos convirtió a JSON.\n\n## Prueba: `test/guardado.test.mjs` (`npm test` → `node --test test/`)\nArranca una Órbita aparte (puerto aleatorio y carpeta temporal que se borra al terminar) con dos proyectos:\n\n```\n✔ report_progress solo convierte a JSON el tablero.json del proyecto de su tarjeta\n✔ cambios en tarjetas de dos proyectos: los dos tableros quedan al día en disco\n✔ una tarjeta que cambia de proyecto sale del tablero.json del anterior\n✔ lo global (preguntas, plantillas, papelera) se sigue guardando en orbita.json\n✔ al reiniciar Órbita está todo, sin tarjetas duplicadas ni perdidas\nℹ pass 5  ℹ fail 0\n```\n\n**Comprobé que la prueba detecta el fallo:** al desactivar la parte del proyecto anterior, falla con `actual: ['A1','A2'], expected: ['A1']`, es decir, la tarjeta queda duplicada. Después restauré el arreglo y vuelve a pasar.\n\nNota: esta es la primera prueba del repositorio. La tarjeta «Montar pruebas automáticas» (que devolviste a Ideas) puede partir de esta. Queda sin commit; para usarlo hay que reiniciar Órbita o recompilar la app.",
+     "criterios": [
+      {
+       "texto": "Un report_progress solo serializa el tablero.json del proyecto de esa tarjeta",
+       "estado": "cumple",
+       "evidencia": "Prueba «report_progress solo convierte a JSON el tablero.json del proyecto de su tarjeta»: tras report_progress, /api/_guardado devuelve exactamente [<proyecto-a>/orbita/tablero.json] (ni orbita.json ni el de B) ✔"
+      },
+      {
+       "texto": "No se pierde ningún cambio: lo prueba un test que modifica tarjetas de dos proyectos y relee los archivos",
+       "estado": "cumple",
+       "evidencia": "test/guardado.test.mjs modifica tarjetas de A (report_progress) y B (update_card) y relee ambos tablero.json del disco ✔; también mueve una tarjeta de A a B y reinicia Órbita sin duplicados ni pérdidas ✔. Comprobado que falla si se rompe el arreglo (['A1','A2'] en vez de ['A1'])"
+      },
+      {
+       "texto": "Los cambios globales (preguntas, plantillas, papelera) siguen guardándose en orbita.json",
+       "estado": "cumple",
+       "evidencia": "Prueba «lo global (preguntas, plantillas, papelera) se sigue guardando en orbita.json»: crea una pregunta, una plantilla y borra una tarjeta, y las tres aparecen en orbita.json ✔; y siguen ahí tras reiniciar ✔"
+      }
+     ]
+    }
+   ],
+   "criterios": [
+    {
+     "id": "f8d66e",
+     "texto": "Un report_progress solo serializa el tablero.json del proyecto de esa tarjeta",
+     "estado": "cumple",
+     "evidencia": "Prueba «report_progress solo convierte a JSON el tablero.json del proyecto de su tarjeta»: tras report_progress, /api/_guardado devuelve exactamente [<proyecto-a>/orbita/tablero.json] (ni orbita.json ni el de B) ✔",
+     "falla": false
+    },
+    {
+     "id": "3ac6c6",
+     "texto": "No se pierde ningún cambio: lo prueba un test que modifica tarjetas de dos proyectos y relee los archivos",
+     "estado": "cumple",
+     "evidencia": "test/guardado.test.mjs modifica tarjetas de A (report_progress) y B (update_card) y relee ambos tablero.json del disco ✔; también mueve una tarjeta de A a B y reinicia Órbita sin duplicados ni pérdidas ✔. Comprobado que falla si se rompe el arreglo (['A1','A2'] en vez de ['A1'])",
+     "falla": false
+    },
+    {
+     "id": "120742",
+     "texto": "Los cambios globales (preguntas, plantillas, papelera) siguen guardándose en orbita.json",
+     "estado": "cumple",
+     "evidencia": "Prueba «lo global (preguntas, plantillas, papelera) se sigue guardando en orbita.json»: crea una pregunta, una plantilla y borra una tarjeta, y las tres aparecen en orbita.json ✔; y siguen ahí tras reiniciar ✔",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Diseño:**\n- `touch(card)`, el camino frecuente (cada `report_progress`, cada paso), marca como pendiente **solo el proyecto de esa tarjeta**.\n- `save()` sin argumentos, usado en los demás cambios (preguntas, plantillas, papelera, proyectos, pausas…), sigue guardándolo **todo**, incluido `orbita.json`. Así, si alguna ruta cambia algo global, nunca se pierde.\n- Los pocos sitios que tocan datos globales y luego solo llaman a `touch()` pasan a guardarlo todo: `revocar` (avisos), restaurar de la papelera y `detener`.\n- Una tarjeta que cambia de proyecto también se quita del `tablero.json` del proyecto anterior.\n- Si un tablero no se pudo escribir, se reintenta en cada guardado.",
+   "liveAt": 1791743589732,
+   "startedAt": 1791743498157,
+   "log": [
+    {
+     "t": 1791740415332,
+     "kind": "step",
+     "text": "Espera a «Montar pruebas automáticas con node --test»"
+    },
+    {
+     "t": 1791740415332,
+     "kind": "step",
+     "text": "✎ Claude · ia editó: dependencias"
+    },
+    {
+     "t": 1791743480214,
+     "kind": "you",
+     "text": "hazlo"
+    },
+    {
+     "t": 1791743498134,
+     "kind": "step",
+     "text": "Ya no espera a ninguna tarjeta"
+    },
+    {
+     "t": 1791743498134,
+     "kind": "step",
+     "text": "✎ Claude · ia editó: dependencias"
+    },
+    {
+     "t": 1791743498157,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791743503900,
+     "kind": "step",
+     "text": "Viendo quién llama a save() y cómo guarda almacen.mjs"
+    },
+    {
+     "t": 1791743589732,
+     "kind": "step",
+     "text": "Escribiendo el guardado por proyecto en almacen.mjs y server.mjs"
+    },
+    {
+     "t": 1791743608369,
+     "kind": "step",
+     "text": "Escribiendo la prueba con node --test (dos proyectos, releer archivos)"
+    },
+    {
+     "t": 1791743664683,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado (criterios: 3/3 ✓)"
+    },
+    {
+     "t": 1791743842178,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Cada `report_progress` (y cualquier cambio de una sola tarjeta) convierte ahora a JSON solo el `tablero.json` del proyecto de esa tarjeta, en vez de todos los proyectos más `orbita.json`. No se pierde nada, y lo demuestra una prueba nueva (`npm test`, 5/5 ✅).\n\n## Cómo funciona\n- **`touch(card)` → `save(card)`**: marca solo el proyecto de la tarjeta. Es el camino frecuente: progreso, pasos, comentarios, entregas.\n- **`save()` sin argumentos guarda todo**, incluido `orbita.json`, como antes. Lo siguen usando los cambios globales: preguntas, plantillas, papelera, proyectos, pausas, borrados. *Ante la duda, `save()`: guardar de más nunca pierde nada.*\n- Revisé los sitios que cambian datos globales y luego solo llamaban a `touch()`, y ahora guardan también lo global:\n  - `revocar` (avisos DETENTE);\n  - restaurar desde la papelera;\n  - `detener` (avisos entregados).\n- **Tarjeta que cambia de proyecto**: `almacen.mjs` recuerda en qué `tablero.json` está cada tarjeta, desde que se carga, y también reescribe el del proyecto anterior. Sin esto, la tarjeta quedaría duplicada al reiniciar.\n- **Si un archivo no se pudo escribir**, se reintenta en cada guardado, igual que antes.\n- **Gancho de pruebas `POST /api/_guardado`**, solo con `ORBITA_PRUEBAS`, como `/api/_reloj`: guarda ya lo pendiente y dice qué archivos convirtió a JSON.\n\n## Prueba: `test/guardado.test.mjs` (`npm test` → `node --test test/`)\nArranca una Órbita aparte (puerto aleatorio y carpeta temporal que se borra al terminar) con dos proyectos:\n\n```\n✔ report_progress solo convierte a JSON el tablero.json del proyecto de su tarjeta\n✔ cambios en tarjetas de dos proyectos: los dos tableros quedan al día en disco\n✔ una tarjeta que cambia de proyecto sale del tablero.json del anterior\n✔ lo global (preguntas, plantillas, papelera) se sigue guardando en orbita.json\n✔ al reiniciar Órbita está todo, sin tarjetas duplicadas ni perdidas\nℹ pass 5  ℹ fail 0\n```\n\n**Comprobé que la prueba detecta el fallo:** al desactivar la parte del proyecto anterior, falla con `actual: ['A1','A2'], expected: ['A1']`, es decir, la tarjeta queda duplicada. Después restauré el arreglo y vuelve a pasar.\n\nNota: esta es la primera prueba del repositorio. La tarjeta «Montar pruebas automáticas» (que devolviste a Ideas) puede partir de esta. Queda sin commit; para usarlo hay que reiniciar Órbita o recompilar la app.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409608,
+   "updatedAt": 1791743842179,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "d1c24fdb",
+   "title": "Refactor: router en tabla y módulo de estado",
+   "description": "`server.mjs` encamina con unos 40 `if (parts[0] === \"api\" && …)` encadenados y pasa unas 37 funciones a `createMcpHandler(ops)`. Hay que pasar las rutas a una tabla `[método, patrón, manejador]` y sacar el tablero y sus operaciones a un `estado.mjs` que importen tanto `server.mjs` como `mcp.mjs`. El comportamiento no cambia.",
+   "kind": "task",
+   "column": "backlog",
+   "status": "idle",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [
+    "05e8e786"
+   ],
+   "order": 1791740412061,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [
+    {
+     "id": "47e8b3",
+     "texto": "Las rutas de la API están en una tabla declarativa",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    },
+    {
+     "id": "093beb",
+     "texto": "mcp.mjs importa las operaciones de estado.mjs en vez de recibirlas por parámetro",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    },
+    {
+     "id": "dbc62c",
+     "texto": "npm test pasa igual que antes del refactor",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": null,
+   "inbox": [],
+   "progress": 0,
+   "step": "",
+   "live": "",
+   "liveAt": null,
+   "startedAt": null,
+   "log": [
+    {
+     "t": 1791740415274,
+     "kind": "step",
+     "text": "Espera a «Montar pruebas automáticas con node --test»"
+    },
+    {
+     "t": 1791740415274,
+     "kind": "step",
+     "text": "✎ Claude · ia editó: dependencias"
+    }
+   ],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409625,
+   "updatedAt": 1791743921521
+  },
+  {
+   "id": "8d957af5",
+   "title": "Partir public/app.js en módulos",
+   "description": "`public/app.js` tiene unas 2900 líneas en un solo archivo. Hay que partirlo en módulos ES (tablero, panel de tarjeta, paleta ⌘K, vista previa, proyectos, preguntas…). En desarrollo pueden cargarse como módulos nativos; en el build, empaquetarse con esbuild, que ya está en las dependencias de desarrollo. Hay que respetar la CSP (`script-src 'self'`) y que el ejecutable lleve la interfaz dentro.",
+   "kind": "task",
+   "column": "backlog",
+   "status": "idle",
+   "origin": "ia",
+   "parentId": "48cbcba8",
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [
+    "05e8e786"
+   ],
+   "order": 1791740411561,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [
+    {
+     "id": "2a873e",
+     "texto": "Ningún módulo pasa de unas 600 líneas",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    },
+    {
+     "id": "2ae585",
+     "texto": "npm start y el ejecutable de npm run build funcionan igual",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    },
+    {
+     "id": "80f90c",
+     "texto": "No hay errores en la consola del navegador al usar las funciones principales (crear, mover, abrir panel, ⌘K, vista previa)",
+     "estado": null,
+     "evidencia": "",
+     "falla": false
+    }
+   ],
+   "programa": null,
+   "worker": null,
+   "inbox": [],
+   "progress": 0,
+   "step": "",
+   "live": "",
+   "liveAt": null,
+   "startedAt": null,
+   "log": [
+    {
+     "t": 1791740415314,
+     "kind": "step",
+     "text": "Espera a «Montar pruebas automáticas con node --test»"
+    },
+    {
+     "t": 1791740415314,
+     "kind": "step",
+     "text": "✎ Claude · ia editó: dependencias"
+    }
+   ],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740409640,
+   "updatedAt": 1791743364669
+  },
+  {
+   "id": "b1503449",
+   "title": "Compila un ejecutable",
+   "description": "Compila un ejecutable",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666059905,
+   "thread": [
+    {
+     "t": 1791741292302,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Ejecutable compilado: `dist/orbita` (140 MB, macOS Apple Silicon, Node v26.10.0 dentro). Ya incluye los arreglos de hoy: UTF-8, la red de seguridad contra errores, la clave de `/vista/` y los enlaces simbólicos. Lo arranqué y comprobé que funciona."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791741292301,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Ejecutable compilado: `dist/orbita` (140 MB, macOS Apple Silicon, Node v26.10.0 dentro). Ya incluye los arreglos de hoy: UTF-8, la red de seguridad contra errores, la clave de `/vista/` y los enlaces simbólicos. Lo arranqué y comprobé que funciona.\n\n## Datos\n| | |\n|---|---|\n| Archivo | `/Users/osmely/Desktop/ia/dist/orbita` |\n| Tipo | Mach-O 64-bit arm64 (Node SEA, no necesita Node instalado) |\n| Versión | `1.0.0` (`dist/orbita --version`) |\n| Firma | *ad hoc*: vale para tu Mac, pero Gatekeeper avisará en otros (ver `DISTRIBUCION.md`) |\n| SHA-256 | `ca97bf6c64929bea…` |\n\n## Comprobación (ejecutable en el puerto 4393 con una carpeta de datos temporal)\n- La interfaz, `app.js` y las fuentes se sirven desde dentro del binario: 200.\n- Crea un proyecto en una carpeta de trabajo, con su `orbita/tablero.json`.\n- MCP responde con 20 herramientas; `write_file` guarda bien «¡Hola, ñandú! 🚀».\n- `/vista/<clave>/…` sirve el archivo; sin la clave da 403. La clave queda guardada en `config.json`.\n\n![El tablero servido por el ejecutable](/files/ia/capturas/ejecutable.png)\n\n## Para usarlo\n```bash\n./dist/orbita\n```\nAbre el navegador en `http://localhost:4321` y usa tus datos de siempre (`~/Library/Application Support/Orbita`). **Antes de abrirlo, cierra la Órbita de `npm start`**, porque usan el mismo puerto. Si no, el ejecutable solo abrirá el navegador hacia la que ya está en marcha.\n\n**Para repartirlo:** el `.zip` de cada sistema se construye con GitHub Actions al subir una etiqueta (`git tag v1.0.1 && git push --tags`). Antes conviene hacer commit de los cambios de hoy, que siguen sin commit, y subir la versión en `package.json`."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791741202718,
+   "log": [
+    {
+     "t": 1791741202718,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791741209059,
+     "kind": "step",
+     "text": "Compilando con npm run build (Node SEA, macOS arm64)"
+    },
+    {
+     "t": 1791741292302,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791741323408,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Ejecutable compilado: `dist/orbita` (140 MB, macOS Apple Silicon, Node v26.10.0 dentro). Ya incluye los arreglos de hoy: UTF-8, la red de seguridad contra errores, la clave de `/vista/` y los enlaces simbólicos. Lo arranqué y comprobé que funciona.\n\n## Datos\n| | |\n|---|---|\n| Archivo | `/Users/osmely/Desktop/ia/dist/orbita` |\n| Tipo | Mach-O 64-bit arm64 (Node SEA, no necesita Node instalado) |\n| Versión | `1.0.0` (`dist/orbita --version`) |\n| Firma | *ad hoc*: vale para tu Mac, pero Gatekeeper avisará en otros (ver `DISTRIBUCION.md`) |\n| SHA-256 | `ca97bf6c64929bea…` |\n\n## Comprobación (ejecutable en el puerto 4393 con una carpeta de datos temporal)\n- La interfaz, `app.js` y las fuentes se sirven desde dentro del binario: 200.\n- Crea un proyecto en una carpeta de trabajo, con su `orbita/tablero.json`.\n- MCP responde con 20 herramientas; `write_file` guarda bien «¡Hola, ñandú! 🚀».\n- `/vista/<clave>/…` sirve el archivo; sin la clave da 403. La clave queda guardada en `config.json`.\n\n![El tablero servido por el ejecutable](/files/ia/capturas/ejecutable.png)\n\n## Para usarlo\n```bash\n./dist/orbita\n```\nAbre el navegador en `http://localhost:4321` y usa tus datos de siempre (`~/Library/Application Support/Orbita`). **Antes de abrirlo, cierra la Órbita de `npm start`**, porque usan el mismo puerto. Si no, el ejecutable solo abrirá el navegador hacia la que ya está en marcha.\n\n**Para repartirlo:** el `.zip` de cada sistema se construye con GitHub Actions al subir una etiqueta (`git tag v1.0.1 && git push --tags`). Antes conviene hacer commit de los cambios de hoy, que siguen sin commit, y subir la versión en `package.json`.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791741123878,
+   "updatedAt": 1791741323408,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "b94df232",
+   "title": "Agregar secretos",
+   "description": "Agrega una seccion en config para agregar secretos a nivel de proyecto",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666063905,
+   "thread": [
+    {
+     "t": 1791741499856,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Cada proyecto tiene ahora una sección **Secretos** en «Instrucciones y memoria». Ahí se guardan claves de API, tokens o contraseñas con un nombre (`STRIPE_API_KEY`). La IA solo ve los nombres y pide el valor cuando lo necesita. Los valores no salen nunca hacia el tablero ni hacia la carpe"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791741499856,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Cada proyecto tiene ahora una sección **Secretos** en «Instrucciones y memoria». Ahí se guardan claves de API, tokens o contraseñas con un nombre (`STRIPE_API_KEY`). La IA solo ve los nombres y pide el valor cuando lo necesita. Los valores no salen nunca hacia el tablero ni hacia la carpeta `orbita/`.\n\n![La sección Secretos en la página del proyecto](/files/ia/capturas/secretos.png)\n\n## Cómo funciona\n- **En la interfaz**: se escribe el nombre y el valor y se pulsa Guardar. El nombre se normaliza solo (`mi clave` → `MI_CLAVE`).\n  - En la lista se ven el nombre, `••••••••` y la fecha. **El valor no se vuelve a mostrar** y nunca sale del servidor.\n  - «Cambiar» rellena el nombre para escribir un valor nuevo; ✕ lo borra, pidiendo confirmación.\n- **La IA**: cada tarjeta trae `project.secrets` con solo los nombres. El valor se pide con la herramienta MCP nueva **`get_secret(card_id, name)`**, y solo desde una tarjeta que sea suya. En la actividad queda «Claude usó el secreto STRIPE_API_KEY», sin el valor. También lo expliqué en las instrucciones del servidor MCP.\n- **Tapado automático**: si una IA pega un valor en cualquier herramienta (resultado, progreso, «En vivo», comentarios, preguntas, entregables…), se guarda como `«secreto STRIPE_API_KEY»`. No se tapan los valores de menos de 6 caracteres, que se confundirían con texto normal.\n- **Dónde se guardan**: en `secretos.json`, en la carpeta de datos de Órbita, con permisos `600`. **No** van en `orbita/tablero.json`, que viaja con la carpeta y en este repositorio está en git. Si `secretos.json` está dañado, Órbita arranca igual pero no lo sobrescribe.\n- Al eliminar un proyecto, se borran sus secretos.\n\n## Archivos\n- `secretos.mjs` (nuevo): guardar, leer, borrar y tapar.\n- `server.mjs`: `POST /api/projects/:id/secretos` y `DELETE …/secretos/:nombre`; los nombres van en los proyectos.\n- `mcp.mjs`: `get_secret`, `project.secrets` y el tapado en todas las herramientas.\n- `public/app.js` y `styles.css`: la sección, también en modo oscuro y en móvil; ⌘K la encuentra con «secretos».\n- `README.md`: documentado.\n- `.gitignore`: ahora incluye `secretos.json`. Hacía falta porque `npm start` usa el propio repositorio como carpeta de datos.\n\n## Prueba de extremo a extremo (Órbita aparte, 17/17 ✅)\nSe rechazan los nombres no válidos y los valores vacíos, y los secretos se guardan bien. `/api/board` trae los nombres pero **no el valor**, y `secretos.json` tiene permisos `600`. El valor **no aparece** en `orbita/` ni en `orbita.json`. La tarjeta recibe `[\"OTRO_TOKEN\",\"STRIPE_API_KEY\"]`. `get_secret` devuelve el valor; si el nombre no existe, da un error que lista los que hay. **Otra IA no puede leerlo** desde una tarjeta ajena (DETENTE). Resultado, progreso, «En vivo», comentario y entregable llegan tapados (`Listo. La clave «secreto STRIPE_API_KEY» funciona.`). La actividad apunta el uso, el borrado funciona y los secretos siguen ahí tras reiniciar.\n\nQueda sin commit, como lo anterior. Para usarlo hay que reiniciar Órbita. Como este cambio no estaba cuando compilé `dist/orbita` en la tarjeta anterior, ese ejecutable no lo incluye; vuelve a ejecutar `npm run build` si lo quieres dentro."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Diseño (decisiones por defecto; dime si quieres otra cosa):**\n- **Dónde se guardan:** en `secretos.json`, dentro de la carpeta de datos de Órbita y con permisos `600`. **No** van en `orbita/tablero.json`: ese archivo viaja con la carpeta y en este repositorio está en git.\n- **Interfaz:** una sección «Secretos» en *Instrucciones y memoria*. Los valores solo se pueden escribir: se ven los nombres y la fecha, nunca el valor.\n- **La IA:** recibe solo los **nombres** con cada tarjeta y pide el valor con una herramienta nueva, `get_secret`. Solo puede hacerlo desde una tarjeta suya en curso, y queda apuntado en la actividad, sin el valor.\n- **Tapado:** si la IA pega un valor en su resultado, progreso, comentario o pregunta, el tablero lo muestra como `«secreto NOMBRE»`.",
+   "liveAt": 1791741326145,
+   "startedAt": 1791741292343,
+   "log": [
+    {
+     "t": 1791741292343,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791741326145,
+     "kind": "step",
+     "text": "Diseñando los secretos por proyecto"
+    },
+    {
+     "t": 1791741499856,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791745298151,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Cada proyecto tiene ahora una sección **Secretos** en «Instrucciones y memoria». Ahí se guardan claves de API, tokens o contraseñas con un nombre (`STRIPE_API_KEY`). La IA solo ve los nombres y pide el valor cuando lo necesita. Los valores no salen nunca hacia el tablero ni hacia la carpeta `orbita/`.\n\n![La sección Secretos en la página del proyecto](/files/ia/capturas/secretos.png)\n\n## Cómo funciona\n- **En la interfaz**: se escribe el nombre y el valor y se pulsa Guardar. El nombre se normaliza solo (`mi clave` → `MI_CLAVE`).\n  - En la lista se ven el nombre, `••••••••` y la fecha. **El valor no se vuelve a mostrar** y nunca sale del servidor.\n  - «Cambiar» rellena el nombre para escribir un valor nuevo; ✕ lo borra, pidiendo confirmación.\n- **La IA**: cada tarjeta trae `project.secrets` con solo los nombres. El valor se pide con la herramienta MCP nueva **`get_secret(card_id, name)`**, y solo desde una tarjeta que sea suya. En la actividad queda «Claude usó el secreto STRIPE_API_KEY», sin el valor. También lo expliqué en las instrucciones del servidor MCP.\n- **Tapado automático**: si una IA pega un valor en cualquier herramienta (resultado, progreso, «En vivo», comentarios, preguntas, entregables…), se guarda como `«secreto STRIPE_API_KEY»`. No se tapan los valores de menos de 6 caracteres, que se confundirían con texto normal.\n- **Dónde se guardan**: en `secretos.json`, en la carpeta de datos de Órbita, con permisos `600`. **No** van en `orbita/tablero.json`, que viaja con la carpeta y en este repositorio está en git. Si `secretos.json` está dañado, Órbita arranca igual pero no lo sobrescribe.\n- Al eliminar un proyecto, se borran sus secretos.\n\n## Archivos\n- `secretos.mjs` (nuevo): guardar, leer, borrar y tapar.\n- `server.mjs`: `POST /api/projects/:id/secretos` y `DELETE …/secretos/:nombre`; los nombres van en los proyectos.\n- `mcp.mjs`: `get_secret`, `project.secrets` y el tapado en todas las herramientas.\n- `public/app.js` y `styles.css`: la sección, también en modo oscuro y en móvil; ⌘K la encuentra con «secretos».\n- `README.md`: documentado.\n- `.gitignore`: ahora incluye `secretos.json`. Hacía falta porque `npm start` usa el propio repositorio como carpeta de datos.\n\n## Prueba de extremo a extremo (Órbita aparte, 17/17 ✅)\nSe rechazan los nombres no válidos y los valores vacíos, y los secretos se guardan bien. `/api/board` trae los nombres pero **no el valor**, y `secretos.json` tiene permisos `600`. El valor **no aparece** en `orbita/` ni en `orbita.json`. La tarjeta recibe `[\"OTRO_TOKEN\",\"STRIPE_API_KEY\"]`. `get_secret` devuelve el valor; si el nombre no existe, da un error que lista los que hay. **Otra IA no puede leerlo** desde una tarjeta ajena (DETENTE). Resultado, progreso, «En vivo», comentario y entregable llegan tapados (`Listo. La clave «secreto STRIPE_API_KEY» funciona.`). La actividad apunta el uso, el borrado funciona y los secretos siguen ahí tras reiniciar.\n\nQueda sin commit, como lo anterior. Para usarlo hay que reiniciar Órbita. Como este cambio no estaba cuando compilé `dist/orbita` en la tarjeta anterior, ese ejecutable no lo incluye; vuelve a ejecutar `npm run build` si lo quieres dentro.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791741249777,
+   "updatedAt": 1791745298151,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "ecdd8bb6",
+   "title": "Ejecutable abre el navegador",
+   "description": "cuando ejecuto el binario generado no se ve como una app.. sino que abre una web",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666064905,
+   "thread": [
+    {
+     "t": 1791741746121,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Órbita ya se abre como una app. En Mac hay **`dist/Órbita.app`**, con su icono, que se abre con doble clic y sin ventana de Terminal. El tablero aparece en **su propia ventana**, sin pestañas ni barra de direcciones (modo app de Chrome, Edge, Brave o Chromium). Además se puede cerrar desd"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791741746121,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Órbita ya se abre como una app. En Mac hay **`dist/Órbita.app`**, con su icono, que se abre con doble clic y sin ventana de Terminal. El tablero aparece en **su propia ventana**, sin pestañas ni barra de direcciones (modo app de Chrome, Edge, Brave o Chromium). Además se puede cerrar desde dentro: ⌘K → «Cerrar Órbita».\n\n![Icono de Órbita.app](/files/ia/capturas/icono-app.png)\n\n## Qué cambió\n- **Ventana propia** (`entorno.mjs`, `abrirVentana`): busca Chrome, Edge, Brave, Chromium o Vivaldi y abre `--app=http://localhost:4321` en una ventana de 1360×880. Lo hace en macOS, Windows (Edge viene siempre) y Linux. Si no encuentra ninguno, abre una pestaña normal, como antes. Con **`--tab`** (o `ORBITA_TAB=1`) se fuerza la pestaña.\n- **`Órbita.app`** (`scripts/build.mjs`): `npm run build` la crea en macOS con el mismo ejecutable dentro, el icono, `Info.plist` y firma ad hoc.\n  - Es `LSUIElement`, así que el servidor no ocupa el Dock ni abre Terminal.\n  - **Abrirla otra vez** con Órbita en marcha solo vuelve a mostrar su ventana.\n  - Si no puede arrancar (por ejemplo, el puerto lo usa otro programa), lo dice en un **aviso del sistema**, ya que no hay Terminal donde leerlo.\n- **Cerrar Órbita** (⌘K): pide confirmación (y avisa si la IA está trabajando), guarda todo, detiene el servidor e intenta cerrar la ventana. Si no puede, muestra esta pantalla:\n\n  ![Pantalla de Órbita cerrada](/files/ia/capturas/orbita-cerrada.png)\n\n  Cerrar solo la ventana **no** detiene Órbita, así que la IA puede seguir trabajando con la ventana cerrada.\n- **Icono**: `recursos/icono.svg` es el planeta con su anillo, como el logo, y de él sale `recursos/orbita.icns`.\n- **Release**: en macOS el `.zip` lleva ahora `Órbita.app`.\n- README, DISTRIBUCION y `--help`, actualizados.\n\n## Pruebas\n| | |\n|---|---|\n| `open Órbita.app` (en un puerto de prueba) | ✅ el servidor arranca con padre `launchd`, sin Terminal; Chrome se conecta a él (ventana en modo app) |\n| Abrirla otra vez | ✅ sigue habiendo un solo servidor; la ventana se vuelve a mostrar |\n| ⌘K → «Cerrar Órbita» (Chrome real, por CDP) | ✅ el comando aparece; el servidor termina con código 0 y se ve la pantalla «Órbita está cerrada» |\n| `/api/salir` con la app | ✅ el servidor y la conexión de Chrome desaparecen |\n| `codesign --verify` y `plutil -lint` | ✅ válidos |\n\n**Para probarla tú:** cierra antes la Órbita de `npm start` (comparten el puerto 4321) y abre `dist/Órbita.app`. Si quieres, arrástrala a Aplicaciones.\n\n## Límites que conviene saber\n- La ventana es de Chrome (o Edge…): en el Dock y en ⌘Tab aparece con **su** icono, no con el de Órbita. Para tener un icono y un menú propios hace falta un envoltorio nativo (Electron, Tauri o Swift/WKWebView). Esa decisión de tecnología la dejaste pendiente; este paso no la impide.\n- En **Windows**, `orbita.exe` sigue abriendo una consola. Ocultarla requiere cambiar el subsistema del ejecutable o un pequeño lanzador; lo dejo para cuando haya una máquina Windows donde probarlo.\n- Sin Chrome, Edge, Brave ni Chromium, se abre en una pestaña normal, como antes.\n\nTodo queda sin commit; `dist/orbita` y `dist/Órbita.app` ya incluyen los secretos y lo de hoy."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Plan (sin cambiar de tecnología; Electron, Tauri o Swift siguen pendientes de que elijas):**\n1. **Ventana propia**: si hay Chrome, Edge, Brave o Chromium, Órbita se abre en **modo app**: una ventana suya, sin pestañas ni barra de direcciones. Si no hay ninguno, se abre en el navegador de siempre. `--tab` fuerza la pestaña normal.\n2. **macOS: `Órbita.app`**: `npm run build` crea también una app con icono. Se abre con doble clic, **sin ventana de Terminal**, y al abrirla otra vez solo vuelve a mostrar la ventana.\n3. **Cerrar Órbita** desde la propia app (⌘K → «Cerrar Órbita»), ya que no hay Terminal donde pulsar Ctrl+C.",
+   "liveAt": 1791741524772,
+   "startedAt": 1791741499957,
+   "log": [
+    {
+     "t": 1791741499957,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791741524772,
+     "kind": "step",
+     "text": "Planteando cómo abrir Órbita en su propia ventana"
+    },
+    {
+     "t": 1791741645230,
+     "kind": "step",
+     "text": "Compilando y probando Órbita.app"
+    },
+    {
+     "t": 1791741746122,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791745309685,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Órbita ya se abre como una app. En Mac hay **`dist/Órbita.app`**, con su icono, que se abre con doble clic y sin ventana de Terminal. El tablero aparece en **su propia ventana**, sin pestañas ni barra de direcciones (modo app de Chrome, Edge, Brave o Chromium). Además se puede cerrar desde dentro: ⌘K → «Cerrar Órbita».\n\n![Icono de Órbita.app](/files/ia/capturas/icono-app.png)\n\n## Qué cambió\n- **Ventana propia** (`entorno.mjs`, `abrirVentana`): busca Chrome, Edge, Brave, Chromium o Vivaldi y abre `--app=http://localhost:4321` en una ventana de 1360×880. Lo hace en macOS, Windows (Edge viene siempre) y Linux. Si no encuentra ninguno, abre una pestaña normal, como antes. Con **`--tab`** (o `ORBITA_TAB=1`) se fuerza la pestaña.\n- **`Órbita.app`** (`scripts/build.mjs`): `npm run build` la crea en macOS con el mismo ejecutable dentro, el icono, `Info.plist` y firma ad hoc.\n  - Es `LSUIElement`, así que el servidor no ocupa el Dock ni abre Terminal.\n  - **Abrirla otra vez** con Órbita en marcha solo vuelve a mostrar su ventana.\n  - Si no puede arrancar (por ejemplo, el puerto lo usa otro programa), lo dice en un **aviso del sistema**, ya que no hay Terminal donde leerlo.\n- **Cerrar Órbita** (⌘K): pide confirmación (y avisa si la IA está trabajando), guarda todo, detiene el servidor e intenta cerrar la ventana. Si no puede, muestra esta pantalla:\n\n  ![Pantalla de Órbita cerrada](/files/ia/capturas/orbita-cerrada.png)\n\n  Cerrar solo la ventana **no** detiene Órbita, así que la IA puede seguir trabajando con la ventana cerrada.\n- **Icono**: `recursos/icono.svg` es el planeta con su anillo, como el logo, y de él sale `recursos/orbita.icns`.\n- **Release**: en macOS el `.zip` lleva ahora `Órbita.app`.\n- README, DISTRIBUCION y `--help`, actualizados.\n\n## Pruebas\n| | |\n|---|---|\n| `open Órbita.app` (en un puerto de prueba) | ✅ el servidor arranca con padre `launchd`, sin Terminal; Chrome se conecta a él (ventana en modo app) |\n| Abrirla otra vez | ✅ sigue habiendo un solo servidor; la ventana se vuelve a mostrar |\n| ⌘K → «Cerrar Órbita» (Chrome real, por CDP) | ✅ el comando aparece; el servidor termina con código 0 y se ve la pantalla «Órbita está cerrada» |\n| `/api/salir` con la app | ✅ el servidor y la conexión de Chrome desaparecen |\n| `codesign --verify` y `plutil -lint` | ✅ válidos |\n\n**Para probarla tú:** cierra antes la Órbita de `npm start` (comparten el puerto 4321) y abre `dist/Órbita.app`. Si quieres, arrástrala a Aplicaciones.\n\n## Límites que conviene saber\n- La ventana es de Chrome (o Edge…): en el Dock y en ⌘Tab aparece con **su** icono, no con el de Órbita. Para tener un icono y un menú propios hace falta un envoltorio nativo (Electron, Tauri o Swift/WKWebView). Esa decisión de tecnología la dejaste pendiente; este paso no la impide.\n- En **Windows**, `orbita.exe` sigue abriendo una consola. Ocultarla requiere cambiar el subsistema del ejecutable o un pequeño lanzador; lo dejo para cuando haya una máquina Windows donde probarlo.\n- Sin Chrome, Edge, Brave ni Chromium, se abre en una pestaña normal, como antes.\n\nTodo queda sin commit; `dist/orbita` y `dist/Órbita.app` ya incluyen los secretos y lo de hoy.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791741399923,
+   "updatedAt": 1791745309685,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "305b510d",
+   "title": "reordenamiento de detalles de tarjeta",
+   "description": "los resultados deben estar al final y el progreso live al inicio",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666062905,
+   "thread": [
+    {
+     "t": 1791743773876,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** En el panel de la tarjeta, el progreso en vivo (estado, % y «En vivo») queda ahora **al principio**, justo bajo el título, y el **resultado**, con sus botones, **al final**."
+    },
+    {
+     "t": 1791743916394,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "aun no se ve bien.. hay demasiadas secciones.. reordena esto inteligentemente"
+    },
+    {
+     "t": 1791744111843,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** He reorganizado el panel de la tarjeta según lo que se usa. A la vista queda solo lo del trabajo: qué pasa ahora, el encargo, la conversación y el resultado. Lo ocasional va en dos bloques plegados, **⚙ Ajustes** y **🕘 Actividad**, con un resumen en su cabecera. Las secciones vacías ya n"
+    },
+    {
+     "t": 1791744222312,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "creo que cada seccion debe ser un tab dentro de la pantalla de propiedades"
+    },
+    {
+     "t": 1791744713936,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** El panel de la tarjeta funciona ahora con **pestañas**. Arriba quedan fijos el título, el estado y los botones que deciden. Debajo, cada parte tiene su pestaña: **En vivo · Tarea · Conversación · Resultado**, y a la derecha **⚙ Ajustes · 🕘 Actividad**. Al abrir una tarjeta, se muestra so"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791743773875,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** En el panel de la tarjeta, el progreso en vivo (estado, % y «En vivo») queda ahora **al principio**, justo bajo el título, y el **resultado**, con sus botones, **al final**.\n\n![Panel de la tarjeta reordenado](/files/ia/capturas/panel-tarjeta.png)\n\n## Nuevo orden\n1. **Título**\n2. **Estado y progreso**: columna, estado, IA, «40 % · paso», tiempo que lleva\n3. **En vivo**: el avance que publica la IA\n4. Descripción, proyecto y plantilla\n5. Repetir y «Terminado cuando…»\n6. Conversación, archivos, adjuntos, «Espera a…» y actividad\n7. **Resultado**: versiones, exportar y editar, con los botones de la tarjeta debajo (Aprobar, Devolver, Quitársela…), para decidir justo después de leerlo\n\nAntes, «En vivo» y el resultado estaban a mitad del panel, debajo de la descripción, «Repetir» y los criterios.\n\n## Cambio\nSolo la plantilla del panel en `public/app.js` (`openDrawer`). Todo se busca por id, así que nada depende del orden. Lo comprobé en el navegador con una tarjeta de prueba que tenía avance en vivo y un resultado: el orden de las secciones visibles es título → estado → En vivo → descripción → … → Actividad → Resultado → botones.\n\nQueda sin commit. Para verlo en tu Órbita, reiníciala, o recompila con `npm run build` si usas `Órbita.app`."
+    },
+    {
+     "n": 2,
+     "t": 1791744111842,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** He reorganizado el panel de la tarjeta según lo que se usa. A la vista queda solo lo del trabajo: qué pasa ahora, el encargo, la conversación y el resultado. Lo ocasional va en dos bloques plegados, **⚙ Ajustes** y **🕘 Actividad**, con un resumen en su cabecera. Las secciones vacías ya no ocupan sitio.\n\n## El panel, de arriba abajo\n1. **Título** y **estado**: columna, IA, «35 % · paso», tiempo que lleva.\n2. **En vivo**: solo mientras la IA trabaja.\n3. **Descripción** y **Terminado cuando…**. Sin criterios, se queda en una sola línea para añadirlos.\n4. **Conversación**: sin mensajes, solo el campo de escribir.\n5. **Resultado**: solo si hay uno. Debajo, sus archivos y los botones que deciden (✓ Aprobar, Quitársela a la IA, Marcar como hecha, ✎ Escribir el resultado).\n6. **⚙ Ajustes** (plegado): proyecto, plantilla, repetir, «Espera a…», adjuntos, y también ↑ ↓, Empezar de cero y Eliminar. La cabecera resume lo que hay dentro, por ejemplo `Tienda web · 🔒 espera a 1 · 📎 2 · 🔁 se repite`.\n7. **🕘 Actividad** (plegado): `12 pasos · último 14:40`.\n\n**Detalles:**\n- Cada plegable recuerda si lo dejaste abierto.\n- «Ajustes» se abre solo cuando la tarjeta está bloqueada, porque lo que la bloquea está dentro.\n\n## Antes y ahora\n**Antes:** 13 secciones seguidas, con el resultado y los botones a media altura, y «Repetir», «Espera a», «Adjuntos» y «Actividad» siempre abiertas aunque estuvieran vacías.\n**Ahora:** en una tarjeta en curso típica se ven 5 bloques y dos líneas plegadas.\n\n| En curso | Para revisar | Idea bloqueada |\n|---|---|---|\n| ![En curso](/files/ia/capturas/panel-en-curso.png) | ![Para revisar](/files/ia/capturas/panel-para-revisar.png) | ![Idea](/files/ia/capturas/panel-idea.png) |\n\n## Cambios\n- **`public/app.js`**:\n  - nueva plantilla del panel;\n  - `pintarPlegables()` (resúmenes, recordar abierto, abrir si está bloqueada);\n  - botones separados entre principales y de mantenimiento;\n  - la sección del resultado se oculta si no hay resultado;\n  - vacíos sin texto de ayuda.\n- **`public/styles.css`**: estilos de los plegables, en claro y oscuro.\n\nLo comprobé en Chrome con tres tarjetas reales (en curso, para revisar con archivos y criterios, idea bloqueada). Queda sin commit; para verlo, reinicia Órbita o recompila la app."
+    },
+    {
+     "n": 3,
+     "t": 1791744713936,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** El panel de la tarjeta funciona ahora con **pestañas**. Arriba quedan fijos el título, el estado y los botones que deciden. Debajo, cada parte tiene su pestaña: **En vivo · Tarea · Conversación · Resultado**, y a la derecha **⚙ Ajustes · 🕘 Actividad**. Al abrir una tarjeta, se muestra sola la pestaña que toca según su estado.\n\n| Trabajando → En vivo | Para revisar → Resultado | Te pregunta → Conversación |\n|---|---|---|\n| ![](/files/ia/capturas/pestanas-vivo.png) | ![](/files/ia/capturas/pestanas-revisar.png) | ![](/files/ia/capturas/pestanas-pregunta.png) |\n\n| Idea bloqueada → Tarea | ⚙ Ajustes | Modo oscuro |\n|---|---|---|\n| ![](/files/ia/capturas/pestanas-idea.png) | ![](/files/ia/capturas/pestanas-vivo-ajustes.png) | ![](/files/ia/capturas/pestanas-vivo-oscuro.png) |\n\n## Cómo queda\n- **Fijo arriba:** título, estado (columna, IA, %, paso, tiempo) y botones según el estado:\n  - para revisar: ✓ Aprobar y ↩ Devolver…, que te lleva a Conversación con el cursor listo;\n  - trabajando: Quitársela;\n  - idea: Marcar como hecha.\n- **Pestañas, con su contador:**\n  - **● En vivo**: solo mientras la IA trabaja; desaparece al entregar.\n  - **Tarea**: descripción y «Terminado cuando…», con `2/2 ✓`.\n  - **Conversación**: número de mensajes, y un **?** en ámbar si la IA te pregunta algo.\n  - **Resultado**: versiones, exportar, editar y los archivos de la IA. Si aún no hay resultado: «Todavía no hay resultado… ✎ escríbelo tú».\n  - **⚙ Ajustes**: proyecto, plantilla, repetir, espera a, adjuntos, ↑↓, empezar de cero y eliminar. Muestra `🔒1 🔁 📎2` cuando hay algo.\n  - **🕘 Actividad**: con el número de pasos.\n- **Qué pestaña se abre:** trabajando → En vivo; te pregunta → Conversación; para revisar o hecha → Resultado; si no, Tarea. **La que elijas a mano se respeta** aunque la IA siga informando. Si no elegiste ninguna, sigue al estado: al entregar, salta sola a Resultado.\n- La barra de pestañas se queda pegada arriba al desplazarte por el panel.\n\n## Pruebas (Chrome real, 4 tarjetas en estados distintos, sin errores de JavaScript)\n```\nrevisar  → abre en resultado | Tarea 2/2 ✓ · Conversación 2 · Resultado ✓ · Ajustes · 🕘5 | ✓ Aprobar · ↩ Devolver…\nvivo     → abre en vivo      | En vivo · Tarea · Conversación · Resultado · Ajustes · 🕘2 | Quitársela\npregunta → abre en chat      | … Conversación ? …                                        | ✓ Aprobar\nidea     → abre en tarea     | … Ajustes 🔒1 …                                           | Marcar como hecha\nelegida «tarea» a mano + la IA informa → tarea ✅ se respeta\nla IA entrega sin que hayas elegido     → resultado ✅ (y «En vivo» se oculta)\n```\n\nCambios en `public/app.js` (plantilla, `pintarPestanas()`, `mostrarPestana()` y acciones) y en `styles.css`. Sustituye a los plegables de la versión anterior. Queda sin commit; para verlo, reinicia Órbita o recompila la app."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Plan de pestañas:**\n- **Fijo arriba:** el título, el estado (columna, IA, %, paso) y los botones que deciden (✓ Aprobar, ↩ Devolver…, Quitársela, Marcar como hecha).\n- **Pestañas:**\n  - `● En vivo`: solo mientras trabaja la IA.\n  - `Tarea`: descripción y «Terminado cuando…», con el recuento `1/2 ✓`.\n  - `Conversación`: con el número de mensajes, o un `?` si la IA te pregunta algo.\n  - `Resultado`: con la versión, y sus archivos.\n  - A la derecha: `⚙ Ajustes` (proyecto, repetir, espera a, adjuntos, ↑↓, eliminar) y `🕘 Actividad`.\n- **Pestaña de inicio según el estado:**\n  - trabajando → En vivo;\n  - te pregunta → Conversación;\n  - para revisar o hecha → Resultado;\n  - idea → Tarea.\n\n  Si tú eliges otra, se respeta mientras el panel siga abierto.",
+   "liveAt": 1791744526764,
+   "startedAt": 1791744499701,
+   "log": [
+    {
+     "t": 1791743684466,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791743688381,
+     "kind": "step",
+     "text": "Buscando cómo se construye el panel de la tarjeta"
+    },
+    {
+     "t": 1791743725610,
+     "kind": "step",
+     "text": "Reordenado; comprobándolo en el navegador con una tarjeta de prueba"
+    },
+    {
+     "t": 1791743773876,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791743885279,
+     "kind": "done",
+     "text": "Aprobada"
+    },
+    {
+     "t": 1791743916394,
+     "kind": "you",
+     "text": "aun no se ve bien.. hay demasiadas secciones.. reordena esto inteligentemente"
+    },
+    {
+     "t": 1791743916395,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791743934027,
+     "kind": "step",
+     "text": "Rediseñando el panel: lo esencial a la vista y lo ocasional plegado"
+    },
+    {
+     "t": 1791744001026,
+     "kind": "step",
+     "text": "Probando el panel con tarjetas en distintos estados"
+    },
+    {
+     "t": 1791744071088,
+     "kind": "step",
+     "text": "Puliendo: criterios vacíos compactos, conversación vacía sin texto de ayuda"
+    },
+    {
+     "t": 1791744111843,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791744222312,
+     "kind": "you",
+     "text": "creo que cada seccion debe ser un tab dentro de la pantalla de propiedades"
+    },
+    {
+     "t": 1791744499701,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791744526764,
+     "kind": "step",
+     "text": "Pasando el panel de la tarjeta a pestañas"
+    },
+    {
+     "t": 1791744713936,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791744845447,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** El panel de la tarjeta funciona ahora con **pestañas**. Arriba quedan fijos el título, el estado y los botones que deciden. Debajo, cada parte tiene su pestaña: **En vivo · Tarea · Conversación · Resultado**, y a la derecha **⚙ Ajustes · 🕘 Actividad**. Al abrir una tarjeta, se muestra sola la pestaña que toca según su estado.\n\n| Trabajando → En vivo | Para revisar → Resultado | Te pregunta → Conversación |\n|---|---|---|\n| ![](/files/ia/capturas/pestanas-vivo.png) | ![](/files/ia/capturas/pestanas-revisar.png) | ![](/files/ia/capturas/pestanas-pregunta.png) |\n\n| Idea bloqueada → Tarea | ⚙ Ajustes | Modo oscuro |\n|---|---|---|\n| ![](/files/ia/capturas/pestanas-idea.png) | ![](/files/ia/capturas/pestanas-vivo-ajustes.png) | ![](/files/ia/capturas/pestanas-vivo-oscuro.png) |\n\n## Cómo queda\n- **Fijo arriba:** título, estado (columna, IA, %, paso, tiempo) y botones según el estado:\n  - para revisar: ✓ Aprobar y ↩ Devolver…, que te lleva a Conversación con el cursor listo;\n  - trabajando: Quitársela;\n  - idea: Marcar como hecha.\n- **Pestañas, con su contador:**\n  - **● En vivo**: solo mientras la IA trabaja; desaparece al entregar.\n  - **Tarea**: descripción y «Terminado cuando…», con `2/2 ✓`.\n  - **Conversación**: número de mensajes, y un **?** en ámbar si la IA te pregunta algo.\n  - **Resultado**: versiones, exportar, editar y los archivos de la IA. Si aún no hay resultado: «Todavía no hay resultado… ✎ escríbelo tú».\n  - **⚙ Ajustes**: proyecto, plantilla, repetir, espera a, adjuntos, ↑↓, empezar de cero y eliminar. Muestra `🔒1 🔁 📎2` cuando hay algo.\n  - **🕘 Actividad**: con el número de pasos.\n- **Qué pestaña se abre:** trabajando → En vivo; te pregunta → Conversación; para revisar o hecha → Resultado; si no, Tarea. **La que elijas a mano se respeta** aunque la IA siga informando. Si no elegiste ninguna, sigue al estado: al entregar, salta sola a Resultado.\n- La barra de pestañas se queda pegada arriba al desplazarte por el panel.\n\n## Pruebas (Chrome real, 4 tarjetas en estados distintos, sin errores de JavaScript)\n```\nrevisar  → abre en resultado | Tarea 2/2 ✓ · Conversación 2 · Resultado ✓ · Ajustes · 🕘5 | ✓ Aprobar · ↩ Devolver…\nvivo     → abre en vivo      | En vivo · Tarea · Conversación · Resultado · Ajustes · 🕘2 | Quitársela\npregunta → abre en chat      | … Conversación ? …                                        | ✓ Aprobar\nidea     → abre en tarea     | … Ajustes 🔒1 …                                           | Marcar como hecha\nelegida «tarea» a mano + la IA informa → tarea ✅ se respeta\nla IA entrega sin que hayas elegido     → resultado ✅ (y «En vivo» se oculta)\n```\n\nCambios en `public/app.js` (plantilla, `pintarPestanas()`, `mostrarPestana()` y acciones) y en `styles.css`. Sustituye a los plegables de la versión anterior. Queda sin commit; para verlo, reinicia Órbita o recompila la app.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791743684465,
+   "updatedAt": 1791744845447,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "2360ec66",
+   "title": "Recompilar y generar app",
+   "description": "cada vez que una card termine debes generar el app",
+   "kind": "task",
+   "column": "backlog",
+   "status": "idle",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791743793882,
    "thread": [],
    "attachments": [],
    "versions": [],
@@ -32,16 +1299,240 @@
    "worker": null,
    "inbox": [],
    "progress": 0,
-   "step": "Esperando a una IA…",
+   "step": "",
    "live": "",
    "liveAt": null,
    "startedAt": null,
-   "log": [],
+   "log": [
+    {
+     "t": 1791743801867,
+     "kind": "step",
+     "text": "Programada: próxima, lunes, 12 de octubre de 2026, 9:00"
+    },
+    {
+     "t": 1791743805636,
+     "kind": "step",
+     "text": "Ya no se repite"
+    }
+   ],
    "result": "",
    "question": "",
    "files": [],
-   "createdAt": 1791740185390,
-   "updatedAt": 1791740185391
+   "createdAt": 1791743793882,
+   "updatedAt": 1791743805636
+  },
+  {
+   "id": "a15c9ee2",
+   "title": "Agregar un almacenamiento de entidades categorizadas",
+   "description": "Agregar un almacenamiento de entidades categorizadas.. las entidades son unidades de memoria extraidas en el proyecto y que siguen existiendo.. por ejemplo los personajes de un proyecto de un juego.. las armas, items, personas.. etc pero de forma visual y por categorias",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666061905,
+   "thread": [
+    {
+     "t": 1791744499663,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Cada proyecto tiene ahora una sección **«Entidades»**: un almacén visual de lo que existe en él y perdura, como personajes, armas, objetos, personas o lugares. Se muestran como fichas agrupadas por categoría, cada una con su icono y su color. La IA las va guardando mientras trabaja y tú l"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791744499662,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Cada proyecto tiene ahora una sección **«Entidades»**: un almacén visual de lo que existe en él y perdura, como personajes, armas, objetos, personas o lugares. Se muestran como fichas agrupadas por categoría, cada una con su icono y su color. La IA las va guardando mientras trabaja y tú las ves, las buscas y las editas.\n\n![Sección Entidades](/files/ia/capturas/entidades.png)\n\n## Qué es una entidad\nUna ficha con **nombre, categoría, resumen, detalles** (Markdown), **etiquetas** e **imagen**.\n- **Categorías**: son libres. Las habituales tienen icono y color propios: 🧙 personajes, ⚔️ armas, 🎒 objetos, 👤 personas, 🗺️ lugares, ✨ hechizos, 🏰 facciones, 🚀 vehículos, 📜 misiones y 💡 conceptos; el resto lleva 🏷️ y un color de la paleta. «armas» y «Armas» son la misma categoría.\n- **Dónde se guardan**: en el `tablero.json` del proyecto, así que **viajan con su carpeta**. Las imágenes van en `orbita/entidades/`.\n\n## La IA\n- Con **cada tarjeta** recibe `project.entities`, un índice con los nombres e ids por categoría, pero sin detalles para no gastar contexto.\n- **`save_entity`** crea o actualiza. Si ya hay una con esa categoría y nombre, **la actualiza en vez de duplicarla**, y solo cambia lo que se le pasa. Para la imagen, guarda el archivo con `write_file` y pasa su ruta en `image_path`.\n- **`list_entities`** busca por categoría y texto, sin importar tildes ni mayúsculas, y devuelve los detalles.\n- **`delete_entity`** borra, solo si se lo pides.\n- Todo queda apuntado en la actividad de la tarjeta. Las instrucciones del MCP explican cuándo usar entidades y cuándo la memoria: la memoria es para decisiones y preferencias; las entidades, para las cosas del proyecto.\n\n## Tú\n- **Filtros por categoría**, búsqueda, y grupos ordenados de más a menos numerosos.\n- **＋ Nueva entidad** y, al pulsar una ficha, el panel para editarla: imagen (se pulsa o se arrastra), categoría con sugerencias, etiquetas, resumen y detalles con vista previa en Markdown.\n\n![Ficha abierta (modo oscuro)](/files/ia/capturas/entidad-ficha.png)\n\n## Pruebas (Órbita aparte, 15/15 ✅)\n- Se crearon 8 entidades por MCP. «armas» se unió a «Armas».\n- Guardar de nuevo «personajes / aria la exploradora» **actualizó** la entidad sin duplicarla y conservó su nombre original. Ese fallo lo encontré y corregí durante las pruebas.\n- `image_path` funciona. Si la imagen no existe, da un error claro.\n- La tarjeta siguiente trae el índice.\n- `list_entities \"luz\"` encuentra 3 entidades buscando en sus detalles.\n- Desde la interfaz: crear, subir una imagen PNG y rechazar una SVG, error si falta el nombre, y borrar quitando también su imagen.\n- Se guarda en `tablero.json`, `delete_entity` funciona y la actividad lo apunta.\n- `npm test` sigue pasando (5/5). Revisado en Chrome en claro y oscuro, sin errores en la consola.\n\n**Archivos:** `entidades.mjs` (nuevo), `server.mjs` (rutas), `mcp.mjs` (3 herramientas, índice e instrucciones), `public/app.js` y `styles.css` (sección y ficha) y el README. Queda sin commit; para verlo, reinicia Órbita o recompila la app.\n\n**Posibles siguientes pasos:**\n- que la búsqueda global ⌘K también encuentre entidades;\n- relaciones entre entidades (por ejemplo, «Arco de Lunaris → de Aria»);\n- que la IA genere imágenes para las fichas."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Diseño:**\n- **Qué es una entidad:** una ficha de algo que existe en el proyecto y perdura, como un personaje, un arma, un objeto, una persona o un lugar. Tiene categoría, nombre, resumen, detalles (Markdown), etiquetas e imagen.\n- **Dónde se guarda:** en el `tablero.json` del proyecto, así que viaja con su carpeta. Las imágenes van en `orbita/entidades/`.\n- **La IA:**\n  - Recibe con cada tarjeta un **índice** con los nombres de las entidades por categoría.\n  - `save_entity` crea o actualiza una entidad. Si ya existe una con la misma categoría y nombre, la actualiza, así que no se duplican.\n  - `list_entities` busca y lee.\n  - `delete_entity` borra, solo si se lo pides.\n- **Interfaz:** una sección nueva, **«Entidades»**, en el proyecto, con:\n  - filtros por categoría y búsqueda;\n  - fichas visuales agrupadas, con imagen o icono por categoría (🧙 personajes, ⚔️ armas, 🎒 objetos, 👤 personas, 🗺 lugares…);\n  - al pulsar una, se abre para editarla y subirle una imagen.",
+   "liveAt": 1791744205729,
+   "startedAt": 1791744140731,
+   "log": [
+    {
+     "t": 1791744140731,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791744159172,
+     "kind": "step",
+     "text": "Estudiando cómo están hechas las secciones del proyecto (Conocimiento, Entregables)"
+    },
+    {
+     "t": 1791744205729,
+     "kind": "step",
+     "text": "Escribiendo el modelo de entidades (entidades.mjs)"
+    },
+    {
+     "t": 1791744255209,
+     "kind": "step",
+     "text": "Añadiendo save_entity, list_entities y delete_entity al MCP"
+    },
+    {
+     "t": 1791744275946,
+     "kind": "step",
+     "text": "Construyendo la sección «Entidades»: fichas por categoría, filtros y edición"
+    },
+    {
+     "t": 1791744406896,
+     "kind": "step",
+     "text": "Pruebas 15/15 ✅; revisando el aspecto en claro y oscuro"
+    },
+    {
+     "t": 1791744482238,
+     "kind": "step",
+     "text": "Documentando en el README y guardando capturas"
+    },
+    {
+     "t": 1791744499663,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791744840881,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** Cada proyecto tiene ahora una sección **«Entidades»**: un almacén visual de lo que existe en él y perdura, como personajes, armas, objetos, personas o lugares. Se muestran como fichas agrupadas por categoría, cada una con su icono y su color. La IA las va guardando mientras trabaja y tú las ves, las buscas y las editas.\n\n![Sección Entidades](/files/ia/capturas/entidades.png)\n\n## Qué es una entidad\nUna ficha con **nombre, categoría, resumen, detalles** (Markdown), **etiquetas** e **imagen**.\n- **Categorías**: son libres. Las habituales tienen icono y color propios: 🧙 personajes, ⚔️ armas, 🎒 objetos, 👤 personas, 🗺️ lugares, ✨ hechizos, 🏰 facciones, 🚀 vehículos, 📜 misiones y 💡 conceptos; el resto lleva 🏷️ y un color de la paleta. «armas» y «Armas» son la misma categoría.\n- **Dónde se guardan**: en el `tablero.json` del proyecto, así que **viajan con su carpeta**. Las imágenes van en `orbita/entidades/`.\n\n## La IA\n- Con **cada tarjeta** recibe `project.entities`, un índice con los nombres e ids por categoría, pero sin detalles para no gastar contexto.\n- **`save_entity`** crea o actualiza. Si ya hay una con esa categoría y nombre, **la actualiza en vez de duplicarla**, y solo cambia lo que se le pasa. Para la imagen, guarda el archivo con `write_file` y pasa su ruta en `image_path`.\n- **`list_entities`** busca por categoría y texto, sin importar tildes ni mayúsculas, y devuelve los detalles.\n- **`delete_entity`** borra, solo si se lo pides.\n- Todo queda apuntado en la actividad de la tarjeta. Las instrucciones del MCP explican cuándo usar entidades y cuándo la memoria: la memoria es para decisiones y preferencias; las entidades, para las cosas del proyecto.\n\n## Tú\n- **Filtros por categoría**, búsqueda, y grupos ordenados de más a menos numerosos.\n- **＋ Nueva entidad** y, al pulsar una ficha, el panel para editarla: imagen (se pulsa o se arrastra), categoría con sugerencias, etiquetas, resumen y detalles con vista previa en Markdown.\n\n![Ficha abierta (modo oscuro)](/files/ia/capturas/entidad-ficha.png)\n\n## Pruebas (Órbita aparte, 15/15 ✅)\n- Se crearon 8 entidades por MCP. «armas» se unió a «Armas».\n- Guardar de nuevo «personajes / aria la exploradora» **actualizó** la entidad sin duplicarla y conservó su nombre original. Ese fallo lo encontré y corregí durante las pruebas.\n- `image_path` funciona. Si la imagen no existe, da un error claro.\n- La tarjeta siguiente trae el índice.\n- `list_entities \"luz\"` encuentra 3 entidades buscando en sus detalles.\n- Desde la interfaz: crear, subir una imagen PNG y rechazar una SVG, error si falta el nombre, y borrar quitando también su imagen.\n- Se guarda en `tablero.json`, `delete_entity` funciona y la actividad lo apunta.\n- `npm test` sigue pasando (5/5). Revisado en Chrome en claro y oscuro, sin errores en la consola.\n\n**Archivos:** `entidades.mjs` (nuevo), `server.mjs` (rutas), `mcp.mjs` (3 herramientas, índice e instrucciones), `public/app.js` y `styles.css` (sección y ficha) y el README. Queda sin commit; para verlo, reinicia Órbita o recompila la app.\n\n**Posibles siguientes pasos:**\n- que la búsqueda global ⌘K también encuentre entidades;\n- relaciones entre entidades (por ejemplo, «Arco de Lunaris → de Aria»);\n- que la IA genere imágenes para las fichas.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791744140731,
+   "updatedAt": 1791744840882,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "797edc60",
+   "title": "responderle a la ia en orbita",
+   "description": "a veces la ia me dice que le responda en cloude no en orbita y tenemos que permitir respuestas en orbita",
+   "kind": "task",
+   "column": "review",
+   "status": "ready",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 2000,
+   "thread": [
+    {
+     "t": 1791745402866,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** Ahora a la IA siempre se le responde desde Órbita. Sus instrucciones le dicen que tú solo la lees en Órbita y que nunca pregunte en su chat. Además, en una tarjeta entregada el botón ya no es «Devolver», sino **«↩ Responder a la IA»**: lo que escribes le llega y sigue con esa misma tarjet"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791745402864,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** Ahora a la IA siempre se le responde desde Órbita. Sus instrucciones le dicen que tú solo la lees en Órbita y que nunca pregunte en su chat. Además, en una tarjeta entregada el botón ya no es «Devolver», sino **«↩ Responder a la IA»**: lo que escribes le llega y sigue con esa misma tarjeta.\n\n![Responder a la IA desde la tarjeta](/files/ia/capturas/responder-a-la-ia.png)\n\n## Por qué pasaba\nNada le decía a la IA que no miras su chat. Cuando al terminar ofrecía algo («¿quieres que también…?») o necesitaba una decisión, lo escribía en Claude y esperaba la respuesta allí. Yo mismo lo hice hoy, con «Si quieres, lo quito».\n\n## Cambios\n**Instrucciones de la IA (`mcp.mjs`).** Las reciben todas las IAs, también con los prompts `trabajar` y `nuevo_proyecto`:\n- *«La persona te habla y te lee SOLO en Órbita… Nunca le preguntes nada ni le pidas que te responda ahí.»*\n- Si necesita una decisión, usa `ask_human`.\n- Si ofrece algo o pregunta al entregar, lo pone en el resultado, y tu respuesta le llega por `wait_for_work`.\n\nLo mismo se le recuerda en la descripción de `submit_result` y en el «next» de cada tarjeta que toma.\n\n**Panel de la tarjeta (`app.js`).** En una tarjeta entregada:\n- **arriba:** ✓ Aprobar · **↩ Responder…** (antes, «↩ Devolver…»). Te lleva a la conversación con el cursor en el cuadro;\n- **el cuadro:** *«Responde a Claude o pide cambios: lo recibe y sigue con esta tarjeta…»*;\n- **el botón:** **↩ Responder a la IA** (antes, «↺ Devolver a la IA»), con el aviso *«Enviado a la IA: sigue con esta tarjeta»*.\n\n**La instrucción para lanzar una IA por proyecto** (🧠 Su propia IA) añade: *«Lo que necesites de mí, pregúntamelo en Órbita (ask_human o en el resultado), no en este chat.»*\n\n## Pruebas (Órbita aparte)\n- ✅ La IA recibe en cada tarjeta que pregunte con `ask_human` y no en su chat.\n- ✅ Las instrucciones del servidor (al conectarse) lo dicen.\n- ✅ La IA entrega «¿Quieres que cree también a Pedro?», respondes «Sí, crea a Pedro en Personas» desde la tarjeta, y vuelve a En curso para la IA.\n- ✅ La IA recibe tu respuesta por `wait_for_work` (en `inbox`).\n- ✅ En Chrome, «↩ Responder…» abre la conversación con el foco en el cuadro.\n- `npm test`: 5/5.\n\n`Órbita.app` ya está recompilada con esto. Para usarla, ciérrala (⌘K → Cerrar Órbita) y ábrela de nuevo. Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse.\n\n**Lo que no se puede arreglar desde Órbita:** cuando Claude Code pide **permiso** para ejecutar algo (el aviso de aprobar una herramienta), ese aviso es de Claude y solo se aprueba allí. Para evitarlo, se pueden dar esos permisos de antemano en la configuración de Claude Code."
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Causa:** nada le dice a la IA que la persona solo la lee en Órbita. Si al terminar ofrece algo («¿quieres que también…?») o necesita una decisión, lo escribe en su chat de Claude y espera la respuesta allí.\n\n**Arreglo:**\n1. **Instrucciones del MCP** (todas las IAs, también los prompts `trabajar` y `nuevo_proyecto`):\n   - nunca preguntar en su chat;\n   - las decisiones, con `ask_human`;\n   - las ofertas y preguntas al entregar, en el resultado: la respuesta le llega por `wait_for_work`.\n2. **Panel de la tarjeta:** en una tarjeta entregada, el cuadro pasa a decir «Responde a la IA o pide cambios…» y el botón, **«↩ Responder a la IA»**.\n3. **Instrucción para lanzar una IA por proyecto:** también se lo recuerda.",
+   "liveAt": 1791745339352,
+   "startedAt": 1791745293253,
+   "log": [
+    {
+     "t": 1791745293253,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791745311145,
+     "kind": "step",
+     "text": "Buscando dónde se le dice a la IA cómo hablar con la persona"
+    },
+    {
+     "t": 1791745339352,
+     "kind": "step",
+     "text": "Ajustando las instrucciones de la IA y el compositor de la tarjeta"
+    },
+    {
+     "t": 1791745402866,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    }
+   ],
+   "result": "**Resumen:** Ahora a la IA siempre se le responde desde Órbita. Sus instrucciones le dicen que tú solo la lees en Órbita y que nunca pregunte en su chat. Además, en una tarjeta entregada el botón ya no es «Devolver», sino **«↩ Responder a la IA»**: lo que escribes le llega y sigue con esa misma tarjeta.\n\n![Responder a la IA desde la tarjeta](/files/ia/capturas/responder-a-la-ia.png)\n\n## Por qué pasaba\nNada le decía a la IA que no miras su chat. Cuando al terminar ofrecía algo («¿quieres que también…?») o necesitaba una decisión, lo escribía en Claude y esperaba la respuesta allí. Yo mismo lo hice hoy, con «Si quieres, lo quito».\n\n## Cambios\n**Instrucciones de la IA (`mcp.mjs`).** Las reciben todas las IAs, también con los prompts `trabajar` y `nuevo_proyecto`:\n- *«La persona te habla y te lee SOLO en Órbita… Nunca le preguntes nada ni le pidas que te responda ahí.»*\n- Si necesita una decisión, usa `ask_human`.\n- Si ofrece algo o pregunta al entregar, lo pone en el resultado, y tu respuesta le llega por `wait_for_work`.\n\nLo mismo se le recuerda en la descripción de `submit_result` y en el «next» de cada tarjeta que toma.\n\n**Panel de la tarjeta (`app.js`).** En una tarjeta entregada:\n- **arriba:** ✓ Aprobar · **↩ Responder…** (antes, «↩ Devolver…»). Te lleva a la conversación con el cursor en el cuadro;\n- **el cuadro:** *«Responde a Claude o pide cambios: lo recibe y sigue con esta tarjeta…»*;\n- **el botón:** **↩ Responder a la IA** (antes, «↺ Devolver a la IA»), con el aviso *«Enviado a la IA: sigue con esta tarjeta»*.\n\n**La instrucción para lanzar una IA por proyecto** (🧠 Su propia IA) añade: *«Lo que necesites de mí, pregúntamelo en Órbita (ask_human o en el resultado), no en este chat.»*\n\n## Pruebas (Órbita aparte)\n- ✅ La IA recibe en cada tarjeta que pregunte con `ask_human` y no en su chat.\n- ✅ Las instrucciones del servidor (al conectarse) lo dicen.\n- ✅ La IA entrega «¿Quieres que cree también a Pedro?», respondes «Sí, crea a Pedro en Personas» desde la tarjeta, y vuelve a En curso para la IA.\n- ✅ La IA recibe tu respuesta por `wait_for_work` (en `inbox`).\n- ✅ En Chrome, «↩ Responder…» abre la conversación con el foco en el cuadro.\n- `npm test`: 5/5.\n\n`Órbita.app` ya está recompilada con esto. Para usarla, ciérrala (⌘K → Cerrar Órbita) y ábrela de nuevo. Las IAs que ya estén conectadas leen las instrucciones nuevas al volver a conectarse.\n\n**Lo que no se puede arreglar desde Órbita:** cuando Claude Code pide **permiso** para ejecutar algo (el aviso de aprobar una herramienta), ese aviso es de Claude y solo se aprueba allí. Para evitarlo, se pueden dar esos permisos de antemano en la configuración de Claude Code.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791745293253,
+   "updatedAt": 1791745402866,
+   "revocada": null,
+   "pausada": false
+  },
+  {
+   "id": "30cce8ab",
+   "title": "publica",
+   "description": "crea y sube commit",
+   "kind": "task",
+   "column": "doing",
+   "status": "running",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 2000,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [],
+   "programa": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 10,
+   "step": "Revisando cambios pendientes y el remoto",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791745443404,
+   "log": [
+    {
+     "t": 1791745443404,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791745453225,
+     "kind": "step",
+     "text": "Revisando cambios pendientes y el remoto"
+    }
+   ],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791745443403,
+   "updatedAt": 1791745453225,
+   "revocada": null,
+   "pausada": false
   }
  ]
 }

@@ -8,8 +8,8 @@ Un único ejecutable por sistema (Node SEA): Node, el servidor, el MCP y la inte
 
 | Archivo | Sistema |
 |---|---|
-| `orbita-macos-arm64.zip` | Mac con Apple Silicon |
-| `orbita-macos-x64.zip` | Mac con Intel |
+| `orbita-macos-arm64.zip` | Mac con Apple Silicon (`Órbita.app`) |
+| `orbita-macos-x64.zip` | Mac con Intel (`Órbita.app`) |
 | `orbita-windows-x64.zip` | Windows 10/11 |
 | `orbita-linux-x64.zip` | Linux |
 
@@ -19,7 +19,7 @@ Un único ejecutable por sistema (Node SEA): Node, el servidor, el MCP y la inte
 npm run build
 ```
 
-Crea `dist/orbita` para el sistema en el que lo ejecutas (unos 140 MB; comprimido, menos de la mitad). La primera vez descarga el Node oficial de nodejs.org, comprueba su SHA-256 y lo guarda en `~/.cache/orbita-build`: el Node de Homebrew no sirve porque viene sin soporte para ejecutables. Con `ORBITA_NODE=/ruta/a/node` se usa otro Node oficial.
+Crea `dist/orbita` para el sistema en el que lo ejecutas (en macOS, también `dist/Órbita.app`, con el icono de `recursos/orbita.icns`, que sale de `recursos/icono.svg`) (unos 140 MB; comprimido, menos de la mitad). La primera vez descarga el Node oficial de nodejs.org, comprueba su SHA-256 y lo guarda en `~/.cache/orbita-build`: el Node de Homebrew no sirve porque viene sin soporte para ejecutables. Con `ORBITA_NODE=/ruta/a/node` se usa otro Node oficial.
 
 Para los cuatro sistemas a la vez está el flujo de GitHub Actions `.github/workflows/release.yml`. Al subir una etiqueta (`git tag v1.0.0 && git push --tags`), construye los cuatro y los adjunta a una release de GitHub. La web puede enlazar a la última release: `https://github.com/<usuario>/<repo>/releases/latest`.
 

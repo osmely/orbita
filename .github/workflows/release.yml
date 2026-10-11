@@ -36,7 +36,10 @@ jobs:
         shell: bash
         run: |
           cd dist
-          if [ "${{ runner.os }}" = "Windows" ]; then 7z a "../${{ matrix.nombre }}.zip" orbita.exe; else zip "../${{ matrix.nombre }}.zip" orbita; fi
+          # En macOS se reparte Órbita.app (doble clic, sin Terminal); dentro va el mismo ejecutable
+          if [ "${{ runner.os }}" = "Windows" ]; then 7z a "../${{ matrix.nombre }}.zip" orbita.exe
+          elif [ "${{ runner.os }}" = "macOS" ]; then ditto -c -k --keepParent "Órbita.app" "../${{ matrix.nombre }}.zip"
+          else zip "../${{ matrix.nombre }}.zip" orbita; fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.nombre }}

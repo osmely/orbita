@@ -8,13 +8,18 @@ Un tablero kanban que funciona a mano y que **cualquier IA conectada por MCP** p
 
 ## Usarla (ejecutable, sin instalar Node)
 
-Descarga el ejecutable de tu sistema, ábrelo y se abre el tablero en el navegador.
+Descarga el ejecutable de tu sistema y ábrelo: el tablero se abre **en su propia ventana**, como una aplicación, sin pestañas ni barra de direcciones. Para eso usa Chrome, Edge, Brave o Chromium en «modo app»; si no hay ninguno, se abre en una pestaña de tu navegador.
+
+- **macOS**: `Órbita.app`. Se abre con doble clic, sin ventana de Terminal. Abrirla otra vez con Órbita ya en marcha solo vuelve a mostrar su ventana.
+- **Windows y Linux**: el ejecutable `orbita`.
 
 ```bash
 ./orbita
 ```
 
-Opciones: `--port <n>` (por defecto 4321; se recuerda), `--data <carpeta>`, `--no-open`, `--version`, `--help`.
+Para cerrar Órbita del todo: ⌘K → «Cerrar Órbita» (o Ctrl+C en la Terminal). Cerrar su ventana no la detiene, así que la IA puede seguir trabajando.
+
+Opciones: `--port <n>` (por defecto 4321; se recuerda), `--data <carpeta>`, `--no-open`, `--tab` (en una pestaña del navegador, no en su propia ventana), `--version`, `--help`.
 
 ### Dónde se guarda todo
 
@@ -31,7 +36,7 @@ mi-web/                 ← la carpeta de trabajo: aquí trabaja la IA
 
 Si copias la carpeta, o la subes a un repositorio, el proyecto va con ella: al elegir esa carpeta en otra máquina, Órbita abre el proyecto tal cual. Al crear un proyecto se elige su carpeta con el selector del sistema; desde la IA, `open_project` usa su directorio de trabajo.
 
-En la carpeta de datos de Órbita solo queda `orbita.json`, con la lista de proyectos (y dónde está cada uno) y lo que no es de ningún proyecto: preguntas rápidas, plantillas y papelera. Está en la carpeta de datos del sistema, no junto al programa, así que una actualización no la toca:
+En la carpeta de datos de Órbita solo queda `orbita.json`, con la lista de proyectos (y dónde está cada uno) y lo que no es de ningún proyecto: preguntas rápidas, plantillas y papelera. Junto a él está `secretos.json`, con los secretos de cada proyecto. Está en la carpeta de datos del sistema, no junto al programa, así que una actualización no la toca:
 
 | Sistema | Carpeta |
 |---|---|
@@ -77,7 +82,7 @@ Para Cursor, Claude Desktop y otras, pulsa **Conectar IA** en el tablero: ahí e
 - **Vista previa de entregables**: al abrir un archivo (desde «Entregables» o desde una tarjeta) se ve en el panel:
   - **Páginas HTML funcionando**: el juego se puede jugar, con «⛶ En grande», «↻» y «↗ Pestaña nueva».
   - **CSV** como tabla, **código** y **JSON** con colores, **Markdown**, imágenes/SVG, **PDF**, audio y vídeo. Todos con «⤓ Descargar».
-  - **Seguridad**: lo que escribe una IA se sirve desde `/vista/` con la cabecera *sandbox* y en un iframe aislado. Se ejecuta, pero **no puede leer ni cambiar el tablero** ni tocar la ventana de Órbita, ni siquiera abierto en otra pestaña. `/files/` sigue sirviendo texto plano.
+  - **Seguridad**: lo que escribe una IA se sirve desde `/vista/` con la cabecera *sandbox* y en un iframe aislado. Se ejecuta, pero **no puede leer ni cambiar el tablero** ni tocar la ventana de Órbita, ni siquiera abierto en otra pestaña. La ruta lleva una clave que solo conoce el tablero (`/vista/<clave>/…`), así que ninguna otra web puede cargar tus entregables. `/files/` sigue sirviendo texto plano, y ninguna ruta sigue un enlace simbólico que lleve fuera de `orbita/`.
 - **Plantillas de tarjetas**: en «＋ Nueva tarjeta» están las plantillas (Investigación, Informe, Revisión de código, Corregir un fallo y las tuyas).
   - **Crear**: un clic rellena título, descripción y criterios, y otro clic en «Crear».
   - **Campos**: los {campos} entre llaves («Investigar {tema}») se piden al usarla y se ven al momento.
@@ -98,6 +103,16 @@ Para Cursor, Claude Desktop y otras, pulsa **Conectar IA** en el tablero: ahí e
 - **Objetivos**: escribe un objetivo grande arriba y pulsa Planificar. La IA lo divide en tarjetas dentro del **proyecto que estás viendo**. Solo si aún no hay ninguno se crea un proyecto nuevo, eligiendo su carpeta.
 - **Proyectos como pestañas** (como en el navegador): cada proyecto tiene su pestaña y dentro está todo lo suyo: **Tablero**, **Instrucciones y memoria**, **Conocimiento**, **Entregables** y **Archivo**. ✕ cierra la pestaña sin borrar el proyecto; ＋ crea uno nuevo o reabre uno cerrado; doble clic renombra. Siempre hay un proyecto a la vista: al cerrar su pestaña se pasa a la de al lado, y la última abierta no se cierra. Si todavía no hay ninguno, Órbita propone crear el primero. También vale `?proyecto=<id>` en la dirección.
 - **Instrucciones, memoria y conocimiento** (dentro de la pestaña del proyecto): instrucciones fijas, una memoria que la IA va actualizando y archivos de referencia que puedes arrastrar. La IA lo recibe con cada tarjeta del proyecto.
+- **Entidades del proyecto** (sección «Entidades»): lo que existe en el proyecto y perdura, por categorías. Por ejemplo, los personajes de un juego, sus armas y objetos, las personas de un informe o los lugares de una historia.
+  - **Fichas**: cada entidad tiene nombre, categoría, resumen, detalles en Markdown, etiquetas e imagen. Se agrupan por categoría, cada una con su icono y su color, y se pueden filtrar y buscar.
+  - **La IA** recibe con cada tarjeta el índice (nombres por categoría). Guarda con `save_entity` lo que crea o descubre; si ya existe con esa categoría y nombre, la actualiza en vez de duplicarla. Con `list_entities` lee los detalles.
+  - **Tú** las creas, editas y les pones imagen (pulsando o arrastrándola sobre la ficha).
+  - Viven en el `tablero.json` del proyecto, y sus imágenes en `orbita/entidades/`: viajan con la carpeta.
+- **Secretos del proyecto** (en «Instrucciones y memoria» → Secretos): claves de API, tokens o contraseñas de servicios, con un nombre como `STRIPE_API_KEY`.
+  - **La IA** recibe solo los nombres con cada tarjeta y pide el valor con `get_secret` cuando lo necesita, desde una tarjeta suya. Queda apuntado en la actividad, sin el valor.
+  - **Tapados**: si una IA pega un valor en un resultado, su progreso, un comentario, una pregunta o un entregable, se guarda como `«secreto NOMBRE»`.
+  - **Dónde**: en `secretos.json`, en la carpeta de datos de Órbita (solo la persona puede leerlo). No van en `orbita/`, así que no viajan con la carpeta ni acaban en un repositorio.
+  - **Solo se escriben**: una vez guardado, el valor no se vuelve a mostrar. Para cambiarlo, se guarda otra vez con el mismo nombre.
 - **Archivo**: «Archivar» en la columna Hecho guarda las tarjetas terminadas del proyecto visible. No se borra nada: la sección «Archivo» del proyecto las lista y cada una se puede restaurar.
 - **Mientras la IA trabaja** ves en la tarjeta los últimos pasos, el porcentaje y cuánto lleva, y en su panel la sección **«En vivo»** con lo que va produciendo antes de entregar.
 - Si a la IA le falta una decisión, **te pregunta** y la tarjeta parpadea en ámbar.
@@ -129,6 +144,8 @@ Lo que escribe la IA con `write_file` queda en `<carpeta de trabajo>/orbita/`; e
 | `submit_result` | Entrega el resultado para revisión (con `criteria`: la autorrevisión de cada criterio de aceptación, con evidencia) |
 | `ask_human` | Te hace una pregunta; tu respuesta le llega por `wait_for_work` |
 | `answer_question` | Responde una pregunta rápida que le llegó por `wait_for_work` (campo `question`) |
+| `save_entity`, `list_entities`, `delete_entity` | Guarda (crea o actualiza), busca y borra las entidades del proyecto: personajes, objetos, personas, lugares… |
+| `get_secret` | Lee el valor de un secreto del proyecto de su tarjeta (los nombres vienen en `project.secrets`) |
 | `update_memory` | Reescribe la memoria del proyecto de su tarjeta con lo que conviene recordar |
 | `add_comment` | Deja una nota en la conversación sin entregar ni pausar la tarjeta |
 | `create_card` | Crea tarjetas (por ejemplo, al planificar un objetivo); con `depends_on` indica a qué tarjetas espera |

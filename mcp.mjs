@@ -8,9 +8,13 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { z } from "zod/v4";
 import { VERSION_APP } from "./entorno.mjs";
 import { normalizarCarpeta, baseDe, CARPETA } from "./almacen.mjs";
+import { nombresSecretos, leerSecreto, taparSecretos } from "./secretos.mjs";
+import { guardarEntidad, quitarEntidad, indiceEntidades, buscarEntidades, IMAGEN } from "./entidades.mjs";
 
 const INSTRUCTIONS = `Órbita es un tablero kanban. Tú eres su cerebro: la persona pone tarjetas en "En curso" y tú las trabajas.
 Columnas: backlog (Ideas), doing (En curso), review (Para revisar), done (Hecho).
+
+La persona te habla y te lee SOLO en Órbita: no mira tu chat ni tu terminal mientras escuchas el tablero. Nunca le preguntes nada ni le pidas que te responda ahí. Si necesitas una decisión para seguir, usa ask_human. Si al entregar le ofreces algo opcional («¿quieres que también…?») o le dejas una pregunta, escríbelo en el resultado: te contesta desde la tarjeta y su respuesta te llega por wait_for_work (en "inbox"), con la tarjeta de vuelta.
 
 Ciclo de trabajo:
 1. wait_for_work con tu nombre: espera hasta que haya una tarjeta para ti y te la asigna. Devuelve la tarjeta completa, con los mensajes de la persona en "inbox".
@@ -38,6 +42,10 @@ Si la persona te pide abrir, crear o conectarte a un proyecto («abre un proyect
 Si la tarjeta trae acceptance_criteria («Terminado cuando…»), trabaja para cumplirlos y, al entregar, revisa cada uno con honestidad y pásalos en submit_result → criteria con su evidencia (una captura /files/…, una prueba o un enlace); lo que no cumplas, márcalo met=false y explica. Si un criterio trae person_says, la persona dice que no se cumple: corrígelo primero. Al crear tarjetas (planes), añade criteria comprobables.
 
 Pasa siempre tu nombre en "worker" al llamar a report_progress, write_file, ask_human y submit_result. Si una herramienta responde «DETENTE», la persona te quitó esa tarjeta (la movió, la eliminó, la dio por hecha o pausó su proyecto): deja de trabajar en ella, no la entregues y vuelve a wait_for_work. Si fue una pausa, lo que llevas se conserva y la tarjeta te volverá al reanudar el proyecto. Solo te enteras de estos avisos al llamar a una herramienta: mientras trabajas, llama a report_progress al menos cada 2–3 minutos y antes de cada paso largo, para que una pausa o un cambio de la persona te llegue a tiempo. wait_for_work también te trae esos avisos en "notices".
+
+Si el proyecto tiene secretos (claves de API, tokens…), "project.secrets" trae solo sus nombres. Cuando necesites uno, pide su valor con get_secret y úsalo directamente en tu trabajo (por ejemplo en el .env del proyecto). No lo copies en resultados, comentarios ni entregables: el tablero lo taparía igualmente.
+
+El proyecto guarda también sus entidades: lo que existe en él y perdura, por categorías (personajes, armas, objetos, personas, lugares…). "project.entities" trae su índice (nombres e ids por categoría). Cuando tu trabajo cree, descubra o cambie una de esas cosas, guárdala con save_entity (categoría, nombre, un resumen de una línea, los detalles en Markdown y etiquetas); si ya existe con esa categoría y nombre, se actualiza. Para leer sus detalles, list_entities. No las borres salvo que la persona te lo pida. La memoria (update_memory) es para decisiones y preferencias; las entidades, para las cosas del proyecto.
 
 Si te falta una decisión que solo la persona puede tomar, usa ask_human y sigue con otra tarjeta; su respuesta te llegará por wait_for_work.
 Las tarjetas de tipo "plan" piden dividir un objetivo: crea las subtareas con create_card (parent_id = la tarjeta del plan) y entrega un resumen del plan.`;
@@ -92,7 +100,8 @@ export function createMcpHandler(ops) {
       card.revocada.avisada = true;
       log(card, "stop", `${worker} recibió el aviso y se detuvo`);
       touch(card);
-    } else save();
+    }
+    save(); // los avisos entregados van en orbita.json
     // En una pausa de proyecto lo hecho se conserva: la tarjeta se retoma al reanudar
     if (/pausó el proyecto/.test(motivo)) return new Error(`DETENTE: ${motivo}. Deja «${titulo}» por ahora y no la entregues: lo que llevas (avance en vivo, archivos, conversación) se conserva y la retomarás cuando se reanude. Llama a wait_for_work para seguir con otra tarjeta.`);
     return new Error(`DETENTE: ${motivo}. No sigas trabajando en «${titulo}» ni entregues nada: ese trabajo ya no se usará. Llama a wait_for_work para seguir con otra tarjeta.`);
@@ -148,6 +157,8 @@ export function createMcpHandler(ops) {
       instructions: p.instructions || undefined,
       memory: p.memory || undefined,
       knowledge: knowledge.length ? knowledge : undefined,
+      entities: indiceEntidades(p), // solo nombres e ids por categoría: los detalles, con list_entities
+      secrets: nombresSecretos(p.id).length ? nombresSecretos(p.id).map((x) => x.nombre) : undefined, // solo los nombres: el valor, con get_secret
     };
   }
 
@@ -218,9 +229,10 @@ export function createMcpHandler(ops) {
     return out;
   }
 
+  // Lo que escribe la IA llega con los valores de los secretos tapados: así nunca acaban en el tablero ni en orbita/
   const safe = (fn) => async (args, extra) => {
     try {
-      return await fn(args, extra);
+      return await fn(taparSecretos(args), extra);
     } catch (err) {
       return fail(err.message || String(err));
     }
@@ -280,7 +292,7 @@ export function createMcpHandler(ops) {
           const avisos = notices.length ? { notices } : {};
           if (pregunta) return ok({ ...avisos, work: null, question: darPregunta(pregunta, worker), next: "Es una pregunta rápida: respóndela directamente con answer_question (breve, en Markdown) y vuelve a wait_for_work." });
           if (!card) return ok({ ...avisos, work: null, message: worker === board.preguntasIA ? "No hay preguntas pendientes. Vuelve a llamar a wait_for_work (con solo: \"preguntas\") para seguir escuchando." : "No hay tarjetas pendientes. Vuelve a llamar a wait_for_work para seguir escuchando." });
-          return ok({ ...avisos, work: hand(card, worker), next: "Trabájala, informa con report_progress y termina con submit_result." });
+          return ok({ ...avisos, work: hand(card, worker), next: "Trabájala, informa con report_progress y termina con submit_result. Si necesitas algo de la persona, pregúntaselo con ask_human (no en tu chat: no lo está mirando)." });
         } finally {
           seen(worker, -1);
         }
@@ -423,7 +435,7 @@ export function createMcpHandler(ops) {
       "submit_result",
       {
         title: "Entregar resultado",
-        description: "Entrega el resultado de tu tarjeta en Markdown (empieza con un resumen de 1-2 frases). Pasa a «Para revisar». Si la tarjeta trae acceptance_criteria, revisa cada uno y pásalos todos en criteria, con evidencia.",
+        description: "Entrega el resultado de tu tarjeta en Markdown (empieza con un resumen de 1-2 frases). Pasa a «Para revisar». Si la tarjeta trae acceptance_criteria, revisa cada uno y pásalos todos en criteria, con evidencia. Si le ofreces algo o le preguntas algo a la persona, hazlo aquí (no en tu chat): te responde desde la tarjeta y te llega por wait_for_work.",
         inputSchema: {
           id: z.string(),
           result: z.string().min(1),
@@ -494,6 +506,126 @@ export function createMcpHandler(ops) {
         q.answeredAt = Date.now();
         broadcastQuestions();
         return ok("Respuesta enviada. Vuelve a wait_for_work.");
+      }),
+    );
+
+    // Entidades del proyecto: personajes, objetos, personas, lugares… (ver entidades.mjs)
+    const proyectoDe = (card_id, project) => {
+      const p = card_id ? findProject(requireCard(card_id).projectId) : buscarProyecto(project);
+      if (!p) throw new Error(card_id ? "Esa tarjeta no pertenece a ningún proyecto." : "Indica card_id (tu tarjeta) o project.");
+      return p;
+    };
+    const fichaEntidad = (e, completa = true) => ({
+      id: e.id,
+      category: e.categoria,
+      name: e.nombre,
+      summary: e.resumen || undefined,
+      details: completa ? e.detalles || undefined : undefined,
+      tags: e.etiquetas?.length ? e.etiquetas : undefined,
+      image: e.imagen ? `/files/${e.imagen}` : undefined,
+      updated: `${new Date(e.actualizada?.t || e.creada.t).toISOString().slice(0, 16)} por ${e.actualizada?.por || e.creada.por}`,
+    });
+
+    server.registerTool(
+      "save_entity",
+      {
+        title: "Guardar una entidad del proyecto",
+        description:
+          "Crea o actualiza una entidad del proyecto de tu tarjeta: algo que existe en él y perdura (un personaje, un arma, un objeto, una persona, un lugar…), agrupado por categoría. La persona las ve como fichas. Si ya hay una con esa categoría y nombre (o pasas su id), se actualiza: solo cambia lo que pases. Para la imagen, guarda antes el archivo con write_file y pasa su ruta en image_path.",
+        inputSchema: {
+          card_id: z.string().describe("Tu tarjeta: la entidad es de su proyecto"),
+          category: z.string().max(40).optional().describe("Categoría en plural, p. ej. Personajes, Armas, Objetos, Personas, Lugares. Usa las que ya existan (ver project.entities)"),
+          name: z.string().max(120).optional().describe("Nombre de la entidad"),
+          summary: z.string().max(500).optional().describe("Una línea que la describa"),
+          details: z.string().max(20000).optional().describe("Todo lo que conviene recordar de ella, en Markdown (atributos, historia, relaciones…). Sustituye a los anteriores: parte de los que hay"),
+          tags: z.array(z.string().max(30)).max(20).optional(),
+          image_path: z.string().optional().describe("Ruta de una imagen del proyecto (png, jpg, gif, webp), la que te devolvió write_file. Vacía para quitarla"),
+          id: z.string().optional().describe("Para actualizar una concreta (su id viene en project.entities)"),
+          worker: z.string().optional(),
+        },
+      },
+      safe(async ({ card_id, category, name, summary, details, tags, image_path, id, worker }) => {
+        const card = requireCard(card_id);
+        requireWorker(card, worker);
+        const p = proyectoDe(card_id);
+        let imagen;
+        if (image_path !== undefined) {
+          if (!image_path) imagen = null;
+          else {
+            const rel = image_path.replace(/^\/?files\//, "").replace(/^\.?\//, "");
+            const ruta = rel.startsWith(`${p.folder}/`) ? rel : `${p.folder}/${rel}`;
+            if (!IMAGEN.test(ruta)) throw new Error("image_path tiene que ser una imagen png, jpg, gif o webp");
+            if (!fs.existsSync(safePath(ruta))) throw new Error(`No existe ${ruta}: guárdala antes con write_file`);
+            imagen = ruta;
+          }
+        }
+        if (!id && (!category || !name)) throw new Error("Para crear una entidad hacen falta category y name (o pasa id para actualizar una).");
+        const { entidad, creada } = guardarEntidad(p, { id, categoria: category, nombre: name, resumen: summary, detalles: details, etiquetas: tags, imagen }, card.worker);
+        log(card, "note", `${card.worker} ${creada ? "añadió" : "actualizó"} la entidad «${entidad.nombre}» (${entidad.categoria})`);
+        touch(card);
+        broadcastProjects();
+        return ok({ [creada ? "created" : "updated"]: fichaEntidad(entidad, false) });
+      }),
+    );
+
+    server.registerTool(
+      "list_entities",
+      {
+        title: "Ver las entidades del proyecto",
+        description: "Devuelve las entidades del proyecto con sus detalles, filtradas por categoría y/o texto (sin importar tildes ni mayúsculas). Indica tu card_id o el project.",
+        inputSchema: {
+          card_id: z.string().optional(),
+          project: z.string().optional().describe("Id o nombre del proyecto, si no pasas card_id"),
+          category: z.string().optional(),
+          query: z.string().optional().describe("Palabras a buscar en nombre, resumen, detalles y etiquetas"),
+        },
+      },
+      safe(async ({ card_id, project, category, query }) => {
+        const p = proyectoDe(card_id, project);
+        const encontradas = buscarEntidades(p, { categoria: category, consulta: query });
+        const categorias = {};
+        for (const e of p.entidades || []) categorias[e.categoria] = (categorias[e.categoria] || 0) + 1;
+        return ok({ project: p.name, categories: categorias, total: encontradas.length, entities: encontradas.slice(0, 100).map((e) => fichaEntidad(e)), more: encontradas.length > 100 ? "Hay más: afina con category o query" : undefined });
+      }),
+    );
+
+    server.registerTool(
+      "delete_entity",
+      {
+        title: "Borrar una entidad",
+        description: "Borra una entidad del proyecto de tu tarjeta. Úsala solo cuando la persona te lo pida.",
+        inputSchema: { card_id: z.string(), id: z.string(), worker: z.string().optional() },
+      },
+      safe(async ({ card_id, id, worker }) => {
+        const card = requireCard(card_id);
+        requireWorker(card, worker);
+        const e = quitarEntidad(proyectoDe(card_id), id);
+        log(card, "note", `${card.worker} borró la entidad «${e.nombre}» (${e.categoria})`);
+        touch(card);
+        broadcastProjects();
+        return ok(`Borrada «${e.nombre}» (${e.categoria}).`);
+      }),
+    );
+
+    server.registerTool(
+      "get_secret",
+      {
+        title: "Leer un secreto del proyecto",
+        description:
+          "Devuelve el valor de un secreto del proyecto de tu tarjeta (una clave de API, un token…). Los nombres disponibles vienen en project.secrets. Úsalo directamente en tu trabajo; no lo copies en resultados, comentarios ni entregables. Queda apuntado en la actividad de la tarjeta (sin el valor).",
+        inputSchema: {
+          card_id: z.string().describe("Tu tarjeta en curso: el secreto es de su proyecto"),
+          name: z.string().describe("El nombre del secreto, p. ej. STRIPE_API_KEY"),
+          worker: z.string().optional(),
+        },
+      },
+      safe(async ({ card_id, name, worker }) => {
+        const card = requireCard(card_id);
+        requireWorker(card, worker);
+        const valor = leerSecreto(card.projectId, name);
+        log(card, "note", `${card.worker} usó el secreto ${name}`);
+        touch(card);
+        return ok(valor);
       }),
     );
 

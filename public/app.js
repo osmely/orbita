@@ -120,6 +120,7 @@ async function load() {
   state.files = data.files;
   state.brains = data.brains;
   state.mcpUrl = data.mcpUrl;
+  state.vista = data.vista; // /vista/<clave>/: sin la clave, el servidor no sirve la vista previa
   renderAll();
   renderBrains();
   actualizarPendientes();
@@ -131,6 +132,7 @@ function connect() {
   es.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     if (ev.type === "hello" && ev.version && state.version && ev.version !== state.version) return versionNueva();
+    if (ev.type === "cerrada") return orbitaCerrada();
     if (ev.type === "card") upsert(ev.card);
     else if (ev.type === "remove") {
       setTimeout(actualizarPendientes);
@@ -185,8 +187,23 @@ function connect() {
   };
   es.onerror = () => {
     es.close();
-    setTimeout(() => load().then(connect).catch(connect), 1500);
+    if (!state.cerrada) setTimeout(() => load().then(connect).catch(connect), 1500);
   };
+}
+
+// Cerrar Órbita del todo (el servidor). Abierta como app no hay Terminal donde pulsar Ctrl+C.
+async function cerrarOrbita() {
+  const trabajando = [...state.cards.values()].filter((c) => c.status === "running" && !c.archivedAt).length;
+  if (!confirm(`¿Cerrar Órbita?${trabajando ? ` La IA está trabajando en ${trabajando} tarjeta${trabajando === 1 ? "" : "s"}: no podrá entregar hasta que vuelvas a abrirla.` : ""} Todo queda guardado.`)) return;
+  await api("/api/salir", {}).catch(() => {});
+  orbitaCerrada();
+}
+function orbitaCerrada() {
+  if (state.cerrada) return;
+  state.cerrada = true;
+  window.close(); // la ventana de app que abrió Órbita se puede cerrar sola; una pestaña normal, no
+  document.body.innerHTML = `<div class="bienvenida cerrada"><div class="orb grande" aria-hidden="true"><i></i></div><h2>Órbita está cerrada</h2><p>Todo quedó guardado. Ya puedes cerrar esta ventana; para volver, abre Órbita otra vez.</p><div class="actions"><button class="btn" id="reabrir">Volver a conectar</button></div></div>`;
+  $("#reabrir").onclick = () => location.reload();
 }
 
 // Carpeta de trabajo de un proyecto: el diálogo nativo del sistema (lo abre el servidor, que corre en esta
@@ -588,13 +605,13 @@ document.addEventListener("click", (e) => {
 // Secciones dentro de la pestaña
 const SECCIONES = (f) =>
   proyecto(f)
-    ? [["tablero", "Tablero"], ["ajustes", "Instrucciones y memoria"], ["conocimiento", "Conocimiento"], ["entregables", "Entregables"], ["archivo", "Archivo"]]
+    ? [["tablero", "Tablero"], ["ajustes", "Instrucciones y memoria"], ["entidades", "Entidades"], ["conocimiento", "Conocimiento"], ["entregables", "Entregables"], ["archivo", "Archivo"]]
     : [["tablero", "Tablero"], ["entregables", "Entregables"], ["archivo", "Archivo"]];
 
 function archivosDe(f) {
   const p = proyecto(f);
   if (!p) return f === "todos" ? state.files : [];
-  return state.files.filter((x) => x.startsWith(p.folder + "/") && !x.startsWith(p.folder + "/conocimiento/"));
+  return state.files.filter((x) => x.startsWith(p.folder + "/") && !x.startsWith(p.folder + "/conocimiento/") && !x.startsWith(p.folder + "/entidades/"));
 }
 
 function renderSubnav() {
@@ -602,6 +619,7 @@ function renderSubnav() {
   const p = proyecto(f);
   const n = {
     conocimiento: p?.knowledge?.length || 0,
+    entidades: p?.entidades?.length || 0,
     entregables: archivosDe(f).length,
     archivo: [...state.cards.values()].filter((c) => c.archivedAt && deFiltro(f, c)).length + (state.papelera || []).filter((x) => f === "todos" || (f === "sin" ? !x.projectId : x.projectId === f)).length,
     ajustes: p && (p.instructions || p.memory) ? "●" : 0,
@@ -694,7 +712,7 @@ function renderSeccion() {
     pagina.dataset.vista = `${state.filtro}:${state.seccion}`;
     pagina.innerHTML = "";
   }
-  ({ ajustes: paginaAjustes, conocimiento: paginaConocimiento, entregables: paginaEntregables, archivo: paginaArchivo })[state.seccion]?.(pagina);
+  ({ ajustes: paginaAjustes, entidades: paginaEntidades, conocimiento: paginaConocimiento, entregables: paginaEntregables, archivo: paginaArchivo })[state.seccion]?.(pagina);
 }
 
 // Sin ningún proyecto todavía: lo primero es crear uno (con su carpeta de trabajo)
@@ -734,6 +752,14 @@ function paginaAjustes(pagina) {
       <label class="campo"><span>Nombre</span><input class="campo-input" data-campo="name"></label>
       <label class="campo"><span>Instrucciones para la IA</span><textarea data-campo="instructions" rows="6" placeholder="Reglas fijas para todas las tarjetas: idioma y tono, tecnología, formato de entrega, qué evitar…"></textarea></label>
       <label class="campo"><span>Memoria <small class="muted" data-memoria-fecha></small></span><textarea data-campo="memory" rows="10" placeholder="Lo que la IA aprende entre tarjetas: decisiones, preferencias, datos. Puedes editarla."></textarea></label>
+      <div class="campo"><span>Secretos <small class="muted">claves de API, tokens, contraseñas de servicios…</small></span>
+        <ul class="kn-list secretos" data-secretos></ul>
+        <form class="secreto-nuevo" data-secreto-form autocomplete="off">
+          <input class="campo-input" name="nombre" placeholder="NOMBRE (p. ej. STRIPE_API_KEY)" spellcheck="false" autocapitalize="characters" required>
+          <input class="campo-input" name="valor" type="password" placeholder="Valor" autocomplete="new-password" required>
+          <button class="btn mini-btn">Guardar</button>
+        </form>
+        <small class="muted">La IA recibe solo los nombres con cada tarjeta y pide el valor cuando lo necesita (queda en la actividad de la tarjeta). Si lo pega en un resultado o un comentario, el tablero lo tapa. Se guardan en la carpeta de datos de Órbita, solo en este equipo: no van en <code>orbita/</code>, así que no viajan con la carpeta ni acaban en un repositorio. Una vez guardado, el valor no se vuelve a mostrar; para cambiarlo, guárdalo otra vez con el mismo nombre.</small></div>
       <div class="campo"><span>Carpeta de trabajo</span>
         <div class="carpeta-trabajo"><code data-carpeta></code><button type="button" class="btn mini-btn" data-mostrar>Abrir</button><button type="button" class="btn mini-btn" data-cambiar-carpeta>Cambiar…</button></div>
         <small class="muted">La IA trabaja aquí. Órbita guarda el tablero del proyecto y sus entregables en <code>orbita/</code>, dentro de esta carpeta: si la copias o la subes a un repositorio, el proyecto va con ella.</small></div>
@@ -744,7 +770,41 @@ function paginaAjustes(pagina) {
         api(`/api/projects/${p.id}/edit`, { [campo.dataset.campo]: campo.value })
           .then(() => toast(campo.dataset.campo === "name" ? "Proyecto renombrado" : "Guardado"))
           .catch((err) => toast(err.message, true));
+    const form = pagina.querySelector("[data-secreto-form]");
+    form.nombre.oninput = () => (form.nombre.value = form.nombre.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"));
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const nombre = form.nombre.value.trim();
+      const habia = (proyecto(state.filtro)?.secretos || []).some((x) => x.nombre === nombre);
+      try {
+        await api(`/api/projects/${state.filtro}/secretos`, { nombre, valor: form.valor.value });
+        form.reset();
+        toast(habia ? `Secreto ${nombre} cambiado` : `Secreto ${nombre} guardado`);
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
   }
+  // Secretos: solo nombres y fechas (el valor no sale del servidor)
+  const secretos = p.secretos || [];
+  pagina.querySelector("[data-secretos]").innerHTML = secretos.length
+    ? secretos
+        .map((x) => `<li><span class="file"><code>${esc(x.nombre)}</code> <span class="muted">•••••••• · ${esc(new Date(x.t).toLocaleDateString())}</span></span><button type="button" class="btn mini-btn" data-cambiar="${esc(x.nombre)}" title="Escribir un valor nuevo">Cambiar</button><button type="button" class="icon-btn" data-quitar="${esc(x.nombre)}" title="Borrar el secreto">✕</button></li>`)
+        .join("")
+    : `<li class="muted">Este proyecto aún no tiene secretos.</li>`;
+  for (const b of pagina.querySelectorAll("[data-secretos] [data-cambiar]"))
+    b.onclick = () => {
+      const form = pagina.querySelector("[data-secreto-form]");
+      form.nombre.value = b.dataset.cambiar;
+      form.valor.focus();
+    };
+  for (const b of pagina.querySelectorAll("[data-secretos] [data-quitar]"))
+    b.onclick = () => {
+      if (!confirm(`¿Borrar el secreto ${b.dataset.quitar}? La IA dejará de poder usarlo.`)) return;
+      api(`/api/projects/${p.id}/secretos/${encodeURIComponent(b.dataset.quitar)}`, undefined, "DELETE")
+        .then(() => toast(`Secreto ${b.dataset.quitar} borrado`))
+        .catch((err) => toast(err.message, true));
+    };
   // Rellenar sin pisar el campo que estás escribiendo
   for (const campo of pagina.querySelectorAll("[data-campo]")) {
     const valor = p[campo.dataset.campo] || "";
@@ -784,6 +844,189 @@ function paginaAjustes(pagina) {
       })
       .catch((err) => toast(err.message, true));
   });
+}
+
+// Entidades: lo que existe en el proyecto y perdura (personajes, armas, objetos, personas, lugares…), como fichas
+// agrupadas por categoría. Las va guardando la IA (save_entity) y aquí se ven, se buscan y se editan.
+const ICONOS_CATEGORIA = [
+  // [cómo se reconoce, icono, tono del color]
+  [/personaj|heroe|villan|npc|criatur|enemig|monstru|bestia/, "🧙", 268],
+  [/arma/, "⚔️", 0],
+  [/objet|item|inventari|equipo|recurso|pocion|artefact/, "🎒", 32],
+  [/persona|contact|cliente|usuari|gente|miembro|autor/, "👤", 205],
+  [/lugar|mapa|zona|nivel|region|ciudad|escenari|mundo/, "🗺️", 145],
+  [/hechiz|magia|habilidad|poder|talento/, "✨", 300],
+  [/faccion|grupo|organiz|empresa|clan|gremio|reino/, "🏰", 20],
+  [/vehicul|nave|montura/, "🚀", 185],
+  [/mision|quest|evento|capitulo|escena/, "📜", 48],
+  [/concept|idea|tema|regla/, "💡", 58],
+];
+const categoriaConocida = (cat) => ICONOS_CATEGORIA.find(([re]) => re.test(sinTildes(cat)));
+const iconoCategoria = (cat) => categoriaConocida(cat)?.[1] || "🏷️";
+// Un color propio por categoría: el de las habituales, o uno de la paleta según su nombre
+const TONOS_CATEGORIA = [268, 205, 145, 32, 330, 185, 0, 95, 48, 300];
+const tonoCategoria = (cat) => categoriaConocida(cat)?.[2] ?? TONOS_CATEGORIA[[...sinTildes(cat)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7) % TONOS_CATEGORIA.length];
+const imagenEntidad = (e) => (e.imagen ? `/files/${e.imagen.split("/").map(encodeURIComponent).join("/")}?v=${e.actualizada?.t || ""}` : "");
+
+function paginaEntidades(pagina) {
+  const p = proyecto(state.filtro);
+  if (!pagina.querySelector(".entidades")) {
+    pagina.innerHTML = `<div class="entidades">
+      <div class="ent-barra">
+        <input class="campo-input" type="search" placeholder="Buscar por nombre, detalles o etiquetas…" data-buscar autocomplete="off">
+        <button class="btn primary" data-nueva>＋ Nueva entidad</button>
+      </div>
+      <div class="ent-cats" data-cats></div>
+      <div data-grupos></div>
+    </div>`;
+    const buscar = pagina.querySelector("[data-buscar]");
+    buscar.value = state.entBusca || "";
+    buscar.oninput = () => {
+      state.entBusca = buscar.value;
+      paginaEntidades(pagina);
+    };
+    pagina.querySelector("[data-nueva]").onclick = () => abrirEntidad(state.filtro, null);
+  }
+  const todas = p.entidades || [];
+  const porCat = new Map();
+  for (const e of todas) porCat.set(e.categoria, (porCat.get(e.categoria) || 0) + 1);
+  if (state.entCat && !porCat.has(state.entCat)) state.entCat = "";
+  const cats = [...porCat.keys()].sort((a, b) => a.localeCompare(b));
+  pagina.querySelector("[data-cats]").innerHTML = todas.length
+    ? [`<button class="ent-cat ${state.entCat ? "" : "on"}" data-cat="">Todas <b>${todas.length}</b></button>`, ...cats.map((c) => `<button class="ent-cat ${state.entCat === c ? "on" : ""}" data-cat="${esc(c)}" style="--h:${tonoCategoria(c)}">${iconoCategoria(c)} ${esc(c)} <b>${porCat.get(c)}</b></button>`)].join("")
+    : "";
+  for (const b of pagina.querySelectorAll("[data-cat]"))
+    b.onclick = () => {
+      state.entCat = b.dataset.cat;
+      paginaEntidades(pagina);
+    };
+  const palabras = sinTildes(state.entBusca || "").split(/\s+/).filter(Boolean);
+  const visibles = todas.filter((e) => (!state.entCat || e.categoria === state.entCat) && palabras.every((w) => sinTildes([e.nombre, e.categoria, e.resumen, e.detalles, ...(e.etiquetas || [])].join(" ")).includes(w)));
+  const grupos = pagina.querySelector("[data-grupos]");
+  if (!todas.length) {
+    grupos.innerHTML = `<div class="ent-vacio">
+      <div class="ent-vacio-iconos" aria-hidden="true">🧙 ⚔️ 🎒 👤 🗺️</div>
+      <h3>Aún no hay entidades</h3>
+      <p>Las entidades son lo que existe en el proyecto y conviene recordar: los personajes de un juego, sus armas y objetos, las personas de un informe, los lugares de una historia… Cada una es una ficha con su categoría, resumen, detalles e imagen.</p>
+      <p class="muted">La IA las va guardando mientras trabaja. También puedes pedírselo en una tarjeta: <i>«Extrae los personajes, armas y objetos del juego como entidades»</i>, o crearlas tú.</p>
+    </div>`;
+    return;
+  }
+  if (!visibles.length) {
+    grupos.innerHTML = `<p class="muted ent-nada">Ninguna entidad coincide con la búsqueda.</p>`;
+    return;
+  }
+  const enGrupos = new Map();
+  for (const e of visibles.sort((a, b) => a.nombre.localeCompare(b.nombre))) enGrupos.set(e.categoria, [...(enGrupos.get(e.categoria) || []), e]);
+  grupos.innerHTML = [...enGrupos.keys()]
+    .sort((a, b) => enGrupos.get(b).length - enGrupos.get(a).length || a.localeCompare(b)) // los más numerosos primero
+    .map(
+      (cat) => `<section class="ent-grupo" style="--h:${tonoCategoria(cat)}">
+        <h3><span class="ent-grupo-ico">${iconoCategoria(cat)}</span>${esc(cat)} <b>${enGrupos.get(cat).length}</b></h3>
+        <div class="ent-grid">${enGrupos
+          .get(cat)
+          .map(
+            (e) => `<button class="ent-ficha" data-ent="${esc(e.id)}">
+              <span class="ent-img ${e.imagen ? "" : "sin"}">${e.imagen ? `<img src="${esc(imagenEntidad(e))}" alt="" loading="lazy">` : `<span class="ent-img-ico">${iconoCategoria(cat)}</span>`}</span>
+              <span class="ent-txt"><b>${esc(e.nombre)}</b>${e.resumen ? `<span class="ent-resumen">${esc(e.resumen)}</span>` : ""}${e.etiquetas?.length ? `<span class="ent-tags">${e.etiquetas.slice(0, 4).map((t) => `<i>${esc(t)}</i>`).join("")}</span>` : ""}</span>
+            </button>`,
+          )
+          .join("")}</div>
+      </section>`,
+    )
+    .join("");
+  for (const b of grupos.querySelectorAll("[data-ent]")) b.onclick = () => abrirEntidad(state.filtro, b.dataset.ent);
+}
+
+// La ficha de una entidad, en el panel lateral: se edita y se guarda con «Guardar» (id null = nueva)
+function abrirEntidad(pid, id) {
+  const p = proyecto(pid);
+  const e = id ? (p?.entidades || []).find((x) => x.id === id) : null;
+  if (!p || (id && !e)) return toast("Esa entidad ya no existe", true);
+  state.openId = null;
+  state.view = "entidad";
+  state.entidadAbierta = { pid, id };
+  const cat = e?.categoria || state.entCat || "";
+  const cats = [...new Set([...(p.entidades || []).map((x) => x.categoria), "Personajes", "Armas", "Objetos", "Personas", "Lugares"])];
+  const cuando = (x) => (x ? `${esc(x.por)}, ${new Date(x.t).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}` : "");
+  $("#drawerBody").innerHTML = `
+    <div class="d-head">
+      <textarea class="t" rows="1" id="eNombre" placeholder="Nombre de la entidad" maxlength="120">${esc(e?.nombre || "")}</textarea>
+      <button class="icon-btn" id="dClose" title="Cerrar (Esc)">✕</button>
+    </div>
+    <div class="ent-cabecera">
+      <label class="ent-foto" id="eFoto" title="${id ? "Pulsa o arrastra una imagen" : "Guárdala primero para añadirle una imagen"}" style="--h:${tonoCategoria(cat || "x")}">
+        ${e?.imagen ? `<img src="${esc(imagenEntidad(e))}" alt="">` : `<span class="ent-img-ico">${iconoCategoria(cat)}</span><small>${id ? "＋ Imagen" : ""}</small>`}
+        <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden id="eFotoInput" ${id ? "" : "disabled"}>
+      </label>
+      <div class="ent-campos">
+        <label class="field">Categoría <input id="eCat" list="eCats" value="${esc(cat)}" placeholder="Personajes, Armas, Objetos…" maxlength="40" autocomplete="off"></label>
+        <datalist id="eCats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+        <label class="field">Etiquetas <input id="eTags" value="${esc((e?.etiquetas || []).join(", "))}" placeholder="separadas por comas" autocomplete="off"></label>
+      </div>
+    </div>
+    <label class="campo"><span>Resumen</span><input class="campo-input" id="eResumen" maxlength="500" value="${esc(e?.resumen || "")}" placeholder="Una línea que la describa"></label>
+    <div class="d-section">
+      <h4>Detalles <button class="mini" id="eEditar" style="margin-left:auto">${e?.detalles ? "Editar" : "Escribir"}</button></h4>
+      <div class="result" id="eVista" ${e?.detalles ? "" : "hidden"}>${e?.detalles ? md(e.detalles) : ""}</div>
+      <textarea class="d-desc" id="eDetalles" rows="12" hidden placeholder="Todo lo que conviene recordar: atributos, historia, relaciones… (Markdown)">${esc(e?.detalles || "")}</textarea>
+    </div>
+    ${e ? `<p class="muted ent-meta">Creada por ${cuando(e.creada)}${e.actualizada && e.actualizada.t !== e.creada.t ? ` · actualizada por ${cuando(e.actualizada)}` : ""}</p>` : ""}
+    <div class="actions">
+      <button class="btn primary" id="eGuardar">${id ? "Guardar" : "Crear entidad"}</button>
+      ${e?.imagen ? `<button class="btn" id="eQuitarFoto">Quitar imagen</button>` : ""}
+      ${id ? `<button class="btn danger" id="eBorrar">Eliminar</button>` : ""}
+    </div>`;
+  autosize($("#eNombre"));
+  $("#eNombre").addEventListener("input", (ev) => autosize(ev.target));
+  $("#dClose").onclick = closeDrawer;
+  const detalles = $("#eDetalles");
+  if (!id) detalles.hidden = false;
+  $("#eEditar").onclick = () => {
+    detalles.hidden = !detalles.hidden;
+    $("#eVista").hidden = !detalles.hidden || !detalles.value.trim();
+    if (detalles.hidden) $("#eVista").innerHTML = md(detalles.value);
+    $("#eEditar").textContent = detalles.hidden ? "Editar" : "Vista previa";
+    if (!detalles.hidden) detalles.focus();
+  };
+  $("#eGuardar").onclick = async () => {
+    try {
+      const guardada = await api(`/api/projects/${pid}/entidades`, { id: id || undefined, categoria: $("#eCat").value, nombre: $("#eNombre").value, resumen: $("#eResumen").value, detalles: detalles.value, etiquetas: $("#eTags").value });
+      toast(id ? `«${guardada.nombre}» guardada` : `«${guardada.nombre}» creada en ${guardada.categoria}`);
+      if (!id) setTimeout(() => abrirEntidad(pid, guardada.id), 50); // ya puede llevar imagen
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+  $("#eBorrar")?.addEventListener("click", () => {
+    if (!confirm(`¿Eliminar «${e.nombre}» de ${e.categoria}?`)) return;
+    api(`/api/projects/${pid}/entidades/${id}`, undefined, "DELETE")
+      .then(() => {
+        toast(`«${e.nombre}» eliminada`);
+        closeDrawer();
+      })
+      .catch((err) => toast(err.message, true));
+  });
+  $("#eQuitarFoto")?.addEventListener("click", () => api(`/api/projects/${pid}/entidades/${id}/imagen`, undefined, "DELETE").then(() => abrirEntidad(pid, id)).catch((err) => toast(err.message, true)));
+  if (id) {
+    const foto = $("#eFoto");
+    const subirFoto = async (archivos) => {
+      const f = [...archivos].find((x) => /^image\/(png|jpeg|gif|webp)$/.test(x.type));
+      if (!f) return toast("La imagen tiene que ser PNG, JPG, GIF o WebP", true);
+      await subir(`/api/projects/${pid}/entidades/${id}/imagen`, [f], () => "Imagen actualizada");
+      abrirEntidad(pid, id);
+    };
+    $("#eFotoInput").onchange = (ev) => subirFoto(ev.target.files);
+    foto.ondragover = (ev) => (ev.preventDefault(), foto.classList.add("over"));
+    foto.ondragleave = () => foto.classList.remove("over");
+    foto.ondrop = (ev) => {
+      ev.preventDefault();
+      foto.classList.remove("over");
+      subirFoto(ev.dataTransfer.files);
+    };
+  }
+  showDrawer();
+  if (!id) $("#eNombre").focus();
 }
 
 // Conocimiento: archivos de referencia que la IA recibe
@@ -1055,63 +1298,92 @@ function openDrawer(id) {
   state.openId = id;
   state.view = "card";
   $("#drawerBody").innerHTML = `
+    <!-- Fijo arriba: el título, el estado y lo que se puede decidir. Debajo, cada parte en su pestaña
+         (se abre la que toca según el estado: ver pintarPestanas). -->
     <div class="d-head">
       <textarea class="t" rows="1" id="dTitle">${esc(card.title)}</textarea>
       <button class="icon-btn" id="dClose" title="Cerrar (Esc)">✕</button>
     </div>
-    <textarea class="d-desc" id="dDesc" placeholder="Detalles, contexto, cómo sabrás que está bien hecho…">${esc(card.description)}</textarea>
     <div class="d-meta" id="dMeta"></div>
-    <label class="field d-project">Proyecto <select id="dProject"></select></label>
-    <div class="d-herr"><button class="mini" id="dComoPlantilla" title="Guarda título, descripción, criterios y proyecto para crear tarjetas iguales">⧉ Guardar como plantilla</button><form class="pl-guardar" id="dPlForm" hidden><input id="dPlNombre" maxlength="60" autocomplete="off" aria-label="Nombre de la plantilla" /><button class="mini">Guardar</button></form></div>
-    <div class="d-section prog-box" id="dProg">
-      <h4>🔁 Repetir <span class="prog-prox" id="dProgProx"></span></h4>
-      <div class="prog-row">
-        <select id="dProgTipo" aria-label="Repetición"><option value="">No se repite</option><option value="una">Una vez, el…</option><option value="diaria">Cada día</option><option value="semanal">Cada semana</option><option value="mensual">Cada mes</option></select>
-        <input type="date" id="dProgFecha" hidden aria-label="Fecha" />
-        <span class="prog-dias" id="dProgDias" hidden>${["L", "M", "X", "J", "V", "S", "D"].map((l, i) => `<button type="button" class="dia" data-dia="${(i + 1) % 7}" aria-pressed="false">${l}</button>`).join("")}</span>
-        <label class="prog-diames" id="dProgDiaMesL" hidden>el día <input type="number" min="1" max="31" id="dProgDiaMes" value="1" /></label>
-        <label class="prog-hora" id="dProgHoraL" hidden>a las <input type="time" id="dProgHora" value="09:00" /></label>
-      </div>
-    </div>
-    <div class="d-section crit-box" id="dCrit">
-      <h4>✅ Terminado cuando… <span class="crit-res" id="dCritRes"></span></h4>
-      <ul class="crit-list" id="dCritList"></ul>
-      <form class="crit-add" id="dCritForm"><input id="dCritInput" placeholder="Añadir criterio… (Enter; pega varios, uno por línea)" autocomplete="off" /><button class="mini">＋</button></form>
-    </div>
-    <div class="d-section live-box" id="dLiveWrap" hidden>
-      <h4><i class="live-dot"></i>En vivo <span class="live-at" id="dLiveAt"></span></h4>
-      <div class="result" id="dLive"></div>
-    </div>
-    <div class="d-section">
-      <h4>Resultado <span class="ver-nav" id="dVer"></span><button class="mini" id="dEditResult">Editar</button></h4>
-      <div class="exportar" id="dExport" hidden>
-        <button class="mini" data-exp="copiar" title="Copiar el resultado en Markdown">⧉ Copiar</button>
-        <button class="mini" data-exp="md" title="Descargar en Markdown, con las imágenes dentro">⤓ .md</button>
-        <button class="mini" data-exp="pagina" title="Abrir como página limpia para leer o compartir">↗ Página</button>
-        <button class="mini" data-exp="pdf" title="Guardar como PDF (desde el diálogo de imprimir)">⎙ PDF</button>
-      </div>
-      <div class="ver-aviso" id="dVerAviso" hidden></div>
-      <div class="result" id="dResult"></div>
-      <textarea class="d-desc" id="dResultEdit" rows="10" hidden placeholder="Escribe el resultado a mano (Markdown)…"></textarea>
-    </div>
     <div class="actions card-actions" id="dActions"></div>
-    <div class="d-section chat" id="dChat">
-      <h4>Conversación</h4>
-      <ol class="thread" id="dThread"></ol>
-      <div class="composer">
-        <textarea id="dFeedbackText" rows="2"></textarea>
-        <div class="actions" id="dSend"></div>
+    <nav class="d-tabs" id="dTabs" role="tablist" aria-label="Partes de la tarjeta">
+      <button role="tab" data-tab="vivo"><i class="live-dot"></i>En vivo</button>
+      <button role="tab" data-tab="tarea">Tarea<b data-n="tarea"></b></button>
+      <button role="tab" data-tab="chat">Conversación<b data-n="chat"></b></button>
+      <button role="tab" data-tab="resultado">Resultado<b data-n="resultado"></b></button>
+      <span class="d-tabs-sep"></span>
+      <button role="tab" data-tab="ajustes" title="Proyecto, repetir, espera a, adjuntos…">⚙ Ajustes<b data-n="ajustes"></b></button>
+      <button role="tab" data-tab="actividad" title="Todo lo que ha pasado con la tarjeta">🕘<b data-n="actividad"></b></button>
+    </nav>
+    <div class="d-tab" role="tabpanel" data-panel="vivo">
+      <div class="d-section live-box" id="dLiveWrap">
+        <h4><i class="live-dot"></i>En vivo <span class="live-at" id="dLiveAt"></span></h4>
+        <div class="result" id="dLive"></div>
       </div>
     </div>
-    <div class="d-section" id="dFilesWrap"><h4>Archivos</h4><div class="files" id="dFiles"></div></div>
-    <div class="d-section adjuntos" id="dAdj"><h4>Adjuntos</h4><ul class="kn-list" id="dAdjList"></ul>
-      <label class="kn-drop" id="dAdjDrop">📎 Arrastra archivos aquí o <u>elige archivos</u> <small>(la IA los recibe con la tarjeta)</small><input type="file" multiple hidden id="dAdjInput"></label>
+    <div class="d-tab" role="tabpanel" data-panel="tarea">
+      <textarea class="d-desc" id="dDesc" placeholder="Detalles, contexto, cómo sabrás que está bien hecho…">${esc(card.description)}</textarea>
+      <div class="d-section crit-box" id="dCrit">
+        <h4>✅ Terminado cuando… <span class="crit-res" id="dCritRes"></span></h4>
+        <ul class="crit-list" id="dCritList"></ul>
+        <form class="crit-add" id="dCritForm"><input id="dCritInput" placeholder="Añadir criterio… la IA los revisará uno a uno al entregar (Enter; pega varios, uno por línea)" autocomplete="off" /><button class="mini">＋</button></form>
+      </div>
     </div>
-    <div class="d-section deps" id="dDeps"><h4>Espera a</h4><ul class="dep-list" id="dDepList"></ul>
-      <label class="field"><select id="dDepAdd"></select></label>
+    <div class="d-tab" role="tabpanel" data-panel="chat">
+      <div class="d-section chat" id="dChat">
+        <ol class="thread" id="dThread"></ol>
+        <div class="composer">
+          <textarea id="dFeedbackText" rows="2"></textarea>
+          <div class="actions" id="dSend"></div>
+        </div>
+      </div>
     </div>
-    <div class="d-section"><h4>Actividad</h4><ul class="timeline" id="dLog"></ul></div>
+    <div class="d-tab" role="tabpanel" data-panel="resultado">
+      <div class="d-section" id="dResultWrap">
+        <h4>Resultado <span class="ver-nav" id="dVer"></span><button class="mini" id="dEditResult">Editar</button></h4>
+        <div class="exportar" id="dExport" hidden>
+          <button class="mini" data-exp="copiar" title="Copiar el resultado en Markdown">⧉ Copiar</button>
+          <button class="mini" data-exp="md" title="Descargar en Markdown, con las imágenes dentro">⤓ .md</button>
+          <button class="mini" data-exp="pagina" title="Abrir como página limpia para leer o compartir">↗ Página</button>
+          <button class="mini" data-exp="pdf" title="Guardar como PDF (desde el diálogo de imprimir)">⎙ PDF</button>
+        </div>
+        <div class="ver-aviso" id="dVerAviso" hidden></div>
+        <div class="result" id="dResult"></div>
+        <textarea class="d-desc" id="dResultEdit" rows="10" hidden placeholder="Escribe el resultado a mano (Markdown)…"></textarea>
+      </div>
+      <div class="d-section" id="dFilesWrap"><h4>Archivos</h4><div class="files" id="dFiles"></div></div>
+      <div class="d-vacio" id="dResultVacio">Todavía no hay resultado. Lo entrega la IA al terminar, o <button class="mini" id="dEscribir">✎ escríbelo tú</button></div>
+    </div>
+    <div class="d-tab" role="tabpanel" data-panel="ajustes">
+      <label class="field d-project">Proyecto <select id="dProject"></select></label>
+      <div class="d-herr"><button class="mini" id="dComoPlantilla" title="Guarda título, descripción, criterios y proyecto para crear tarjetas iguales">⧉ Guardar como plantilla</button><form class="pl-guardar" id="dPlForm" hidden><input id="dPlNombre" maxlength="60" autocomplete="off" aria-label="Nombre de la plantilla" /><button class="mini">Guardar</button></form></div>
+      <div class="d-section prog-box" id="dProg">
+        <h4>🔁 Repetir <span class="prog-prox" id="dProgProx"></span></h4>
+        <div class="prog-row">
+          <select id="dProgTipo" aria-label="Repetición"><option value="">No se repite</option><option value="una">Una vez, el…</option><option value="diaria">Cada día</option><option value="semanal">Cada semana</option><option value="mensual">Cada mes</option></select>
+          <input type="date" id="dProgFecha" hidden aria-label="Fecha" />
+          <span class="prog-dias" id="dProgDias" hidden>${["L", "M", "X", "J", "V", "S", "D"].map((l, i) => `<button type="button" class="dia" data-dia="${(i + 1) % 7}" aria-pressed="false">${l}</button>`).join("")}</span>
+          <label class="prog-diames" id="dProgDiaMesL" hidden>el día <input type="number" min="1" max="31" id="dProgDiaMes" value="1" /></label>
+          <label class="prog-hora" id="dProgHoraL" hidden>a las <input type="time" id="dProgHora" value="09:00" /></label>
+        </div>
+      </div>
+      <div class="d-section deps" id="dDeps"><h4>Espera a</h4><ul class="dep-list" id="dDepList"></ul>
+        <label class="field"><select id="dDepAdd"></select></label>
+      </div>
+      <div class="d-section adjuntos" id="dAdj"><h4>Adjuntos</h4><ul class="kn-list" id="dAdjList"></ul>
+        <label class="kn-drop" id="dAdjDrop">📎 Arrastra archivos aquí o <u>elige archivos</u> <small>(la IA los recibe con la tarjeta)</small><input type="file" multiple hidden id="dAdjInput"></label>
+      </div>
+      <div class="actions" id="dActionsMas"></div>
+    </div>
+    <div class="d-tab" role="tabpanel" data-panel="actividad">
+      <ul class="timeline" id="dLog"></ul>
+    </div>
   `;
+  for (const b of document.querySelectorAll("#dTabs [data-tab]")) b.onclick = () => mostrarPestana(b.dataset.tab, true);
+  $("#dEscribir").onclick = () => action(id, "escribir");
+  delete $("#drawerBody").dataset.elegida; // tarjeta nueva en el panel: vuelve a mandar el estado
+  delete $("#drawerBody").dataset.pestana;
+  delete $("#drawerBody").dataset.toca;
   const edit = (field) => (e) => api(`/api/cards/${id}/edit`, { [field]: e.target.value }).catch((err) => toast(err.message, true));
   autosize($("#dTitle"));
   $("#dTitle").addEventListener("input", (e) => autosize(e.target));
@@ -1230,6 +1502,8 @@ function updateDrawer(c) {
   }
 
   const editing = !$("#dResultEdit").hidden;
+  $("#dResultWrap").hidden = !c.result && !editing; // sin resultado, solo el aviso (y «✎ escríbelo tú»)
+  $("#dResultVacio").hidden = !$("#dResultWrap").hidden;
   $("#dResult").hidden = editing || !c.result;
   pintarVersiones(c);
   $("#dExport").hidden = !c.result || editing;
@@ -1247,11 +1521,16 @@ function updateDrawer(c) {
     if (c.column === "review") acts.push(`<button class="btn go" data-a="approve">✓ Aprobar</button>`);
     if (c.column !== "done" && c.column !== "review") acts.push(`<button class="btn" data-a="approve">Marcar como hecha</button>`);
   }
-  acts.push(`<span class="pos"><button class="btn" data-a="up" title="Subir una posición en su columna (Alt+↑)">↑</button><button class="btn" data-a="down" title="Bajar una posición en su columna (Alt+↓)">↓</button></span>`);
-  if (c.log?.length) acts.push(`<button class="btn" data-a="reset">Empezar de cero</button>`);
-  acts.push(`<button class="btn danger" data-a="delete">Eliminar</button>`);
+  if (c.column === "review" && !(c.worker && ["running", "returned", "waiting"].includes(c.status))) acts.push(`<button class="btn" data-a="ir-devolver" title="Contesta a la IA o dile qué cambiar">↩ Responder…</button>`);
   $("#dActions").innerHTML = acts.join("");
-  for (const b of document.querySelectorAll("#dActions .btn")) b.onclick = () => action(c.id, b.dataset.a);
+  $("#dActions").hidden = !acts.length;
+  // Lo de mantenimiento, dentro de «Ajustes»
+  const mas = [`<span class="pos"><button class="btn" data-a="up" title="Subir una posición en su columna (Alt+↑)">↑</button><button class="btn" data-a="down" title="Bajar una posición en su columna (Alt+↓)">↓</button></span>`];
+  if (c.log?.length) mas.push(`<button class="btn" data-a="reset">Empezar de cero</button>`);
+  mas.push(`<button class="btn danger" data-a="delete">Eliminar</button>`);
+  $("#dActionsMas").innerHTML = mas.join("");
+  for (const b of document.querySelectorAll("#dActions .btn, #dActionsMas .btn")) b.onclick = () => action(c.id, b.dataset.a);
+  pintarPestanas(c);
 
   const log = $("#dLog");
   const items = [...(c.log || [])].reverse();
@@ -1264,8 +1543,63 @@ function updateDrawer(c) {
     : `<div class="empty-state">Sin actividad todavía.</div>`;
 }
 
+// Pestañas del panel. Al abrirlo (o si cambia el estado y no has elegido tú) se muestra la que toca:
+// trabajando → En vivo; te pregunta → Conversación; entregada → Resultado; si no, la Tarea.
+function pestanaQueToca(c) {
+  if (c.status === "waiting") return "chat";
+  if (["running", "returned"].includes(c.status)) return "vivo";
+  if (c.result && ["review", "done"].includes(c.column)) return "resultado";
+  return "tarea";
+}
+function pintarPestanas(c) {
+  const enCurso = ["running", "returned", "waiting"].includes(c.status);
+  const pendientes = (c.dependsOn || []).filter((d) => state.cards.get(d)?.column !== "done").length;
+  const cr = c.criterios || [];
+  const si = cr.filter((x) => x.estado === "cumple").length;
+  const n = {
+    tarea: cr.length ? (cr.some((x) => x.estado) ? `${si}/${cr.length} ✓` : cr.length) : "",
+    chat: c.status === "waiting" ? "?" : c.thread?.length || "",
+    resultado: c.versions?.length > 1 ? `v${c.versions.at(-1).n}` : c.result ? "✓" : "",
+    ajustes: [pendientes ? `🔒${pendientes}` : "", c.programa ? "🔁" : "", c.attachments?.length ? `📎${c.attachments.length}` : ""].filter(Boolean).join(" "),
+    actividad: c.log?.length || "",
+  };
+  for (const b of document.querySelectorAll("#dTabs [data-n]")) b.textContent = n[b.dataset.n] ?? "";
+  $('#dTabs [data-tab="chat"]').classList.toggle("aviso", c.status === "waiting");
+  $('#dTabs [data-tab="vivo"]').hidden = !enCurso && !(c.live && c.status === "running");
+  const panel = $("#drawerBody");
+  const toca = pestanaQueToca(c);
+  // Lo que elegiste se respeta; si no elegiste, sigue al estado (p. ej. al entregar pasa a «Resultado»)
+  if (!panel.dataset.elegida || panel.dataset.toca !== toca) {
+    if (!panel.dataset.elegida || !document.querySelector(`#dTabs [data-tab="${panel.dataset.pestana}"]:not([hidden])`)) mostrarPestana(toca);
+    panel.dataset.toca = toca;
+  }
+  if (!panel.dataset.pestana) mostrarPestana(toca);
+}
+function mostrarPestana(cual, elegida = false) {
+  const panel = $("#drawerBody");
+  panel.dataset.pestana = cual;
+  if (elegida) panel.dataset.elegida = "1";
+  for (const b of document.querySelectorAll("#dTabs [data-tab]")) {
+    b.classList.toggle("on", b.dataset.tab === cual);
+    b.setAttribute("aria-selected", String(b.dataset.tab === cual));
+  }
+  for (const p of document.querySelectorAll("#drawerBody [data-panel]")) p.hidden = p.dataset.panel !== cual;
+}
+
 async function action(id, a) {
   try {
+    if (a === "escribir") {
+      mostrarPestana("resultado", true);
+      $("#dResultWrap").hidden = false;
+      $("#dResultVacio").hidden = true;
+      $("#dEditResult").click();
+      return;
+    }
+    if (a === "ir-devolver") {
+      mostrarPestana("chat", true);
+      $("#dFeedbackText").focus();
+      return;
+    }
     if (a === "unqueue") await api(`/api/cards/${id}/move`, { column: "backlog" });
     if (a === "up") desplazar(id, -1);
     if (a === "down") desplazar(id, +1);
@@ -1299,7 +1633,7 @@ async function feedback(id, text, isAnswer = false) {
     await api(`/api/cards/${id}/feedback`, { text });
     const ta = $("#dFeedbackText");
     if (ta) ta.value = "";
-    toast(isAnswer ? "Respuesta enviada a la IA" : "Devuelta a la IA con tu comentario");
+    toast(isAnswer ? "Respuesta enviada a la IA" : "Enviado a la IA: sigue con esta tarjeta");
   } catch (err) {
     toast(err.message, true);
   }
@@ -1390,7 +1724,7 @@ function pintarHilo(c) {
             return `<li class="msg ${m.de} ${m.tipo}${pendiente ? " pendiente" : ""}"><div class="who">${m.de === "persona" ? "Tú" : `🧠 ${esc(m.quien || "IA")}`}${ETIQUETA[m.tipo] ? ` · <span>${ETIQUETA[m.tipo]}</span>` : ""}<time>${hora}</time></div><div class="txt">${md(m.texto)}</div></li>`;
           })
           .join("")
-      : `<li class="vacio">Aún no hay mensajes. Lo que escribas aquí le llega a la IA que trabaje esta tarjeta.</li>`;
+      : ""; // vacía: el campo de abajo ya dice a quién le llega lo que escribas
     lista.scrollTop = lista.scrollHeight;
   }
   // El cuadro de texto se adapta a lo que está pasando
@@ -1407,8 +1741,9 @@ function pintarHilo(c) {
     ta.placeholder = "Nota o instrucción para quien la trabaje…";
     botones = `<button class="btn primary" data-a="feedback">⚡ Pedírsela a la IA</button><button class="btn" data-a="comment">Solo anotar</button>`;
   } else {
-    ta.placeholder = "Comentario para la IA: qué cambiar, qué falta…";
-    botones = `<button class="btn primary" data-a="feedback">↺ Devolver a la IA</button><button class="btn" data-a="comment">Solo anotar</button>`;
+    // Entregada: aquí se le contesta (a lo que preguntó u ofreció al entregar) o se le piden cambios
+    ta.placeholder = `Responde a ${quien} o pide cambios: lo recibe y sigue con esta tarjeta…`;
+    botones = `<button class="btn primary" data-a="feedback">↩ Responder a la IA</button><button class="btn" data-a="comment">Solo anotar</button>`;
   }
   const marcados = (c.criterios || []).filter((x) => x.falla);
   if (marcados.length && c.column === "review") ta.placeholder = `La IA sabrá que no se cumple${marcados.length > 1 ? "n" : ""} ${marcados.map((x) => `«${corto(x.texto, 40)}»`).join(", ")}. Añade lo que quieras…`;
@@ -1450,7 +1785,7 @@ function llenarProyectos(select, valor) {
 
 async function openFile(f) {
   const url = "/files/" + f.split("/").map(encodeURIComponent).join("/");
-  const vista = "/vista/" + f.split("/").map(encodeURIComponent).join("/"); // aislada: puede ejecutarse sin tocar el tablero
+  const vista = state.vista + f.split("/").map(encodeURIComponent).join("/"); // aislada: puede ejecutarse sin tocar el tablero
   const ext = (f.match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();
   const tipo =
     ["html", "htm"].includes(ext) ? "html"
@@ -2247,7 +2582,7 @@ function comandos() {
   const hechas = [...state.cards.values()].filter((x) => visible(x) && x.column === "done").length;
   if (hechas && state.seccion === "tablero") add("archivar-hechas", "🗄", `Archivar las ${hechas} tarjeta${hechas === 1 ? "" : "s"} hecha${hechas === 1 ? "" : "s"}`, () => $("#archiveDone").click(), "", "limpiar");
   for (const [id, nombre] of SECCIONES(state.filtro))
-    if (id !== state.seccion) add(`seccion-${id}`, "▤", `Abrir ${nombre}`, () => $(`#subnav [data-s="${id}"]`)?.click(), "", id === "ajustes" ? "ajustes configuración instrucciones memoria" : "sección");
+    if (id !== state.seccion) add(`seccion-${id}`, "▤", `Abrir ${nombre}`, () => $(`#subnav [data-s="${id}"]`)?.click(), "", id === "ajustes" ? "ajustes configuración instrucciones memoria secretos claves api" : "sección");
   for (const p of state.projects) if (p.id !== state.filtro) add(`ir-${p.id}`, "⇥", `Ir a «${p.name}»`, () => elegirFiltro(p.id), "", "proyecto pestaña cambiar");
   const actual = proyecto(state.filtro);
   if (actual && !actual.pausado) add("pausar", "⏸", `Pausar «${actual.name}»`, () => pausarProyecto(actual.id, true), "", "pausa detener parar prioridad");
@@ -2257,6 +2592,7 @@ function comandos() {
   add("proyecto-nuevo", "＋", "Nuevo proyecto", () => setTimeout(() => $("#tabNew").click()), "", "crear pestaña");
   add("conectar", "◉", "Conectar una IA", openConnect, "", "mcp cerebro");
   add("atajos", "⌨", "Atajos de teclado", null, "", "teclado ayuda");
+  add("cerrar-orbita", "⏻", "Cerrar Órbita", cerrarOrbita, "", "salir apagar detener servidor quit");
   return lista;
 }
 
@@ -2582,7 +2918,9 @@ function pintarCriterios(c) {
           <span class="crit-acc">${enRevision && x.estado ? `<button class="mini" data-falla="${x.id}" title="${x.falla ? "Quitar la marca" : "Marcar que no se cumple (se le dirá a la IA al devolverla)"}">${x.falla ? "↶ Sí se cumple" : "✗ No se cumple"}</button>` : ""}<button class="icon-btn" data-quitar-crit="${x.id}" title="Quitar criterio" aria-label="Quitar criterio">✕</button></span>
         </li>`;
       })
-      .join("") || `<li class="crit-vacio muted">Sin criterios. Añade lo que debe cumplirse: la IA los revisará uno a uno al entregar.</li>`;
+      .join("");
+  // Sin criterios, solo el campo para añadirlos (su texto de ayuda explica para qué sirven)
+  $("#dCrit").classList.toggle("vacia", !cr.length);
   for (const b of document.querySelectorAll("#dCritList [data-quitar-crit]"))
     b.onclick = () => guardarCriterios(c.id, cr.filter((x) => x.id !== b.dataset.quitarCrit).map((x) => x.texto));
   for (const b of document.querySelectorAll("#dCritList [data-falla]"))
@@ -2638,7 +2976,7 @@ function openIAProyecto(id) {
   showDrawer();
 }
 function instruccionIA(p, nombre) {
-  return `Sé la IA del proyecto «${p.name}» en mi tablero Órbita. Usa el servidor MCP "orbita" con worker "${nombre}" y llama a wait_for_work con project "${p.id}" una y otra vez: trabaja cada tarjeta que te llegue (report_progress cada 2-3 minutos, submit_result con criteria si los trae) y vuelve a esperar, sin pedirme confirmación entre tarjetas.`;
+  return `Sé la IA del proyecto «${p.name}» en mi tablero Órbita. Usa el servidor MCP "orbita" con worker "${nombre}" y llama a wait_for_work con project "${p.id}" una y otra vez: trabaja cada tarjeta que te llegue (report_progress cada 2-3 minutos, submit_result con criteria si los trae) y vuelve a esperar, sin pedirme confirmación entre tarjetas. Lo que necesites de mí, pregúntamelo en Órbita (ask_human o en el resultado), no en este chat.`;
 }
 function pintarIAProyecto(forzar = false) {
   const p = proyecto(iaProyecto);

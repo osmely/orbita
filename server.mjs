@@ -9,10 +9,14 @@ import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createMcpHandler } from "./mcp.mjs";
 // Argumentos, carpeta de datos (la del usuario, no la del programa) e interfaz: ver entorno.mjs
-import { PORT, DATOS, ABRIR_NAVEGADOR, VERSION_APP, leerPublico, abrirNavegador, salir } from "./entorno.mjs";
+import { PORT, DATOS, ABRIR_NAVEGADOR, CLAVE_VISTA, VERSION_APP, leerPublico, abrirNavegador, abrirVentana, salir } from "./entorno.mjs";
 // Cada proyecto se guarda en <su carpeta de trabajo>/orbita/ (ver almacen.mjs)
-import { cargar, guardar, slug, normalizarCarpeta, comprobarCarpeta, leerTablero, tableroDe, baseDe, rutaReal, listarArchivos, moverCarpetaOrbita, CARPETA } from "./almacen.mjs";
+import { cargar, guardar, serializados, slug, normalizarCarpeta, comprobarCarpeta, leerTablero, tableroDe, baseDe, rutaReal, listarArchivos, moverCarpetaOrbita, CARPETA } from "./almacen.mjs";
 import { elegirCarpeta } from "./carpetas.mjs";
+// Secretos de cada proyecto: en la carpeta de datos, nunca en orbita/ (ver secretos.mjs)
+import { nombresSecretos, ponerSecreto, quitarSecreto, quitarSecretosDe } from "./secretos.mjs";
+// Entidades de cada proyecto (personajes, objetos, personas…): en su tablero.json (ver entidades.mjs)
+import { guardarEntidad, quitarEntidad, IMAGEN } from "./entidades.mjs";
 
 // ---------------------------------------------------------------------------
 // Estado del tablero
@@ -178,15 +182,22 @@ for (const card of board.cards) {
 }
 
 
+// Qué guardar: save(card) solo el tablero.json del proyecto de esa tarjeta (lo frecuente: touch, report_progress…);
+// save() sin argumentos, todo, también orbita.json. Ante la duda, save(): guardar de más nunca pierde nada.
 let saveTimer = null;
-function save() {
+let porGuardar = new Set(); // ids de proyecto; null = todo
+function save(card) {
+  if (!card) porGuardar = null;
+  else porGuardar?.add(card.projectId);
   clearTimeout(saveTimer);
   saveTimer = setTimeout(guardarAhora, 250);
 }
 function guardarAhora() {
   clearTimeout(saveTimer);
   saveTimer = null;
-  guardar(board, faltantes); // orbita.json + el tablero.json de cada proyecto (solo los que cambiaron)
+  const solo = porGuardar;
+  porGuardar = new Set();
+  guardar(board, faltantes, solo); // orbita.json + los tablero.json (y de ellos, solo se escribe lo que cambió)
 }
 // Al cerrar (Ctrl+C, cerrar la terminal, apagar el equipo) se guarda lo pendiente: nada se pierde
 for (const senal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
@@ -196,6 +207,33 @@ for (const senal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     } finally {
       process.exit(0);
     }
+  });
+}
+
+// Un error que nadie esperaba se anota (una vez por motivo, para no llenar la consola si se repite)
+const fallosAnotados = new Set();
+function anotarFallo(donde, err) {
+  const clave = `${donde}: ${err?.message ?? err}`;
+  if (fallosAnotados.has(clave)) return;
+  fallosAnotados.add(clave);
+  console.error(`  ⚠ Error en ${donde}: ${err?.stack ?? err}`);
+}
+// Para los temporizadores: si una vuelta falla, se anota y la siguiente se ejecuta igual
+const protegido = (donde, fn) => () => {
+  try {
+    fn();
+  } catch (err) {
+    anotarFallo(donde, err);
+  }
+};
+// Último recurso: se anota, se guarda lo pendiente y Órbita sigue en marcha. El tablero son datos simples
+// en memoria, y cerrarse cortaría a todas las IAs conectadas en mitad de su trabajo.
+for (const evento of ["uncaughtException", "unhandledRejection"]) {
+  process.on(evento, (err) => {
+    anotarFallo("Órbita (error no capturado)", err);
+    try {
+      if (saveTimer) guardarAhora();
+    } catch {}
   });
 }
 
@@ -298,11 +336,13 @@ function broadcast(event) {
   const data = `data: ${JSON.stringify(event)}\n\n`;
   for (const res of subscribers) res.write(data);
 }
+// Una tarjeta cambió: se guarda solo el tablero de su proyecto. Si además cambia algo global
+// (avisos, papelera, preguntas…), quien lo cambia llama a save() sin argumentos.
 function touch(card) {
   card.updatedAt = Date.now();
   broadcast({ type: "card", card });
   changes.emit("change");
-  save();
+  save(card);
 }
 // ---------------------------------------------------------------------------
 // Conocimiento: archivos de referencia del proyecto, en <carpeta de trabajo>/orbita/conocimiento/
@@ -328,7 +368,7 @@ function nombreSeguro(nombre) {
   return limpio;
 }
 
-const proyectosPublicos = () => board.projects.map((p) => ({ ...p, knowledge: conocimiento(p) }));
+const proyectosPublicos = () => board.projects.map((p) => ({ ...p, knowledge: conocimiento(p), secretos: nombresSecretos(p.id) }));
 
 function broadcastQuestions() {
   broadcast({ type: "questions", questions: board.questions });
@@ -391,6 +431,7 @@ function revocar(card, motivo) {
   board.notices.push({ worker: card.worker, cardId: card.id, title: card.title, motivo, at, delivered: false });
   if (board.notices.length > 200) board.notices.splice(0, board.notices.length - 200);
   log(card, "stop", `Se avisará a ${card.worker} para que se detenga (${motivo})`);
+  save(); // los avisos van en orbita.json
 }
 
 // A la papelera (lo que borra una IA): se guarda entera para poder restaurarla
@@ -418,6 +459,7 @@ function restaurarDePapelera(id) {
   board.cards.push(card);
   broadcast({ type: "papelera", papelera: papeleraPublica() });
   touch(card);
+  save(); // la papelera va en orbita.json
   return card;
 }
 
@@ -486,7 +528,7 @@ function broadcastBrains() {
   broadcast({ type: "brains", brains: list });
   changes.emit("change"); // si se desconecta la IA de preguntas, las demás vuelven a mirar si les toca alguna
 }
-setInterval(broadcastBrains, 10_000);
+setInterval(protegido("el aviso de IAs conectadas", broadcastBrains), 10_000);
 
 // ---------------------------------------------------------------------------
 // Acciones del tablero (las usan la web y el MCP)
@@ -739,12 +781,16 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// Se juntan los bytes y se decodifican una sola vez: una ñ o un emoji partido entre dos trozos se corrompería
 async function readJson(req, max = 5e6) {
-  let raw = "";
+  const trozos = [];
+  let bytes = 0;
   for await (const chunk of req) {
-    raw += chunk;
-    if (raw.length > max) throw new Error("Cuerpo demasiado grande");
+    bytes += chunk.length;
+    if (bytes > max) throw new Error("Cuerpo demasiado grande");
+    trozos.push(chunk);
   }
+  const raw = Buffer.concat(trozos).toString("utf8");
   return raw ? JSON.parse(raw) : {};
 }
 
@@ -787,6 +833,7 @@ const VERSION = crypto
   .slice(0, 10);
 
 const ALLOWED_HOSTS = [`localhost:${PORT}`, `127.0.0.1:${PORT}`];
+const VISTA = `/vista/${CLAVE_VISTA}/`;
 const handleMcp = createMcpHandler({
   board, findCard, findProject, newCard, touch, log, requestAI, moveCard, claim, seen, brainList, changes, listFiles, safePath, broadcast, save, PLAN_INSTRUCCIONES, dependenciasPendientes, ponerDependencias, hilo, conocimiento, broadcastProjects, nuevaVersion, broadcastQuestions, enPausa, ponerCriterios, evaluarCriterios, elegible, iaDeProyecto, conectada, preguntasIA, aLaPapelera, restaurarDePapelera, papeleraPublica, newProject, moverProyecto,
 });
@@ -795,9 +842,13 @@ const server = http.createServer(async (req, res) => {
   // Solo se acepta tráfico local: evita que una web cualquiera use el tablero
   // desde tu navegador (DNS rebinding o peticiones cruzadas).
   const origin = req.headers.origin;
-  // La vista previa aislada pide sus propios archivos con «Origin: null»: solo para leer /vista/
+  // La vista previa aislada pide sus propios archivos con «Origin: null»: solo para leer /vista/<clave>/
   if (req.method === "GET" && ALLOWED_HOSTS.includes(req.headers.host) && req.url.startsWith("/vista/") && (!origin || origin === "null" || ALLOWED_HOSTS.some((h) => origin === `http://${h}`))) {
-    return serveVista(res, decodeURIComponent(new URL(req.url, "http://x").pathname.slice("/vista/".length)));
+    // Sin la clave, nada: las páginas aisladas (origen opaco) piden sus archivos igual que lo haría una web ajena
+    // («cross-site», sin Origin ni Referer), así que la única diferencia es conocer la ruta
+    const ruta = new URL(req.url, "http://x").pathname;
+    if (!ruta.startsWith(VISTA)) return send(res, 403, { error: "La vista previa solo se abre desde Órbita" });
+    return serveVista(res, decodeURIComponent(ruta.slice(VISTA.length)));
   }
   if (!ALLOWED_HOSTS.includes(req.headers.host) || (origin && !ALLOWED_HOSTS.some((h) => origin === `http://${h}`))) {
     return send(res, 403, { error: "Solo se aceptan conexiones desde localhost" });
@@ -820,8 +871,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Cerrar Órbita desde su ventana (abierta como app no hay Terminal donde pulsar Ctrl+C)
+    if (url.pathname === "/api/salir" && req.method === "POST") {
+      guardarAhora();
+      send(res, 200, { ok: true });
+      broadcast({ type: "cerrada" });
+      setTimeout(() => process.exit(0), 200);
+      return;
+    }
+
     if (url.pathname === "/api/board" && req.method === "GET") {
-      return send(res, 200, { cards: board.cards, projects: proyectosPublicos(), faltantes, questions: board.questions, preguntasIA: board.preguntasIA, plantillas: board.plantillas, papelera: papeleraPublica(), files: listFiles(), brains: brainList(), version: VERSION, mcpUrl: `http://localhost:${PORT}/mcp` });
+      return send(res, 200, { cards: board.cards, projects: proyectosPublicos(), faltantes, questions: board.questions, preguntasIA: board.preguntasIA, plantillas: board.plantillas, papelera: papeleraPublica(), files: listFiles(), brains: brainList(), version: VERSION, mcpUrl: `http://localhost:${PORT}/mcp`, vista: VISTA });
     }
 
     if (url.pathname === "/api/cards" && req.method === "POST") {
@@ -935,6 +995,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Solo en copias de prueba: fijar la hora del servidor para probar las programadas
+    // Solo en pruebas: guarda ya lo pendiente y dice qué archivos convirtió a JSON
+    if (url.pathname === "/api/_guardado" && req.method === "POST" && process.env.ORBITA_PRUEBAS) {
+      guardarAhora();
+      return send(res, 200, { serializados });
+    }
     if (url.pathname === "/api/_reloj" && req.method === "POST" && process.env.ORBITA_PRUEBAS) {
       const { fijar } = await readJson(req);
       desfase = Number(fijar) - Date.now();
@@ -1088,10 +1153,64 @@ const server = http.createServer(async (req, res) => {
 
     // Solo se eliminan proyectos sin tarjetas (ni archivadas). Se quita de la lista; su carpeta (y su orbita/) no se toca:
 // si se vuelve a elegir esa carpeta, el proyecto se abre otra vez
+    // Entidades: crear o editar (POST), borrar (DELETE), y su imagen (…/imagen)
+    if (parts[0] === "api" && parts[1] === "projects" && parts[2] && parts[3] === "entidades") {
+      const project = findProject(parts[2]);
+      if (!project) return send(res, 404, { error: "Proyecto no encontrado" });
+      const imagenPropia = (e) => e?.imagen?.startsWith(`${project.folder}/entidades/`); // las que subió la persona: se borran con la entidad
+      const borrarImagen = (e) => {
+        if (imagenPropia(e) && existeArchivo(e.imagen)) fs.rmSync(safePath(e.imagen), { force: true });
+      };
+      let respuesta;
+      if (req.method === "POST" && !parts[4]) {
+        const { id, categoria, nombre, resumen, detalles, etiquetas } = await readJson(req);
+        respuesta = guardarEntidad(project, { id, categoria, nombre, resumen, detalles, etiquetas }, "Tú").entidad;
+      } else if (req.method === "DELETE" && parts[4] && !parts[5]) {
+        respuesta = quitarEntidad(project, parts[4]);
+        borrarImagen(respuesta);
+      } else if (parts[4] && parts[5] === "imagen") {
+        const e = (project.entidades || []).find((x) => x.id === parts[4]);
+        if (!e) return send(res, 404, { error: "Entidad no encontrada" });
+        if (req.method === "POST") {
+          const { name, data } = await readJson(req, 15e6);
+          const ext = (String(name).match(IMAGEN)?.[0] || "").toLowerCase();
+          if (!ext) return send(res, 400, { error: "La imagen tiene que ser PNG, JPG, GIF o WebP" });
+          const contenido = Buffer.from(String(data || ""), "base64");
+          if (!contenido.length) return send(res, 400, { error: "La imagen está vacía" });
+          if (contenido.length > MAX_CONOCIMIENTO) return send(res, 413, { error: "La imagen pasa de 10 MB" });
+          const rel = `${project.folder}/entidades/${e.id}${ext}`;
+          if (e.imagen !== rel) borrarImagen(e); // la anterior, si era otra (p. ej. .png → .jpg)
+          fs.mkdirSync(path.dirname(safePath(rel)), { recursive: true });
+          fs.writeFileSync(safePath(rel), contenido);
+          respuesta = guardarEntidad(project, { id: e.id, imagen: rel }, "Tú").entidad;
+        } else if (req.method === "DELETE") {
+          borrarImagen(e);
+          respuesta = guardarEntidad(project, { id: e.id, imagen: null }, "Tú").entidad;
+        }
+        else return send(res, 405, { error: "Método no permitido" });
+        broadcast({ type: "files", files: listFiles() });
+      } else return send(res, 405, { error: "Método no permitido" });
+      broadcastProjects();
+      return send(res, 200, respuesta);
+    }
+
+    // Secretos: la interfaz solo los escribe y los borra; nunca recibe su valor
+    if (parts[0] === "api" && parts[1] === "projects" && parts[2] && parts[3] === "secretos") {
+      const project = findProject(parts[2]);
+      if (!project) return send(res, 404, { error: "Proyecto no encontrado" });
+      if (req.method === "POST" && !parts[4]) {
+        const { nombre, valor } = await readJson(req);
+        ponerSecreto(project.id, nombre, valor);
+      } else if (req.method === "DELETE" && parts[4]) quitarSecreto(project.id, decodeURIComponent(parts[4]));
+      else return send(res, 405, { error: "Método no permitido" });
+      broadcastProjects();
+      return send(res, 200, { secretos: nombresSecretos(project.id) });
+    }
     if (parts[0] === "api" && parts[1] === "projects" && parts[2] && !parts[3] && req.method === "DELETE") {
       const project = findProject(parts[2]);
       if (!project) return send(res, 404, { error: "Proyecto no encontrado" });
       if (board.cards.some((c) => c.projectId === project.id)) return send(res, 400, { error: "El proyecto tiene tarjetas: muévelas a otro proyecto antes de eliminarlo" });
+      quitarSecretosDe(project.id);
       board.projects = board.projects.filter((p) => p.id !== project.id);
       broadcastProjects();
       return send(res, 200, { ok: true });
@@ -1214,7 +1333,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 // Mantiene vivas las conexiones SSE.
-setInterval(() => broadcast({ type: "ping" }), 25_000);
+setInterval(protegido("el ping de los navegadores", () => broadcast({ type: "ping" })), 25_000);
 
 // ---------------------------------------------------------------------------
 // Tareas programadas y recurrentes
@@ -1303,17 +1422,28 @@ function revisarProgramadas() {
   for (const card of [...board.cards]) {
     const pg = card.programa;
     if (!pg || card.archivedAt || !pg.proxima || pg.proxima > t) continue;
-    ejecutarProgramada(card); // aunque se perdieran varias (Órbita apagada), se crea una sola
-    if (pg.tipo !== "una" && pg.proxima && pg.proxima <= t) pg.proxima = proximaVez(pg, t);
     hubo = true;
+    try {
+      ejecutarProgramada(card); // aunque se perdieran varias (Órbita apagada), se crea una sola
+      if (pg.tipo !== "una" && pg.proxima && pg.proxima <= t) pg.proxima = proximaVez(pg, t);
+    } catch (err) {
+      // Pasa a su próxima vez: si no, se repetiría en cada vuelta (y podría crear copias sin parar)
+      anotarFallo(`la tarea programada «${card.title}»`, err);
+      try {
+        pg.proxima = pg.tipo === "una" ? null : proximaVez(pg, t);
+        log(card, "step", `No se pudo ejecutar su programación: ${err.message}`);
+      } catch {
+        pg.proxima = null;
+      }
+    }
   }
   if (hubo) {
     changes.emit("change");
     save();
   }
 }
-setInterval(revisarProgramadas, process.env.ORBITA_PRUEBAS ? 200 : 15_000);
-setTimeout(revisarProgramadas, 1500); // al arrancar, por si se perdió alguna con Órbita apagada
+setInterval(protegido("las tareas programadas", revisarProgramadas), process.env.ORBITA_PRUEBAS ? 200 : 15_000);
+setTimeout(protegido("las tareas programadas", revisarProgramadas), 1500); // al arrancar, por si se perdió alguna con Órbita apagada
 
 // Solo en 127.0.0.1: desde otros equipos de la red no se puede entrar.
 server.on("error", async (err) => {
@@ -1324,7 +1454,7 @@ server.on("error", async (err) => {
     .catch(() => null);
   if (otra?.version) {
     console.log(`\n  ◉ Órbita ya está abierta en http://localhost:${PORT}\n`);
-    if (ABRIR_NAVEGADOR) abrirNavegador(`http://localhost:${PORT}`);
+    if (ABRIR_NAVEGADOR) abrirVentana(`http://localhost:${PORT}`);
     process.exit(0);
   }
   salir(`El puerto ${PORT} lo está usando otro programa. Arranca Órbita en otro, por ejemplo:  orbita --port ${PORT + 1}\n(Recuerda cambiar también la dirección MCP en tu IA.)`);
@@ -1333,6 +1463,6 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log(`\n  ◉ Órbita ${VERSION_APP} está en http://localhost:${PORT}`);
   console.log(`    Conecta tu IA por MCP: http://localhost:${PORT}/mcp`);
   console.log(`    Tus datos: ${DATOS}`);
-  console.log(`    Para cerrarla: Ctrl+C\n`);
-  if (ABRIR_NAVEGADOR) abrirNavegador(`http://localhost:${PORT}`);
+  console.log(`    Para cerrarla: Ctrl+C (o, en Órbita, ⌘K → «Cerrar Órbita»)\n`);
+  if (ABRIR_NAVEGADOR) abrirVentana(`http://localhost:${PORT}`);
 });

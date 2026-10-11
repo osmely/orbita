@@ -8,4 +8,6 @@ data/
 entregables/
 general/
 orbita.json
+secretos.json
+secretos.json.tmp
 config.json

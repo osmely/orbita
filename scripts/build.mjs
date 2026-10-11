@@ -62,11 +62,47 @@ execFileSync(NODE, ["--build-sea", CONFIG], { stdio: "inherit" });
 if (process.platform === "darwin") {
   paso("Firmando (ad hoc)");
   execFileSync("codesign", ["--force", "--sign", "-", SALIDA], { stdio: "inherit" });
+  crearAppMac();
 }
 
 fs.rmSync(OBRA, { recursive: true, force: true });
 const mb = (fs.statSync(SALIDA).size / 1048576).toFixed(0);
 console.log(`\n✓ ${path.relative(RAIZ, SALIDA)} (${mb} MB). Pruébalo con: ${path.relative(process.cwd(), SALIDA) || SALIDA} --data /tmp/orbita-prueba`);
+if (process.platform === "darwin") console.log(`✓ dist/Órbita.app: ábrela con doble clic (o arrástrala a Aplicaciones)`);
+
+// Órbita.app: el mismo ejecutable dentro de una app de macOS, con su icono. Se abre con doble clic, sin ventana
+// de Terminal (LSUIElement: el servidor no tiene ventana propia; la de Órbita la abre el navegador en modo app).
+// Abrirla otra vez con Órbita ya en marcha solo vuelve a mostrar su ventana.
+function crearAppMac() {
+  const APP = path.join(DIST, "Órbita.app");
+  paso(`Creando ${path.relative(RAIZ, APP)}`);
+  fs.mkdirSync(path.join(APP, "Contents", "MacOS"), { recursive: true });
+  fs.mkdirSync(path.join(APP, "Contents", "Resources"), { recursive: true });
+  fs.copyFileSync(SALIDA, path.join(APP, "Contents", "MacOS", "orbita"));
+  fs.copyFileSync(path.join(RAIZ, "recursos", "orbita.icns"), path.join(APP, "Contents", "Resources", "orbita.icns"));
+  const version = JSON.parse(fs.readFileSync(path.join(RAIZ, "package.json"), "utf8")).version;
+  const plist = {
+    CFBundleName: "Órbita",
+    CFBundleDisplayName: "Órbita",
+    CFBundleIdentifier: "app.orbita.tablero",
+    CFBundleExecutable: "orbita",
+    CFBundleIconFile: "orbita",
+    CFBundlePackageType: "APPL",
+    CFBundleShortVersionString: version,
+    CFBundleVersion: version,
+    LSMinimumSystemVersion: "11.0",
+    LSUIElement: true,
+    NSHighResolutionCapable: true,
+  };
+  const valor = (v) => (v === true ? "<true/>" : `<string>${v}</string>`);
+  fs.writeFileSync(
+    path.join(APP, "Contents", "Info.plist"),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n${Object.entries(plist)
+      .map(([k, v]) => `  <key>${k}</key>\n  ${valor(v)}`)
+      .join("\n")}\n</dict>\n</plist>\n`,
+  );
+  execFileSync("codesign", ["--force", "--sign", "-", APP], { stdio: "inherit" });
+}
 
 // Descarga (una vez) el Node oficial de nodejs.org y comprueba su SHA-256 con la lista oficial de la versión.
 async function nodeOficial(version) {
