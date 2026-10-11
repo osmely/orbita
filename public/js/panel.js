@@ -1,9 +1,9 @@
 // Órbita · Arrastrar y soltar, y el panel de la tarjeta.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, LIVE, LOG_ICON, STATUS, api, esc, fileIcon, hasBrain, md, state, toast, visible } from "./nucleo.js";
-import { duracion, textoCola } from "./tablero.js";
+import { TEXTO_ESPERA, duracion, esperaDe, textoCola } from "./tablero.js";
 import { adjuntar, tamano } from "./paginas.js";
-import { llenarProyectos, openFile, pintarDependencias, pintarHilo, pintarVersiones } from "./detalle.js";
+import { llenarProyectos, openConnect, openFile, pintarDependencias, pintarHilo, pintarVersiones } from "./detalle.js";
 import { exportar } from "./exportar.js";
 import { guardarComoPlantilla, guardarCriterios, guardarPrograma, pintarCriterios, pintarPrograma } from "./extras.js";
 
@@ -349,6 +349,25 @@ function pintarClaude(c, trabajando) {
     .join("");
 }
 
+// Si la IA te espera fuera de Órbita (ver esperaDe), lo primero que se ve en «En vivo»
+function alertaEspera(c) {
+  const e = esperaDe(c);
+  if (!e) return "";
+  const conHooks = Boolean(c.claude?.ultimo);
+  const que = {
+    permiso: "Ve a su terminal y aprueba (o deniega) lo que pide.",
+    chat: "Lleva un rato esperando tu respuesta en su chat. Contéstale allí, o escríbele aquí en la Conversación para que siga por Órbita.",
+    parado: "Terminó su turno sin entregar ni preguntarte por Órbita. Mira su chat; si te preguntó algo, contéstale allí.",
+    silencio: "No ha informado ni escuchado el tablero en más de 2 minutos. Puede estar en un paso largo, o esperándote en su chat de Claude (una pregunta o un permiso).",
+  }[e.tipo];
+  return `<div class="vivo-alerta">
+    <b>⚠ ${esc(TEXTO_ESPERA[e.tipo] || "Te espera fuera de Órbita")}</b> <span>desde hace <span data-since="${e.t}">${duracion(e.t)}</span></span>
+    <p>${esc(que)}</p>
+    ${(e.tipo === "permiso" || e.tipo === "chat") && e.texto ? `<p class="vivo-alerta-cita">Claude: «${esc(e.texto)}»</p>` : ""}
+    ${conHooks ? "" : `<p class="vivo-alerta-nota">Para que Órbita sepa exactamente qué pasa en Claude (permisos, preguntas en su chat, cada comando), conecta su actividad: <button class="mini" data-conectar>Conectar IA → Todo lo que hace Claude</button></p>`}
+  </div>`;
+}
+
 function pintarEnVivo(c) {
   const desde = c.startedAt || 0;
   const pasos = (c.log || []).filter((l) => l.t >= desde && l.kind !== "you");
@@ -358,6 +377,7 @@ function pintarEnVivo(c) {
   $("#dVivoEstado").hidden = !trabajando;
   if (trabajando)
     $("#dVivoEstado").innerHTML = `
+      ${alertaEspera(c)}
       <div class="vivo-paso">${c.status === "waiting" ? "❓ Esperando tu respuesta" : esc(c.step || "Empezando…")}</div>
       <div class="vivo-barra" role="progressbar" aria-valuenow="${c.progress}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(2, c.progress)}%"></i></div>
       <div class="vivo-datos">
@@ -368,6 +388,7 @@ function pintarEnVivo(c) {
         ${archivos ? `<span>✎ ${archivos} archivo${archivos === 1 ? "" : "s"}</span>` : ""}
       </div>`;
   marcarCallada();
+  $("#dVivoEstado [data-conectar]")?.addEventListener("click", openConnect);
   pintarClaude(c, trabajando);
   const lista = pasos.slice(-25).reverse();
   $("#dVivoPasosWrap").hidden = !lista.length;

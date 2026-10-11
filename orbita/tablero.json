@@ -1876,10 +1876,10 @@
    "programa": null,
    "worker": "Claude · ia",
    "inbox": [],
-   "progress": 5,
-   "step": "Comprobando si llegan eventos de Claude a Órbita",
-   "live": "**Confirmado en la documentación de Claude Code:**\n- hooks `type: \"http\"`, que hacen un POST con el JSON de cada evento;\n- si Órbita no responde, **no bloquean** («non-blocking error, execution continues»);\n- eventos: `PreToolUse` y `PostToolUse` (con `tool_use_id` y `duration_ms`), `PostToolUseFailure` (`error`), `Notification` (`message`, `notification_type: permission_prompt`), `UserPromptSubmit` (`prompt`), `Stop` (`last_assistant_message`) y `transcript_path`.\n\n**Ahora:** el receptor `POST /api/claude/evento`, que asigna cada evento a la tarjeta en curso del proyecto de esa carpeta (`cwd`).\n\n**Después:**\n- la sección «Claude ahora» en En vivo;\n- el botón para conectar la actividad (escribe los hooks en `~/.claude/settings.json`, con copia de seguridad);\n- probarlo con eventos reales.",
-   "liveAt": 1791748078903,
+   "progress": 90,
+   "step": "13/13 ✅; prueba de humo, recompilar, subir y reiniciar Órbita",
+   "live": "**Diagnóstico:**\n- **No hay hooks de Órbita** en tus ajustes de Claude Code (ni globales ni del proyecto).\n- **La Órbita abierta es de las 14:52**, anterior al receptor: los eventos de Claude se pierden con «no encontrado».\n\n**Arreglo (en curso):**\n1. **Sin hooks:** si la IA de una tarjeta en curso lleva más de 2 minutos sin hablar con Órbita (ni informa ni escucha), la tarjeta lo dice («puede estar esperándote en su chat») y te avisa.\n2. **Con hooks:**\n   - si Claude va a **terminar su turno** con la tarjeta en curso, Órbita le contesta que no pare: que te pregunte por Órbita (`ask_human`) o entregue. Es justo el caso «Claude espera respuesta y Órbita no se entera»;\n   - *espera permiso* y *espera tu respuesta en su chat* ponen la tarjeta en ámbar y te avisan.\n\n✅ Subido el commit anterior (`1eef250`).",
+   "liveAt": 1791753174689,
    "startedAt": 1791753089490,
    "log": [
     {
@@ -1976,13 +1976,38 @@
      "t": 1791753123136,
      "kind": "step",
      "text": "Comprobando si llegan eventos de Claude a Órbita"
+    },
+    {
+     "t": 1791753174689,
+     "kind": "step",
+     "text": "Detectando cuando Claude se queda esperando (con y sin hooks)"
+    },
+    {
+     "t": 1791753315384,
+     "kind": "step",
+     "text": "Probando: permiso, espera en su chat, fin de turno y silencio sin hooks"
+    },
+    {
+     "t": 1791753321088,
+     "kind": "step",
+     "text": "Prueba en marcha (3 min); mientras, documento en el README"
+    },
+    {
+     "t": 1791753337152,
+     "kind": "step",
+     "text": "npm test 5/5 ✅; esperando a que termine la prueba de silencio (2 min y medio)"
+    },
+    {
+     "t": 1791753498317,
+     "kind": "step",
+     "text": "13/13 ✅; prueba de humo, recompilar, subir y reiniciar Órbita"
     }
    ],
    "result": "**Resumen (opción A):** Órbita ya recibe **todo lo que hace Claude Code** y lo muestra en vivo en la tarjeta, en la sección **«Claude ahora»**:\n- cada comando, archivo leído o editado y búsqueda, mientras corre y cuando acaba (✓ con lo que tardó o ✗ con el error);\n- cuándo **espera tu permiso**;\n- su **lista de tareas** y lo que dice al terminar.\n\nPara activarlo solo falta que **tú añadas los hooks** a tus ajustes de Claude Code. Órbita no toca esa configuración.\n\n![«Claude ahora» en la pestaña En vivo](/files/ia/capturas/claude-ahora.jpg)\n\n## Cómo activarlo (una vez)\n1. En Órbita: **Conectar IA → «Todo lo que hace Claude, en vivo»** → **Copiar**. Ahí está el bloque de hooks con tu puerto.\n2. Pégalo en `~/.claude/settings.json` (para todos tus proyectos) o en `.claude/settings.json` de un proyecto. Si ya tienes una sección `\"hooks\"`, añade las entradas dentro.\n\nEl bloque tiene esta forma, para 7 eventos:\n```json\n{ \"hooks\": { \"PreToolUse\": [{ \"matcher\": \"*\", \"hooks\": [{ \"type\": \"http\", \"url\": \"http://127.0.0.1:4321/api/claude/evento\", \"timeout\": 3 }] }], … } }\n```\nLos eventos son `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop` y `SubagentStop`.\n\n- Son hooks **http**: no hay scripts y funcionan en macOS, Windows y Linux.\n- Si Órbita no está abierta, Claude Code **sigue sin bloquearse**. Según su documentación, un hook http que no responde es un error no bloqueante.\n- El panel te dice si ya están llegando eventos.\n\n## Qué se ve\n- **En el panel (En vivo → «Claude ahora»):**\n  - su **lista de tareas** (○ pendiente · ◐ en curso · ✓ hecha);\n  - cada herramienta, con un resumen legible:\n    - `$ npm test` con su descripción;\n    - 👁 `src/pages/contacto.astro` (rutas relativas a la carpeta);\n    - ✎ edita…;\n    - 🔎 «onSubmit» en src;\n    - 🌐 búsquedas y webs;\n    - 🤖 subagentes;\n  - el estado de cada herramienta: **en marcha…**, ✓ con su duración o ✗ con el error («Exit code 1»);\n  - ⚠ **«Claude espera tu permiso»** resaltado en ámbar;\n  - 💬 **lo que dijo** al terminar su turno, ▶ la instrucción que recibió y ■ el fin del turno.\n- **En la tarjeta del tablero:** una línea con lo que está corriendo ahora (`$ npm run build`) o el aviso de permiso.\n- **Sin ruido:** lo que la IA hace con Órbita (`report_progress`…) no se repite, porque ya se ve.\n\n## Cómo funciona\n`claude.mjs` recibe en `POST /api/claude/evento` el JSON de cada hook y lo asigna a la tarjeta en curso del proyecto cuya carpeta es la de esa sesión (`cwd`). Junta el inicio y el fin de cada herramienta por `tool_use_id` y guarda las últimas 150 entradas en la tarjeta. La conexión en vivo actualiza el panel al momento.\n\n## Pruebas (eventos con la forma exacta de los hooks de Claude Code, 13/13 ✅)\n- Un evento sin tarjeta en curso se ignora (204).\n- Los 8 eventos llegan a la tarjeta, y el inicio y el fin de cada herramienta se juntan, con su duración.\n- El fallo se ve con su error, el aviso de permiso queda apuntado, la lista de tareas se recoge y las rutas salen relativas a la carpeta.\n- Las llamadas a Órbita no se repiten.\n- En Chrome: el panel y la tarjeta lo muestran, y **se actualiza sin recargar** (`✓ 5.4 s` y lo que dijo).\n- Sin errores de JavaScript.\n- `npm test` 5/5 y la prueba de humo de la interfaz 15/15. `Órbita.app` está recompilada.\n\n**Nota sobre lo que pasó antes:** el sistema de permisos de Claude Code bloqueó mi primera versión, porque escribía ella misma esos ajustes en `~/.claude/settings.json`. Por eso ahora los añades tú y Órbita solo los recibe.\n\nQueda sin commit; dime si lo subo.",
    "question": "",
    "files": [],
    "createdAt": 1791747008179,
-   "updatedAt": 1791753123136,
+   "updatedAt": 1791753498317,
    "revocada": null,
    "pausada": false
   },

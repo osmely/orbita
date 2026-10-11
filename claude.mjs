@@ -65,18 +65,25 @@ function resumen(nombre, input = {}, cwd = "") {
 }
 
 const IGNORAR = /^mcp__orbita__/; // lo que hace con Órbita ya se ve en la tarjeta
+// Sesiones de Claude que trabajan con Órbita (han usado sus herramientas): solo a esas se les pide no parar
+const sesionesOrbita = new Set();
 
-// Recibe un evento de los hooks de Claude Code y lo apunta en la tarjeta que toca. Devuelve su id (o null).
+// Recibe un evento de los hooks de Claude Code y lo apunta en la tarjeta que toca.
+// Devuelve { tarjeta, respuesta }: «respuesta» es lo que hay que contestar al hook (o nada).
 export function registrarEvento(ev) {
+  if (IGNORAR.test(ev.tool_name || "")) sesionesOrbita.add(ev.session_id);
   const card = tarjetaDe(ev);
-  if (!card) return null;
+  if (!card) return { tarjeta: null };
   const cl = (card.claude ??= { actividad: [], todos: [], ultimo: 0 });
   const ahora = Date.now();
   const añadir = (e) => cl.actividad.push({ t: ahora, ...e });
   const cwd = String(ev.cwd || "");
+  let respuesta;
+  // Si vuelve a moverse, ya no está esperando
+  if (["PreToolUse", "PostToolUse", "PostToolUseFailure", "UserPromptSubmit"].includes(ev.hook_event_name)) delete cl.espera;
   switch (ev.hook_event_name) {
     case "PreToolUse": {
-      if (IGNORAR.test(ev.tool_name)) return card.id;
+      if (IGNORAR.test(ev.tool_name)) break;
       if (ev.tool_name === "TodoWrite" && Array.isArray(ev.tool_input?.todos))
         cl.todos = ev.tool_input.todos.slice(0, 50).map((x) => ({ texto: corto(x.content || x.activeForm, 200), estado: x.status }));
       const r = resumen(ev.tool_name, ev.tool_input, cwd);
@@ -85,8 +92,8 @@ export function registrarEvento(ev) {
     }
     case "PostToolUse":
     case "PostToolUseFailure": {
-      if (IGNORAR.test(ev.tool_name)) return card.id;
-      const fallo = ev.hook_event_name === "PostToolUseFailure";
+      if (IGNORAR.test(ev.tool_name)) break;
+      const fallo =ev.hook_event_name === "PostToolUseFailure";
       const fin = { estado: fallo ? (ev.is_interrupt ? "interrumpida" : "error") : "ok", ms: ev.duration_ms, error: fallo ? corto(String(ev.error || "").split("\n")[0], 200) : undefined };
       const e = [...cl.actividad].reverse().find((a) => a.tipo === "herramienta" && (ev.tool_use_id ? a.id === ev.tool_use_id : a.herramienta === ev.tool_name && a.estado === "corriendo"));
       if (e) Object.assign(e, fin);
@@ -96,9 +103,13 @@ export function registrarEvento(ev) {
       }
       break;
     }
-    case "Notification":
-      añadir({ tipo: ev.notification_type === "permission_prompt" ? "permiso" : "aviso", texto: corto(ev.message || ev.title, 300) });
+    case "Notification": {
+      // Espera un permiso, o lleva un rato parado esperando tu respuesta en su chat: la tarjeta lo dice y te avisa
+      const tipo = ev.notification_type === "permission_prompt" ? "permiso" : ev.notification_type === "idle_prompt" ? "chat" : null;
+      añadir({ tipo: tipo === "permiso" ? "permiso" : "aviso", texto: corto(ev.message || ev.title, 300) });
+      if (tipo) cl.espera = { tipo, texto: corto(ev.message || ev.title, 300), t: ahora };
       break;
+    }
     case "UserPromptSubmit":
       añadir({ tipo: "instruccion", texto: corto(String(ev.prompt || "").replace(/<pasted_content[\s\S]*?<\/pasted_content[^>]*>/g, "[texto pegado]"), 300) });
       break;
@@ -107,15 +118,26 @@ export function registrarEvento(ev) {
       if (ev.last_assistant_message) añadir({ tipo: "dice", texto: corto(ev.last_assistant_message, 4000) });
       añadir({ tipo: "fin", texto: ev.hook_event_name === "SubagentStop" ? "Un subagente terminó" : "Claude terminó su turno" });
       for (const a of cl.actividad) if (a.estado === "corriendo") a.estado = "ok"; // lo que quedó sin cerrar
+      // Va a parar con la tarjeta aún en curso: así es como se queda esperando en su chat sin que Órbita lo sepa.
+      // Se le pide que no pare (una sola vez seguida: con stop_hook_active ya viene de aquí y se le deja parar).
+      if (ev.hook_event_name === "Stop" && !ev.stop_hook_active && sesionesOrbita.has(ev.session_id) && ["running", "returned"].includes(card.status)) {
+        respuesta = {
+          decision: "block",
+          reason: `Tu tarjeta «${card.title}» (id: ${card.id}) sigue en curso en Órbita, y la persona no lee este chat. Si te falta algo de ella, pregúntaselo con ask_human (id: "${card.id}"); si ya terminaste, entrégala con submit_result. Después vuelve a llamar a wait_for_work.`,
+        };
+        añadir({ tipo: "aviso", texto: "Órbita le pidió no parar: la tarjeta sigue en curso (que pregunte por Órbita o entregue)" });
+      } else if (ev.hook_event_name === "Stop" && ["running", "returned"].includes(card.status)) {
+        cl.espera = { tipo: "parado", texto: "Claude terminó su turno sin entregar: puede estar esperándote en su chat", t: ahora };
+      }
       break;
     default:
-      return card.id;
+      return { tarjeta: card.id };
   }
   if (cl.actividad.length > MAX) cl.actividad.splice(0, cl.actividad.length - MAX);
   cl.ultimo = ahora;
   cl.sesion = ev.session_id;
   touch(card);
-  return card.id;
+  return { tarjeta: card.id, respuesta };
 }
 
 // El bloque de hooks que la persona puede añadir a sus ajustes de Claude Code (Órbita solo lo muestra)

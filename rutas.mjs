@@ -60,9 +60,11 @@ function borrarImagenDeEntidad(project, e) {
 const URL_EVENTOS = `http://127.0.0.1:${PORT}/api/claude/evento`;
 
 export const RUTAS = [
-  // Lo que hace Claude Code, por sus hooks http. Se responde sin cuerpo: Claude Code no espera nada
+  // Lo que hace Claude Code, por sus hooks http. Sin cuerpo, salvo que haya que contestarle algo
+  // (p. ej. que no pare con la tarjeta en curso: ver claude.mjs)
   ["POST", "/api/claude/evento", async ({ req, res }) => {
-    registrarEvento(await readJson(req, 20e6));
+    const { respuesta } = registrarEvento(await readJson(req, 20e6));
+    if (respuesta) return send(res, 200, respuesta);
     res.writeHead(204);
     res.end();
   }],

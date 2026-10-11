@@ -73,7 +73,7 @@ export function placeCard(card) {
       el.style.animation = "";
     }
   }
-  el.className = `card ${card.status}`;
+  el.className = `card ${card.status}${esperaDe(card) ? " te-espera" : ""}`;
   el.innerHTML = cardHTML(card);
   ajustarEtiquetas(el);
 }
@@ -99,6 +99,37 @@ export function corto(texto, max = 26) {
 }
 
 // "lleva 3 min" / "hace 12 s"
+// ¿Te está esperando la IA fuera de Órbita? Con los hooks de Claude Code se sabe (espera un permiso, lleva un rato
+// esperando tu respuesta en su chat, o terminó su turno sin entregar). Sin ellos se sospecha: lleva más de 2 minutos
+// sin hablar con Órbita (ni informa ni escucha) con la tarjeta en curso.
+export const TEXTO_ESPERA = {
+  permiso: "Claude espera tu permiso en su terminal",
+  chat: "Claude espera tu respuesta en su chat",
+  parado: "Claude paró sin entregar: mira su chat",
+  silencio: "Sin noticias de la IA: puede estar esperándote en su chat",
+};
+export function esperaDe(c) {
+  if (!["running", "returned"].includes(c.status) || c.archivedAt) return null;
+  if (c.claude?.espera) return c.claude.espera;
+  if (!c.worker || state.brains.some((b) => b.name === c.worker)) return null; // conectada hace menos de 2 min
+  const senal = Math.max(c.liveAt || 0, c.claude?.ultimo || 0, c.startedAt || 0, ...(c.log || []).filter((l) => l.kind !== "you").map((l) => l.t));
+  if (Date.now() - senal < 120_000) return null;
+  return { tipo: "silencio", texto: `${c.worker} lleva un rato sin hablar con Órbita. Puede estar esperándote en su chat de Claude: una pregunta o un permiso.`, t: senal };
+}
+// Se mira cada pocos segundos: si una tarjeta empieza a esperarte, se repinta y te avisa (una vez por espera)
+const esperasAvisadas = new Map(); // id → clave de la espera avisada
+export function revisarEsperas() {
+  for (const c of state.cards.values()) {
+    const e = esperaDe(c);
+    const clave = e ? `${e.tipo}:${e.t}` : "";
+    if ((esperasAvisadas.get(c.id) || "") === clave) continue;
+    esperasAvisadas.set(c.id, clave);
+    placeCard(c);
+    if (state.openId === c.id && state.view === "card") updateDrawer(c);
+    if (e) avisar({ ...c, question: TEXTO_ESPERA[e.tipo] }, "pregunta");
+  }
+}
+
 // Lo último que hace Claude en la tarjeta (de sus hooks), si es de hace menos de 2 minutos: «$ npm test …»
 function lineaClaude(c) {
   const a = [...(c.claude?.actividad || [])].reverse().find((x) => x.tipo === "herramienta" || x.tipo === "permiso");
@@ -192,6 +223,7 @@ export function cardHTML(c) {
       <div class="step">${trabajando ? '<i class="spinner"></i>' : ""}<span>${esc(linea)}</span></div>
       ${trabajando ? `<div class="meta-live"><span>${c.progress} %</span>${c.startedAt ? `<span>lleva <b class="since" data-since="${c.startedAt}">${duracion(c.startedAt)}</b></span>` : ""}${c.live ? "<span>📝 avance en vivo</span>" : ""}</div>` : ""}
       ${trabajando ? lineaClaude(c) : ""}
+      ${esperaDe(c) ? `<div class="meta-espera">⚠ ${esc(TEXTO_ESPERA[esperaDe(c).tipo] || "Te espera fuera de Órbita")}</div>` : ""}
       ${pasos.length > 1 ? `<ol class="mini-pasos">${pasos.slice(0, -1).reverse().map((p) => `<li>${esc(p.text)}</li>`).join("")}</ol>` : ""}
     </div>`;
   }
@@ -469,6 +501,7 @@ export function iniciarModulo() {
   setInterval(() => {
     for (const el of document.querySelectorAll("[data-since]")) el.textContent = duracion(Number(el.dataset.since));
     marcarCallada();
+    revisarEsperas();
   }, 1000);
   // Menú ＋: proyecto nuevo o reabrir una pestaña cerrada
   $("#tabNew").onclick = (e) => {

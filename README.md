@@ -118,6 +118,11 @@ Para Cursor, Claude Desktop y otras, pulsa **Conectar IA** en el tablero: ahí e
   - **Solo se escriben**: una vez guardado, el valor no se vuelve a mostrar. Para cambiarlo, se guarda otra vez con el mismo nombre.
 - **Archivo**: «Archivar» en la columna Hecho guarda las tarjetas terminadas del proyecto visible. No se borra nada: la sección «Archivo» del proyecto las lista y cada una se puede restaurar.
 - **Mientras la IA trabaja** ves en la tarjeta los últimos pasos, el porcentaje y cuánto lleva, y en su panel la sección **«En vivo»** con lo que va produciendo antes de entregar.
+- **Todo lo que hace Claude, en vivo** (opcional): añade a tus ajustes de Claude Code el bloque de hooks de **Conectar IA → «Todo lo que hace Claude, en vivo»**. Órbita no toca esa configuración: la añades tú.
+  - **Qué se ve:** en «En vivo → Claude ahora» aparece cada comando, archivo leído o editado y búsqueda (en marcha, ✓ con su duración o ✗ con el error), su lista de tareas y lo que dice.
+  - **Si va a parar con la tarjeta en curso**, que es cuando se queda esperando en su chat, Órbita le pide que te pregunte por el tablero (`ask_human`) o que entregue.
+  - Son hooks http: si Órbita está cerrada, Claude sigue sin más.
+- **Si la IA te espera fuera de Órbita**, la tarjeta se pone en ámbar y te avisa: espera un permiso en su terminal, espera tu respuesta en su chat o paró sin entregar. Esto se sabe con los hooks de Claude. Sin ellos, Órbita lo sospecha cuando la IA lleva más de 2 minutos sin informar ni escuchar el tablero.
 - Si a la IA le falta una decisión, **te pregunta** y la tarjeta parpadea en ámbar.
 - **Conversación**: cada tarjeta tiene un hilo con tus comentarios y respuestas, y las preguntas, notas y entregas de la IA. Puedes escribirle mientras trabaja: lo recibe en su próximo paso, sin detenerse. Cmd/Ctrl + Enter envía.
 - **Versiones del resultado**: cada entrega (o edición a mano) es una versión. En el panel, ‹ › para moverte entre versiones y «Ver cambios» para ver qué cambió respecto a la anterior. ↻ en la tarjeta indica cuántas versiones lleva.
