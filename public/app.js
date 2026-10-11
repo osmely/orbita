@@ -2141,6 +2141,25 @@ const COLUMNAS = [["backlog", "Ideas"], ["doing", "En curso"], ["review", "Para 
 const teclas = (a) => a.split(" ").map((k) => `<kbd>${esc(k)}</kbd>`).join("");
 
 // Los comandos dependen de lo que hay delante: la tarjeta abierta, el proyecto, lo hecho…
+// Tema: automático (el del sistema) → claro → oscuro. La lógica vive en tema.js, que se carga antes de pintar.
+const TEMAS = { auto: ["◐", "Auto", "el del sistema"], light: ["☀", "Claro", "claro"], dark: ["☾", "Oscuro", "oscuro"] };
+function pintarTema() {
+  const t = window.temaOrbita?.leer() || "auto";
+  $("#temaIcono").textContent = TEMAS[t][0];
+  $("#temaTexto").textContent = ` ${TEMAS[t][1]}`;
+  $("#temaBtn").title = `Tema: ${TEMAS[t][2]} (pulsa para cambiar)`;
+}
+function ponerTema(t) {
+  window.temaOrbita?.poner(t);
+  pintarTema();
+  toast(`Tema ${TEMAS[t][2]}`);
+}
+$("#temaBtn").onclick = () => {
+  const orden = ["auto", "light", "dark"];
+  ponerTema(orden[(orden.indexOf(window.temaOrbita?.leer() || "auto") + 1) % orden.length]);
+};
+pintarTema();
+
 function comandos() {
   const lista = [];
   const add = (id, icono, nombre, hacer, atajo = "", claves = "") => lista.push({ id, icono, nombre, hacer, atajo, claves });
@@ -2170,6 +2189,7 @@ function comandos() {
     add("cerrar", "✕", "Cerrar la tarjeta", closeDrawer, "Esc");
   }
   add("nueva", "＋", "Nueva tarjeta", () => $("#addBtn").click(), "N", "crear añadir");
+  for (const [t, [icono, , nombre]] of Object.entries(TEMAS)) if (t !== (window.temaOrbita?.leer() || "auto")) add(`tema-${t}`, icono, `Tema ${nombre}`, () => ponerTema(t), "", "modo claro oscuro apariencia tema");
   add("objetivo", "🎯", "Planificar un objetivo", () => {
     if (modoBarra !== "planificar") $('.modo [data-modo="planificar"]')?.click();
     $("#goalInput").focus();
