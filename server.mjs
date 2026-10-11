@@ -867,10 +867,15 @@ const server = http.createServer(async (req, res) => {
 
     // Un objetivo grande se convierte en una tarjeta de planificación para la IA.
     if (url.pathname === "/api/goal" && req.method === "POST") {
-      const { goal, name, dir } = await readJson(req);
+      const { goal, name, dir, projectId } = await readJson(req);
       if (!goal?.trim()) return send(res, 400, { error: "Escribe un objetivo" });
-      const { project } = newProject(String(name || "").trim() || nombreDeObjetivo(goal).slice(0, 60), dir);
-      broadcastProjects();
+      // En el proyecto indicado; si no se indica ninguno, se crea uno nuevo en la carpeta elegida
+      let project = projectId && findProject(projectId);
+      if (projectId && !project) return send(res, 404, { error: "Proyecto no encontrado" });
+      if (!project) {
+        project = newProject(String(name || "").trim() || nombreDeObjetivo(goal).slice(0, 60), dir).project;
+        broadcastProjects();
+      }
       const card = newCard({
         title: `Planificar: ${goal.trim().slice(0, 150)}`,
         description: goal.trim(),

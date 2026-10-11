@@ -732,3 +732,10 @@ pre.codigo .ln { display: inline-block; width: 3.2em; padding-right: 1em; text-a
 .falta-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .falta-fila > span { flex: 1; min-width: 240px; }
 .falta-fila code { color: var(--red-300); overflow-wrap: anywhere; }
+
+/* ---------- Bienvenida (sin proyectos todavía) ---------- */
+.bienvenida { max-width: 560px; margin: 8vh auto 0; text-align: center; }
+.bienvenida h2 { margin: 18px 0 8px; font-size: 22px; letter-spacing: -.01em; }
+.bienvenida p { color: var(--muted); font-size: 14px; }
+.bienvenida .actions { justify-content: center; margin: 20px 0 14px; }
+.orb.grande { width: 64px; height: 64px; margin: 0 auto; }

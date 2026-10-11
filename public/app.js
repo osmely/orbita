@@ -2,12 +2,12 @@
 // solo pintamos lo que llega por /api/events.
 const state = { cards: new Map(), projects: [], files: [], brains: [], openId: null, view: "card", mcpUrl: "", filtro: leerFiltro(), seccion: "tablero" };
 
-// Proyecto que se está viendo: "todos", "sin" (sin proyecto) o el id de un proyecto. Se recuerda entre visitas.
+// Proyecto que se está viendo (su id). Siempre hay uno si existe alguno. Se recuerda entre visitas.
 function leerFiltro() {
   try {
-    return localStorage.getItem("orbita.filtro") || "todos";
+    return localStorage.getItem("orbita.filtro") || "";
   } catch {
-    return "todos";
+    return "";
   }
 }
 function guardarFiltro() {
@@ -116,7 +116,7 @@ async function load() {
   state.version ??= data.version; // la versión con la que se cargó esta página
   const pedido = new URLSearchParams(location.search).get("proyecto"); // enlace directo: ?proyecto=<id>
   if (pedido) state.filtro = pedido;
-  if (state.filtro !== "todos" && state.filtro !== "sin" && !proyecto(state.filtro)) state.filtro = "todos";
+  if (!proyecto(state.filtro)) state.filtro = proyectoPorDefecto();
   state.files = data.files;
   state.brains = data.brains;
   state.mcpUrl = data.mcpUrl;
@@ -166,7 +166,7 @@ function connect() {
     } else if (ev.type === "projects") {
       state.projects = ev.projects;
       state.faltantes = ev.faltantes || [];
-      if (state.filtro !== "todos" && state.filtro !== "sin" && !proyecto(state.filtro)) state.filtro = "todos"; // lo eliminaron
+      if (!proyecto(state.filtro)) state.filtro = proyectoPorDefecto(); // lo eliminaron (o es el primero que se crea)
       if (state.seccion === "tablero") renderAll();
       else {
         renderTabs();
@@ -474,9 +474,7 @@ function renderTabs() {
   const pendientes = (f) => vivas.filter((c) => deFiltro(f, c) && (c.status === "ready" || c.status === "waiting")).length;
   const abiertas = state.projects.filter((p) => !cerradas.has(p.id) || p.id === state.filtro);
   const pestanas = [
-    { id: "todos", nombre: "Todos", icono: "⌂" },
     ...abiertas.map((p) => ({ id: p.id, nombre: p.name, h: tono(p.id), cerrable: true, pausado: p.pausado })),
-    ...(cuantas("sin") ? [{ id: "sin", nombre: "Sin proyecto", icono: "○" }] : []),
   ];
   $("#tabs").innerHTML = pestanas
     .map(
@@ -522,11 +520,27 @@ function renombrarEnPestana(t) {
   input.onblur = () => terminar(true);
 }
 
+// Sin pestaña «Todos»: siempre se ve un proyecto. El primero con la pestaña abierta (o cualquiera).
+function proyectoPorDefecto(excepto = null) {
+  const otros = state.projects.filter((p) => p.id !== excepto);
+  return (otros.find((p) => !cerradas.has(p.id)) || otros[0])?.id || "";
+}
+
 function cerrarPestana(id) {
-  cerradas.add(id);
-  guardarCerradas();
-  if (state.filtro === id) elegirFiltro("todos");
-  else renderTabs();
+  if (state.filtro === id) {
+    // Se pasa a la pestaña de al lado; la última abierta no se cierra (no habría nada que mostrar)
+    const abiertas = state.projects.filter((p) => !cerradas.has(p.id) || p.id === id);
+    const i = abiertas.findIndex((p) => p.id === id);
+    const vecina = abiertas[i + 1] || abiertas[i - 1];
+    if (!vecina) return toast("Es la única pestaña abierta: abre otro proyecto con ＋ antes de cerrarla", true);
+    cerradas.add(id);
+    guardarCerradas();
+    elegirFiltro(vecina.id);
+  } else {
+    cerradas.add(id);
+    guardarCerradas();
+    renderTabs();
+  }
   toast(`Pestaña cerrada. «${proyecto(id)?.name}» sigue intacto: ábrela de nuevo con ＋`);
 }
 
@@ -593,7 +607,6 @@ function renderSubnav() {
     ajustes: p && (p.instructions || p.memory) ? "●" : 0,
   };
   // Play / pausa: a la derecha de las secciones
-  const enPausaN = state.projects.filter((x) => x.pausado).length;
   const otrasActivas = state.projects.filter((x) => x.id !== f && !x.pausado).length;
   const estadoIA = (nombre) => {
     const b = state.brains.find((x) => x.name === nombre);
@@ -606,11 +619,9 @@ function renderSubnav() {
     : "";
   const pp = p
     ? `<span class="pp">${botonIA}${p.pausado ? `<button class="pp-btn play" data-pp="reanudar" title="La IA vuelve a tomar sus tarjetas">▶ Reanudar</button>` : `<button class="pp-btn" data-pp="pausar" title="La IA deja de tomar sus tarjetas (lo que lleva se conserva)">⏸ Pausar</button>`}${otrasActivas ? `<button class="pp-btn solo" data-pp="solo" title="Pausa los demás proyectos: la IA trabaja solo en este">▶ Solo este</button>` : ""}</span>`
-    : enPausaN
-      ? `<span class="pp"><button class="pp-btn play" data-pp="todos" title="Reanuda todos los proyectos">▶ Reanudar todos (${enPausaN} en pausa)</button></span>`
-      : "";
+    : "";
   $("#subnav").innerHTML =
-    SECCIONES(f)
+    (p ? SECCIONES(f) : [])
       .map(([id, nombre]) => `<button class="sub ${state.seccion === id ? "on" : ""}" data-s="${id}">${nombre}${n[id] ? ` <b>${n[id]}</b>` : ""}</button>`)
       .join("") + pp;
   for (const b of document.querySelectorAll("#subnav [data-pp]"))
@@ -673,6 +684,7 @@ function renderSubnav() {
 }
 
 function renderSeccion() {
+  if (!proyecto(state.filtro)) return bienvenida();
   const enTablero = state.seccion === "tablero";
   $("#board").hidden = !enTablero;
   $("#page").hidden = enTablero;
@@ -683,6 +695,34 @@ function renderSeccion() {
     pagina.innerHTML = "";
   }
   ({ ajustes: paginaAjustes, conocimiento: paginaConocimiento, entregables: paginaEntregables, archivo: paginaArchivo })[state.seccion]?.(pagina);
+}
+
+// Sin ningún proyecto todavía: lo primero es crear uno (con su carpeta de trabajo)
+function bienvenida() {
+  $("#board").hidden = true;
+  const pagina = $("#page");
+  pagina.hidden = false;
+  if (pagina.dataset.vista === "bienvenida") return;
+  pagina.dataset.vista = "bienvenida";
+  pagina.innerHTML = `<div class="bienvenida">
+    <div class="orb grande" aria-hidden="true"><i></i></div>
+    <h2>Empieza con un proyecto</h2>
+    <p>Cada proyecto vive en una carpeta de tu ordenador: la del código o los documentos con los que va a trabajar la IA. Órbita guarda su tablero en <code>orbita/</code>, dentro de esa carpeta.</p>
+    <div class="actions"><button class="btn primary" id="bvCrear">Elegir carpeta…</button><button class="btn" id="bvIA">Conectar una IA</button></div>
+    <p class="muted">También puedes pedírselo a tu IA: <i>«Abre en Órbita un proyecto aquí y quédate escuchando»</i>.</p>
+  </div>`;
+  $("#bvCrear").onclick = async () => {
+    try {
+      const p = await crearProyecto("");
+      if (p) {
+        state.seccion = p.abierto ? "tablero" : "ajustes";
+        elegirFiltro(p.id);
+      }
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+  $("#bvIA").onclick = openConnect;
 }
 
 // Instrucciones y memoria (y nombre, y eliminar si está vacío)
@@ -740,7 +780,7 @@ function paginaAjustes(pagina) {
     api(`/api/projects/${p.id}`, undefined, "DELETE")
       .then(() => {
         toast("Proyecto eliminado");
-        elegirFiltro("todos");
+        elegirFiltro(proyectoPorDefecto(p.id));
       })
       .catch((err) => toast(err.message, true));
   });
@@ -1607,13 +1647,20 @@ $("#goalForm").addEventListener("submit", async (e) => {
   if (!goal) return input.focus();
   if (modoBarra === "preguntar") return preguntar(goal);
   try {
-    const dir = await elegirCarpeta(`Carpeta de trabajo para «${goal.length > 60 ? goal.slice(0, 59) + "…" : goal}»`);
-    if (!dir) return;
-    const card = await api("/api/goal", { goal, dir });
+    // El plan va al proyecto que estás viendo; solo si no hay ninguno se crea uno (con su carpeta de trabajo)
+    const actual = proyecto(state.filtro);
+    let cuerpo = { goal, projectId: actual?.id };
+    if (!actual) {
+      const dir = await elegirCarpeta(`Carpeta de trabajo para «${goal.length > 60 ? goal.slice(0, 59) + "…" : goal}»`);
+      if (!dir) return;
+      cuerpo = { goal, dir };
+    }
+    const card = await api("/api/goal", cuerpo);
     input.value = "";
     state.seccion = "tablero";
-    elegirFiltro(card.projectId); // como en el navegador: el proyecto nuevo se abre en su pestaña
-    toast(hasBrain() ? "🎯 Proyecto nuevo creado. La IA lo está planificando…" : "🎯 Proyecto nuevo creado. Conecta una IA para que lo planifique.");
+    elegirFiltro(card.projectId);
+    const donde = actual ? `en «${corto(actual.name, 40)}»` : "en un proyecto nuevo";
+    toast(hasBrain() ? `🎯 Objetivo añadido ${donde}. La IA lo está dividiendo en tarjetas…` : `🎯 Objetivo añadido ${donde}. Conecta una IA para que lo divida en tarjetas.`);
   } catch (err) {
     toast(err.message, true);
   }
@@ -1627,7 +1674,7 @@ function abrirNueva(plantillaId = null) {
   delete dlg.dataset.plantilla;
   $("#newCampos").hidden = true;
   $("#newCampos").innerHTML = "";
-  llenarProyectos($("#newProject"), state.filtro !== "todos" && state.filtro !== "sin" ? state.filtro : "");
+  llenarProyectos($("#newProject"), state.filtro);
   pintarPlantillas();
   dlg.showModal();
   if (plantillaId) aplicarPlantilla(plantillaId);
@@ -2074,7 +2121,7 @@ function abrirResultado(i) {
   cerrarBusqueda();
   if (r.tipo === "tarjeta") {
     // Si la tarjeta es de otro proyecto, se abre su pestaña
-    if (!r.c.archivedAt && state.filtro !== "todos" && !deFiltro(state.filtro, r.c)) elegirFiltro(r.c.projectId || "sin");
+    if (!r.c.archivedAt && !deFiltro(state.filtro, r.c)) elegirFiltro(r.c.projectId);
     openDrawer(r.c.id);
   } else if (r.tipo === "pregunta") openPreguntas();
   else openFile(r.f);
@@ -2201,8 +2248,7 @@ function comandos() {
   if (hechas && state.seccion === "tablero") add("archivar-hechas", "🗄", `Archivar las ${hechas} tarjeta${hechas === 1 ? "" : "s"} hecha${hechas === 1 ? "" : "s"}`, () => $("#archiveDone").click(), "", "limpiar");
   for (const [id, nombre] of SECCIONES(state.filtro))
     if (id !== state.seccion) add(`seccion-${id}`, "▤", `Abrir ${nombre}`, () => $(`#subnav [data-s="${id}"]`)?.click(), "", id === "ajustes" ? "ajustes configuración instrucciones memoria" : "sección");
-  const destinos = [["todos", "Todos los proyectos"], ...state.projects.map((p) => [p.id, p.name]), ...([...state.cards.values()].some((x) => !x.archivedAt && !x.projectId) ? [["sin", "Sin proyecto"]] : [])];
-  for (const [id, nombre] of destinos) if (id !== state.filtro) add(`ir-${id}`, "⇥", `Ir a ${id === "todos" || id === "sin" ? nombre : `«${nombre}»`}`, () => elegirFiltro(id), "", "proyecto pestaña cambiar");
+  for (const p of state.projects) if (p.id !== state.filtro) add(`ir-${p.id}`, "⇥", `Ir a «${p.name}»`, () => elegirFiltro(p.id), "", "proyecto pestaña cambiar");
   const actual = proyecto(state.filtro);
   if (actual && !actual.pausado) add("pausar", "⏸", `Pausar «${actual.name}»`, () => pausarProyecto(actual.id, true), "", "pausa detener parar prioridad");
   if (actual && actual.pausado) add("reanudar", "▶", `Reanudar «${actual.name}»`, () => pausarProyecto(actual.id, false), "", "play continuar seguir");

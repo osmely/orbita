@@ -1,0 +1,47 @@
+{
+ "formato": 2,
+ "proyecto": {
+  "id": "034dfa34",
+  "name": "ia",
+  "folder": "ia",
+  "instructions": "",
+  "memory": "",
+  "memoryAt": null,
+  "createdAt": 1791740159236
+ },
+ "tarjetas": [
+  {
+   "id": "48cbcba8",
+   "title": "Analiza el proyecto actual.. es justamente Orbita",
+   "description": "Analiza el proyecto actual.. es justamente Orbita",
+   "kind": "task",
+   "column": "doing",
+   "status": "queued",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 9000,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [],
+   "programa": null,
+   "worker": null,
+   "inbox": [],
+   "progress": 0,
+   "step": "Esperando a una IA…",
+   "live": "",
+   "liveAt": null,
+   "startedAt": null,
+   "log": [],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791740185390,
+   "updatedAt": 1791740185391
+  }
+ ]
+}
