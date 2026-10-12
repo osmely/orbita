@@ -1,7 +1,7 @@
 // Órbita · Arrastrar y soltar, y el panel de la tarjeta.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, LIVE, LOG_ICON, STATUS, api, esc, fileIcon, hasBrain, md, state, toast, visible } from "./nucleo.js";
-import { TEXTO_ESPERA, duracion, esperaDe, textoCola } from "./tablero.js";
+import { TEXTO_ESPERA, avisoSinIA, duracion, esperaDe, textoCola } from "./tablero.js";
 import { adjuntar, tamano } from "./paginas.js";
 import { llenarProyectos, openConnect, openFile, pintarDependencias, pintarHilo, pintarVersiones } from "./detalle.js";
 import { exportar } from "./exportar.js";
@@ -101,7 +101,7 @@ export function openDrawer(id) {
       <div class="d-section crit-box" id="dCrit">
         <h4>✅ Terminado cuando… <span class="crit-res" id="dCritRes"></span></h4>
         <ul class="crit-list" id="dCritList"></ul>
-        <form class="crit-add" id="dCritForm"><input id="dCritInput" placeholder="Añadir criterio… la IA los revisará uno a uno al entregar (Enter; pega varios, uno por línea)" autocomplete="off" /><button class="mini">＋</button></form>
+        <form class="crit-add" id="dCritForm"><input id="dCritInput" placeholder="Añadir criterio… la IA los revisará uno a uno al entregar (Enter; pega varios, uno por línea)" autocomplete="off" /><button class="mini" title="Añadir criterio" aria-label="Añadir criterio">＋</button></form>
       </div>
     </div>
     <div class="d-tab" role="tabpanel" data-panel="chat">
@@ -131,6 +131,7 @@ export function openDrawer(id) {
     </div>
     <div class="d-tab" role="tabpanel" data-panel="ajustes">
       <label class="field d-project">Proyecto <select id="dProject"></select></label>
+      <label class="check d-entregable"><input type="checkbox" id="dEntregable" /> <span>📦 <b>Es un entregable</b>: al aprobarla, su resultado se guarda en «Entregables» del proyecto. Si no, es una tarea de trabajo y sus archivos quedan como archivos de trabajo.</span></label>
       <div class="d-herr"><button class="mini" id="dComoPlantilla" title="Guarda título, descripción, criterios y proyecto para crear tarjetas iguales">⧉ Guardar como plantilla</button><form class="pl-guardar" id="dPlForm" hidden><input id="dPlNombre" maxlength="60" autocomplete="off" aria-label="Nombre de la plantilla" /><button class="mini">Guardar</button></form></div>
       <div class="d-section prog-box" id="dProg">
         <h4>🔁 Repetir <span class="prog-prox" id="dProgProx"></span></h4>
@@ -165,6 +166,12 @@ export function openDrawer(id) {
   $("#dTitle").addEventListener("change", edit("title"));
   llenarProyectos($("#dProject"), card.projectId || "");
   $("#dProject").addEventListener("change", (e) => api(`/api/cards/${id}/edit`, { projectId: e.target.value || null }).catch((err) => toast(err.message, true)));
+  $("#dEntregable").checked = !!card.entregable;
+  $("#dEntregable").addEventListener("change", (e) =>
+    api(`/api/cards/${id}/edit`, { entregable: e.target.checked })
+      .then(() => toast(e.target.checked ? "📦 Marcada como entregable" : "Ya no es un entregable"))
+      .catch((err) => toast(err.message, true)),
+  );
   $("#dDesc").addEventListener("change", edit("description"));
   $("#dResultEdit").addEventListener("change", edit("result"));
   $("#dAdjInput").onchange = (e) => adjuntar(id, e.target.files);
@@ -238,17 +245,20 @@ export function autosize(el) {
 }
 
 export function updateDrawer(c) {
+  if ($("#dEntregable") && document.activeElement !== $("#dEntregable")) $("#dEntregable").checked = !!c.entregable;
   const s = STATUS[c.status];
   const col = { backlog: "Ideas", doing: "En curso", review: "Para revisar", done: "Hecho" }[c.column];
   $("#dMeta").innerHTML = [
     `<span class="chip">${col}</span>`,
     s ? `<span class="chip ${s[1]}">${s[0]}</span>` : "",
     c.worker ? `<span class="chip ext">🧠 ${esc(c.worker)}</span>` : "",
+    c.entregable ? `<span class="chip entregable" title="Al aprobarla, su resultado pasa a «Entregables»">📦 Entregable</span>` : "",
     c.status === "running" ? `<span class="chip agent">${c.progress} % · ${esc(c.step)}</span>` : "",
+    c.status === "running" && state.projects.find((x) => x.id === c.projectId)?.pausado ? `<span class="chip warn" title="El proyecto está en pausa: la IA termina esta tarjeta y no toma más">⏸ Termina y para</span>` : "",
     c.status === "running" && c.startedAt ? `<span class="chip">lleva <span data-since="${c.startedAt}">${duracion(c.startedAt)}</span></span>` : "",
     c.status === "queued" ? `<span class="chip agent">${esc(textoCola(c))}</span>` : "",
     c.inbox?.length ? `<span class="chip warn">${c.inbox.length} mensaje${c.inbox.length > 1 ? "s" : ""} sin leer por la IA</span>` : "",
-  ].join("");
+  ].join("") + avisoSinIA(c, "sin-ia sin-ia-panel");
 
   pintarHilo(c);
   pintarDependencias(c);
@@ -519,6 +529,14 @@ export function showDrawer() {
 
 // Lo que se prepara al cargar la página (main.js lo llama en orden)
 export function iniciarModulo() {
+  // Un enlace a /files/… en lo que escribe la IA (un PDF, una página…) se abre en la vista previa aislada,
+  // no como texto: /files/ sirve como texto todo lo que no es imagen, por seguridad
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest?.('a[href^="/files/"]');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    openFile(decodeURIComponent(a.getAttribute("href").slice("/files/".length).split(/[?#]/)[0]));
+  });
   linea.className = "drop-line";
   // Las librerías de Markdown se cargan sin bloquear: cuando llegan, se vuelve a pintar lo abierto con formato
   addEventListener("load", () => {

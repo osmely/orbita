@@ -4,7 +4,7 @@
 //   <carpeta de trabajo>/orbita/…              lo que escribe la IA, adjuntos/ y conocimiento/
 //
 // En la carpeta de datos de Órbita solo queda orbita.json: la lista de proyectos (con su carpeta)
-// y lo que no es de ningún proyecto (preguntas rápidas, plantillas, papelera, avisos para las IAs).
+// y lo que no es de ningún proyecto (plantillas, papelera, avisos para las IAs).
 //
 // Las rutas de archivos son «virtuales»: «<proyecto.folder>/<resto>» (así se enlazan en los
 // resultados como /files/<proyecto.folder>/…) y se resuelven a <carpeta de trabajo>/orbita/<resto>.
@@ -84,7 +84,22 @@ export function leerTablero(dir) {
   if (!fs.existsSync(archivo)) throw new Error(`falta ${CARPETA}/${TABLERO} en la carpeta de trabajo`);
   const datos = JSON.parse(fs.readFileSync(archivo, "utf8"));
   if (!datos?.proyecto?.id || !Array.isArray(datos.tarjetas)) throw new Error(`${CARPETA}/${TABLERO} no tiene el formato de Órbita`);
-  return { proyecto: datos.proyecto, tarjetas: datos.tarjetas };
+  return { proyecto: datos.proyecto, tarjetas: datos.tarjetas.map(desdeDisco) };
+}
+
+// La última versión suele ser el propio resultado: en disco no se repite (lleva «comoElResultado») y al leer se rehace.
+// Los tableros antiguos, con el texto repetido, se leen igual.
+function aDisco(c) {
+  const v = c.versions?.at(-1);
+  if (!v || v.result !== c.result) return c;
+  const { result: _r, ...resto } = v;
+  return { ...c, versions: [...c.versions.slice(0, -1), { ...resto, comoElResultado: true }] };
+}
+function desdeDisco(c) {
+  const v = c.versions?.at(-1);
+  if (!v?.comoElResultado) return c;
+  const { comoElResultado: _x, ...resto } = v;
+  return { ...c, versions: [...c.versions.slice(0, -1), { ...resto, result: c.result }] };
 }
 
 // --- Cargar ------------------------------------------------------------------------------
@@ -213,7 +228,7 @@ export function guardar(board, faltantes, soloProyectos = null) {
   }
   for (const p of aGuardar) {
     const tarjetas = cards.filter((c) => c.projectId === p.id);
-    escribirSiCambia(tableroDe(p.dir), { formato: FORMATO, proyecto: datosDelProyecto(p), tarjetas });
+    escribirSiCambia(tableroDe(p.dir), { formato: FORMATO, proyecto: datosDelProyecto(p), tarjetas: tarjetas.map(aDisco) });
     for (const c of tarjetas) ultimoProyecto.set(c.id, p.id);
   }
 }

@@ -131,10 +131,21 @@ export function archivosDeLaInterfaz() {
   }
 }
 
-// Versión de la interfaz: si cambia al reiniciar, las páginas abiertas se recargan solas
+// El código del servidor (los .mjs de la raíz)
+function codigoDelServidor() {
+  const raiz = path.dirname(fileURLToPath(import.meta.url));
+  try {
+    return fs.readdirSync(raiz).filter((f) => f.endsWith(".mjs")).sort().map((f) => fs.readFileSync(path.join(raiz, f), "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+// Versión del código (interfaz y servidor): si cambia al reiniciar, las páginas abiertas se recargan solas,
+// y un «npm start» nuevo sustituye a la Órbita que siga abierta con el código anterior
 export const VERSION = crypto
   .createHash("sha1")
-  .update([VERSION_APP, ...archivosDeLaInterfaz().map((f) => leerPublico(f)?.toString("utf8") ?? "")].join("\n"))
+  .update([VERSION_APP, ...archivosDeLaInterfaz().map((f) => leerPublico(f)?.toString("utf8") ?? ""), ...codigoDelServidor()].join("\n"))
   .digest("hex")
   .slice(0, 10);
 

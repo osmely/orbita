@@ -1,7 +1,7 @@
 // La API del tablero como tabla: [método, ruta, manejador]. «:x» es un trozo cualquiera de la ruta y «:x?» uno
 // opcional al final; «*» acepta cualquier método. Gana la primera fila que encaja (ver encontrarRuta). Cada
-// manejador recibe { req, res, url, parts } (parts: la ruta en trozos) y, con deTarjeta / deProyecto / dePregunta,
-// también la tarjeta, el proyecto o la pregunta (si no existe, responde 404).
+// manejador recibe { req, res, url, parts } (parts: la ruta en trozos) y, con deTarjeta / deProyecto,
+// también la tarjeta o el proyecto (si no existe, responde 404).
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,7 +11,7 @@ import { IMAGEN, guardarEntidad, quitarEntidad } from "./entidades.mjs";
 import { PORT, VERSION, VISTA, abrirNavegador } from "./entorno.mjs";
 import { configuracionHooks, registrarEvento, ultimoEvento } from "./claude.mjs";
 import { nombresSecretos, ponerSecreto, quitarSecreto, quitarSecretosDe } from "./secretos.mjs";
-import { MAX_CONOCIMIENTO, board, brainList, broadcast, broadcastProjects, broadcastQuestions, carpetaConocimiento, colocar, conocimiento, existeArchivo, faltantes, findCard, findProject, guardarAhora, hilo, iaDeProyecto, listFiles, log, moveCard, moverProyecto, newCard, newProject, nombreDeObjetivo, nombreSeguro, nuevaVersion, papeleraPublica, pausarProyecto, ponerCriterios, ponerDependencias, preguntasIA, proyectosPublicos, quitarFaltante, removeCard, requestAI, restaurarDePapelera, revocar, safePath, save, touch } from "./estado.mjs";
+import { MAX_CONOCIMIENTO, subscribers, board, brainList, broadcast, broadcastProjects, carpetaConocimiento, colocar, conocimiento, existeArchivo, faltantes, findCard, findProject, guardarAhora, guardarEntregable, hilo, iaDeProyecto, listFiles, log, moveCard, moverProyecto, newCard, newProject, nombreDeObjetivo, nombreSeguro, nuevaVersion, papeleraPublica, pausarProyecto, ponerCriterios, ponerDependencias, proyectosPublicos, quitarFaltante, removeCard, requestAI, restaurarDePapelera, revocar, safePath, save, touch } from "./estado.mjs";
 import { ahora, fijarReloj, programar, revisarProgramadas } from "./programadas.mjs";
 
 // Respuestas y cuerpos JSON (también los usa server.mjs)
@@ -45,12 +45,6 @@ const deProyecto = (fn) => async (c) => {
   if (!project) return send(c.res, 404, { error: "Proyecto no encontrado" });
   return fn({ ...c, project });
 };
-// La pregunta rápida de la ruta (parts[2])
-const dePregunta = (fn) => async (c) => {
-  const q = board.questions.find((x) => x.id === c.parts[2]);
-  if (!q) return send(c.res, 404, { error: "Pregunta no encontrada" });
-  return fn({ ...c, q });
-};
 // Las imágenes que subió la persona a una entidad se borran con ella (las que eligió la IA, no: son entregables)
 function borrarImagenDeEntidad(project, e) {
   if (e?.imagen?.startsWith(`${project.folder}/entidades/`) && existeArchivo(e.imagen)) fs.rmSync(safePath(e.imagen), { force: true });
@@ -70,49 +64,27 @@ export const RUTAS = [
   }],
   // El bloque de hooks para copiar, y si están llegando eventos
   ["GET", "/api/claude/hooks", async ({ res }) => send(res, 200, { url: URL_EVENTOS, configuracion: configuracionHooks(URL_EVENTOS), ultimoEvento: ultimoEvento() })],
-  ["POST", "/api/salir", async ({ res }) => {
+  ["POST", "/api/salir", async ({ req, res }) => {
+        // «actualizar»: la sustituye una Órbita nueva. Sus ventanas no se dan por cerradas: se reconectan solas
+        // y se recargan con la versión nueva (y la nueva no abre otra ventana si ya había alguna)
+        const { actualizar } = await readJson(req).catch(() => ({}));
         guardarAhora();
-        send(res, 200, { ok: true });
-        broadcast({ type: "cerrada" });
+        send(res, 200, { ok: true, ventanas: subscribers.size });
+        if (!actualizar) broadcast({ type: "cerrada" });
         setTimeout(() => process.exit(0), 200);
         return;
   }],
   ["GET", "/api/board", async ({ res }) => {
-        return send(res, 200, { cards: board.cards, projects: proyectosPublicos(), faltantes, questions: board.questions, preguntasIA: board.preguntasIA, plantillas: board.plantillas, papelera: papeleraPublica(), files: listFiles(), brains: brainList(), version: VERSION, mcpUrl: `http://localhost:${PORT}/mcp`, vista: VISTA });
+        return send(res, 200, { cards: board.cards, projects: proyectosPublicos(), faltantes, plantillas: board.plantillas, papelera: papeleraPublica(), files: listFiles(), brains: brainList(), version: VERSION, mcpUrl: `http://localhost:${PORT}/mcp`, vista: VISTA });
   }],
   ["POST", "/api/cards", async ({ req, res }) => {
         const body = await readJson(req);
         if (!body.title?.trim()) return send(res, 400, { error: "Falta el título" });
-        const card = newCard({ title: body.title.trim(), description: body.description || "", projectId: body.projectId, criterios: body.criterios });
+        const card = newCard({ title: body.title.trim(), description: body.description || "", projectId: body.projectId, criterios: body.criterios, entregable: !!body.entregable });
         if (body.run) requestAI(card);
         else touch(card);
         return send(res, 200, card);
   }],
-  ["POST", "/api/questions", async ({ req, res }) => {
-        const { text, projectId } = await readJson(req);
-        const pregunta = String(text || "").trim().slice(0, 5000);
-        if (!pregunta) return send(res, 400, { error: "Escribe tu pregunta" });
-        const q = { id: crypto.randomUUID().slice(0, 8), text: pregunta, projectId: projectId && findProject(projectId) ? projectId : null, t: Date.now(), status: "pendiente", worker: null, answer: "", answeredAt: null };
-        board.questions.push(q);
-        if (board.questions.length > 100) board.questions.splice(0, board.questions.length - 100);
-        broadcastQuestions();
-        return send(res, 200, q);
-  }],
-  ["DELETE", "/api/questions/:id", dePregunta(async ({ res, q }) => {
-        board.questions = board.questions.filter((x) => x !== q);
-        broadcastQuestions();
-        return send(res, 200, { ok: true });
-  })],
-  ["POST", "/api/questions/:id/card", dePregunta(async ({ res, q }) => {
-        const titulo = q.text.replace(/\s+/g, " ").slice(0, 120) + (q.text.length > 120 ? "…" : "");
-        const card = newCard({
-          title: titulo,
-          description: q.answer ? `${q.text}\n\n---\nRespuesta rápida de ${q.worker || "la IA"}:\n\n${q.answer}` : q.text,
-          projectId: q.projectId,
-        });
-        touch(card);
-        return send(res, 200, card);
-  })],
   ["POST", "/api/goal", async ({ req, res }) => {
         const { goal, name, dir, projectId } = await readJson(req);
         if (!goal?.trim()) return send(res, 400, { error: "Escribe un objetivo" });
@@ -213,11 +185,6 @@ export const RUTAS = [
         broadcast({ type: "plantillas", plantillas: board.plantillas });
         save();
         return send(res, 200, { ok: true });
-  }],
-  ["POST", "/api/preguntas/ia", async ({ req, res }) => {
-        const { ia } = await readJson(req);
-        preguntasIA(ia);
-        return send(res, 200, { preguntasIA: board.preguntasIA });
   }],
   ["POST", "/api/projects/:id/ia", async ({ req, res, parts }) => {
         const project = findProject(parts[2]);
@@ -334,6 +301,11 @@ export const RUTAS = [
         }
         if (body.dependsOn !== undefined) ponerDependencias(card, body.dependsOn);
         if (body.criterios !== undefined) ponerCriterios(card, body.criterios);
+        if (typeof body.entregable === "boolean" && body.entregable !== !!card.entregable) {
+          card.entregable = body.entregable;
+          log(card, "step", body.entregable ? "Marcada como entregable" : "Ya no es entregable");
+          if (body.entregable && card.column === "done") guardarEntregable(card); // ya estaba aprobada: se guarda ahora
+        }
         touch(card);
         return send(res, 200, card);
   })],

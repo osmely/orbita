@@ -1,12 +1,11 @@
 // Órbita · Columnas y tarjetas, pestañas de proyecto y sus secciones.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, LIVE, STATUS, api, crearProyecto, elegirCarpeta, esc, guardarFiltro, load, proyecto, state, toast, tono, visible } from "./nucleo.js";
-import { paginaAjustes, paginaArchivo, paginaConocimiento, paginaEntidades, paginaEntregables, renderCounts } from "./paginas.js";
+import { paginaAjustes, paginaArchivo, paginaEntidades, paginaEntregables, renderCounts } from "./paginas.js";
 import { linea, marcarCallada, openDrawer, quitarLinea, updateDrawer } from "./panel.js";
 import { openConnect } from "./detalle.js";
 import { actualizarPendientes, avisar } from "./acciones.js";
-import { invalidarIndice } from "./busqueda.js";
-import { pausarProyecto, reanudarTodos, soloEste } from "./exportar.js";
+import { pausarProyecto } from "./exportar.js";
 import { fechaProg, openIAProyecto, resumenPrograma } from "./extras.js";
 
 // ---------------------------------------------------------------------------
@@ -24,7 +23,6 @@ export function renderAll() {
 }
 
 export function upsert(card) {
-  invalidarIndice();
   const antes = state.cards.get(card.id);
   state.cards.set(card.id, card);
   // ¿Necesita tu atención? La IA entregó o te pregunta algo
@@ -37,7 +35,7 @@ export function upsert(card) {
   refrescarCola();
   renderTabs();
   renderSubnav();
-  if (state.seccion === "archivo" || state.seccion === "ajustes") renderSeccion();
+  if (["archivo", "ajustes", "entregables"].includes(state.seccion)) renderSeccion();
   renderCounts();
   if (state.openId === card.id && state.view === "card") updateDrawer(card);
 }
@@ -156,9 +154,36 @@ export function pausado(c) {
   return !!proyecto(c.projectId)?.pausado;
 }
 export function enCola(c) {
-  const cola = [...state.cards.values()].filter((x) => x.status === "queued" && !x.archivedAt && !pausado(x) && !pendientesDe(x).length).sort((a, b) => a.order - b.order); // el orden de la columna es la prioridad
+  const cola = [...state.cards.values()].filter((x) => (x.status === "queued" || x.status === "returned") && !x.archivedAt && !pausado(x) && (x.status === "returned" || !pendientesDe(x).length)).sort((a, b) => a.order - b.order); // el orden de la columna es la prioridad
   return { pos: cola.findIndex((x) => x.id === c.id) + 1, total: cola.length };
 }
+// Las IAs que pueden tomar las tarjetas de un proyecto (lo mismo que decide el servidor en elegible):
+// la suya si tiene; si no, las que no están dedicadas a otro proyecto
+export function iasPara(projectId) {
+  const suya = proyecto(projectId)?.ia;
+  return state.brains.filter((b) => (suya ? b.name === suya : !b.proyectos?.length));
+}
+
+// Por qué nadie va a tomar una tarjeta en cola, con la acción que lo arregla (null si alguna IA la tomará)
+export function sinIA(c) {
+  if (c.status !== "queued" || c.archivedAt || pendientesDe(c).length) return null;
+  const p = proyecto(c.projectId);
+  if (!p) return null;
+  if (p.pausado) return { tipo: "pausa", texto: "Proyecto en pausa: la IA no toma sus tarjetas", accion: "▶ Reanudar" };
+  if (iasPara(p.id).length) return null;
+  if (p.ia) return { tipo: "ia", texto: `${p.ia}, la IA de este proyecto, no está conectada`, accion: "Lanzarla" };
+  const otras = state.brains.map((b) => b.name);
+  return { tipo: "ia", texto: otras.length ? `Ninguna IA escucha este proyecto (${otras.join(", ")} ${otras.length > 1 ? "trabajan" : "trabaja"} solo en el suyo)` : "Ninguna IA conectada", accion: "Conectar una IA" };
+}
+export function avisoSinIA(c, clase = "sin-ia") {
+  const s = sinIA(c);
+  return s ? `<div class="${clase}"><span>⚠ ${esc(s.texto)}</span><button type="button" class="mini" data-sin-ia="${esc(c.projectId)}" data-tipo="${s.tipo}">${esc(s.accion)}</button></div>` : "";
+}
+function resolverSinIA(projectId, tipo) {
+  if (tipo === "pausa") pausarProyecto(projectId, false);
+  else openIAProyecto(projectId); // con la instrucción para copiar en una sesión nueva
+}
+
 export function textoCola(c) {
   const faltan = pendientesDe(c);
   if (faltan.length) return `🔒 Espera a ${faltan.map((d) => `«${d.title}»`).join(" y ")}`;
@@ -169,13 +194,15 @@ export function textoCola(c) {
     return "⏸ En pausa · proyecto pausado";
   }
   const { pos, total } = enCola(c);
+  if (sinIA(c)) return `En cola · ${pos}.ª de ${total}`; // el porqué y su acción van en el aviso de debajo
   const suya = proyecto(c.projectId)?.ia;
   if (suya) {
     const b = state.brains.find((x) => x.name === suya);
     return `En cola · ${b?.listening ? `la tomará ${suya}` : b ? `${suya} está con otra tarjeta` : `esperando a ${suya} (no está conectada)`}`;
   }
-  const escuchando = state.brains.filter((b) => b.listening).map((b) => b.name);
-  const quien = escuchando.length ? `la tomará ${escuchando.join(" o ")}` : state.brains.length ? `${state.brains[0].name} está con otra tarjeta` : "esperando a que se conecte una IA";
+  const pueden = iasPara(c.projectId);
+  const escuchando = pueden.filter((b) => b.listening).map((b) => b.name);
+  const quien = escuchando.length ? `la tomará ${escuchando.join(" o ")}` : pueden.length ? `${pueden[0].name} está con otra tarjeta` : "ninguna IA escucha este proyecto";
   return `En cola · ${pos}.ª de ${total} · ${quien}`;
 }
 
@@ -198,6 +225,7 @@ export function cardHTML(c) {
   const faltan = pendientesDe(c);
   if (faltan.length && c.column !== "done") chips.push(`<span class="chip lock" title="Espera a: ${esc(faltan.map((d) => d.title).join(", "))}">🔒 espera a ${faltan.length}</span>`);
   if (c.versions?.length > 1) chips.push(`<span class="chip" title="${c.versions.length} versiones: ${c.versions.length - 1} vuelta${c.versions.length > 2 ? "s" : ""} de revisión">↻ ${c.versions.length}</span>`);
+  if (c.entregable) chips.push(`<span class="chip entregable" title="Entregable: al aprobarla, su resultado pasa a «Entregables»">📦</span>`);
   if (c.programa) chips.push(`<span class="chip prog" title="Próxima: ${esc(fechaProg(c.programa.proxima))}">${c.programa.tipo === "una" ? "⏰" : "🔁"} ${esc(resumenPrograma(c.programa))}</span>`);
   if (c.origin === "programada") chips.push(`<span class="chip prog" title="La creó una tarea programada">🔁 programada</span>`);
   const cr = c.criterios || [];
@@ -223,6 +251,8 @@ export function cardHTML(c) {
       <div class="step">${trabajando ? '<i class="spinner"></i>' : ""}<span>${esc(linea)}</span></div>
       ${trabajando ? `<div class="meta-live"><span>${c.progress} %</span>${c.startedAt ? `<span>lleva <b class="since" data-since="${c.startedAt}">${duracion(c.startedAt)}</b></span>` : ""}${c.live ? "<span>📝 avance en vivo</span>" : ""}</div>` : ""}
       ${trabajando ? lineaClaude(c) : ""}
+      ${trabajando && pausado(c) ? `<div class="meta-pausa">⏸ Proyecto en pausa: terminará esta y parará</div>` : ""}
+      ${avisoSinIA(c)}
       ${esperaDe(c) ? `<div class="meta-espera">⚠ ${esc(TEXTO_ESPERA[esperaDe(c).tipo] || "Te espera fuera de Órbita")}</div>` : ""}
       ${pasos.length > 1 ? `<ol class="mini-pasos">${pasos.slice(0, -1).reverse().map((p) => `<li>${esc(p.text)}</li>`).join("")}</ol>` : ""}
     </div>`;
@@ -342,18 +372,32 @@ export function cerrarPestana(id) {
 export function elegirFiltro(f) {
   state.filtro = f;
   if (cerradas.delete(f)) guardarCerradas(); // abrir un proyecto reabre su pestaña
-  if (state.seccion !== "tablero" && !SECCIONES(f).some((x) => x[0] === state.seccion)) state.seccion = "tablero";
+  if (!["tablero", "archivo"].includes(state.seccion) && !SECCIONES(f).some((x) => x[0] === state.seccion)) state.seccion = "tablero";
   guardarFiltro();
   renderAll();
 }
 
 
 
-// Secciones dentro de la pestaña
+// Secciones dentro de la pestaña. El archivo (y la papelera) se abre desde el tablero, no es una sección más;
+// el conocimiento vive dentro de «Contexto para la IA». Los nombres antiguos siguen llevando a su sitio (ver irASeccion).
 export function SECCIONES(f) {
   return proyecto(f)
-    ? [["tablero", "Tablero"], ["ajustes", "Instrucciones y memoria"], ["entidades", "Entidades"], ["conocimiento", "Conocimiento"], ["entregables", "Entregables"], ["archivo", "Archivo"]]
-    : [["tablero", "Tablero"], ["entregables", "Entregables"], ["archivo", "Archivo"]];
+    ? [["tablero", "Tablero"], ["ajustes", "Contexto para la IA", "Contexto"], ["entidades", "Entidades"], ["entregables", "Entregables"]]
+    : [["tablero", "Tablero"], ["entregables", "Entregables"]];
+}
+// La pestaña que se marca: el archivo es parte del tablero
+const pestanaDe = (s) => (s === "archivo" ? "tablero" : s);
+export function irASeccion(s) {
+  if (s === "conocimiento") {
+    state.seccion = "ajustes";
+    renderSubnav();
+    renderSeccion();
+    return document.querySelector("#page [data-conocimiento]")?.scrollIntoView({ block: "start" });
+  }
+  state.seccion = s;
+  renderSubnav();
+  renderSeccion();
 }
 
 export function archivosDe(f) {
@@ -368,30 +412,36 @@ export function renderSubnav() {
   const n = {
     conocimiento: p?.knowledge?.length || 0,
     entidades: p?.entidades?.length || 0,
-    entregables: archivosDe(f).length,
+    entregables: [...state.cards.values()].filter((c) => c.entregable && c.projectId === f && !c.archivedAt).length,
     archivo: [...state.cards.values()].filter((c) => c.archivedAt && deFiltro(f, c)).length + (state.papelera || []).filter((x) => f === "todos" || (f === "sin" ? !x.projectId : x.projectId === f)).length,
     ajustes: p && (p.instructions || p.memory) ? "●" : 0,
   };
-  // Play / pausa: a la derecha de las secciones
-  const otrasActivas = state.projects.filter((x) => x.id !== f && !x.pausado).length;
+  // Un solo control para la IA del proyecto: quién es (y si está conectada) y si trabaja o está en pausa
   const estadoIA = (nombre) => {
     const b = state.brains.find((x) => x.name === nombre);
     return !b ? ["off", "no conectada"] : b.listening ? ["on", "escuchando"] : ["trab", b.tarjeta ? `trabajando: ${b.tarjeta}` : "conectada"];
   };
-  const botonIA = p
-    ? p.ia
-      ? `<button class="pp-btn ia-btn" data-pp="ia" title="La IA de este proyecto: ${esc(estadoIA(p.ia)[1])}"><i class="ia-dot ${estadoIA(p.ia)[0]}"></i>🧠 ${esc(corto(p.ia, 28))}</button>`
-      : `<button class="pp-btn" data-pp="ia" title="Dale su propia IA para que avance en paralelo a los demás proyectos">🧠 Su propia IA</button>`
-    : "";
-  const pp = p
-    ? `<span class="pp">${botonIA}${p.pausado ? `<button class="pp-btn play" data-pp="reanudar" title="La IA vuelve a tomar sus tarjetas">▶ Reanudar</button>` : `<button class="pp-btn" data-pp="pausar" title="La IA deja de tomar sus tarjetas (lo que lleva se conserva)">⏸ Pausar</button>`}${otrasActivas ? `<button class="pp-btn solo" data-pp="solo" title="Pausa los demás proyectos: la IA trabaja solo en este">▶ Solo este</button>` : ""}</span>`
-    : "";
+  let pp = "";
+  if (p) {
+    const conectadas = iasPara(p.id);
+    const [punto, estado] = p.ia ? estadoIA(p.ia) : conectadas.length ? [conectadas.some((b) => b.listening) ? "on" : "trab", `la trabaja cualquier IA conectada (${conectadas.map((b) => b.name).join(", ")})`] : ["off", "ninguna IA conectada"];
+    const terminando = p.pausado && [...state.cards.values()].some((c) => c.projectId === p.id && c.status === "running" && !c.archivedAt);
+    const botonIA = `<button class="pp-btn ic-ia" data-pp="ia" title="${esc(p.ia ? `La IA de este proyecto: ${estado}` : `Sin IA propia: ${estado}. Pulsa para darle la suya`)}"><i class="ia-dot ${punto}"></i>🧠 ${esc(p.ia ? corto(p.ia, 28) : "Cualquier IA")}</button>`;
+    const botonEstado = p.pausado
+      ? `<button class="pp-btn ic-estado pausado" data-pp="reanudar" title="Pulsa para reanudar: la IA vuelve a tomar sus tarjetas">${terminando ? "⏸ Termina y para" : "⏸ En pausa"}</button>`
+      : `<button class="pp-btn ic-estado" data-pp="pausar" title="Pulsa para pausar: la IA termina la tarjeta que tiene y no toma más">▶ Trabajando</button>`;
+    pp = `<span class="pp"><span class="ia-control" role="group" aria-label="La IA del proyecto">${botonIA}${botonEstado}</span></span>`;
+  }
+  // El archivo y la papelera se abren desde la columna «Hecho»
+  $("#verArchivo").textContent = n.archivo ? `🗄 Archivo · ${n.archivo}` : "🗄 Archivo";
+  $("#verArchivo").hidden = !p;
+  $("#verArchivo").onclick = () => irASeccion("archivo");
   $("#subnav").innerHTML =
     (p ? SECCIONES(f) : [])
-      .map(([id, nombre]) => `<button class="sub ${state.seccion === id ? "on" : ""}" data-s="${id}">${nombre}${n[id] ? ` <b>${n[id]}</b>` : ""}</button>`)
+      .map(([id, nombre, corto]) => `<button class="sub ${pestanaDe(state.seccion) === id ? "on" : ""}" data-s="${id}">${corto ? `<span class="s-largo">${nombre}</span><span class="s-corto">${corto}</span>` : nombre}${n[id] ? ` <b>${n[id]}</b>` : ""}</button>`)
       .join("") + pp;
   for (const b of document.querySelectorAll("#subnav [data-pp]"))
-    b.onclick = () => ({ pausar: () => pausarProyecto(f, true), reanudar: () => pausarProyecto(f, false), solo: () => soloEste(f), todos: reanudarTodos, ia: () => openIAProyecto(f) })[b.dataset.pp]();
+    b.onclick = () => ({ pausar: () => pausarProyecto(f, true), reanudar: () => pausarProyecto(f, false), ia: () => openIAProyecto(f) })[b.dataset.pp]();
   // Aviso sobre el tablero de un proyecto en pausa
   let banda = $("#pausaBanda");
   if (!banda) {
@@ -403,12 +453,26 @@ export function renderSubnav() {
   banda.hidden = !p?.pausado;
   if (p?.pausado) {
     const delProyecto = [...state.cards.values()].filter((c) => c.projectId === p.id && !c.archivedAt && c.column === "doing");
-    const sinEnterarse = delProyecto.filter((c) => c.revocada && !c.revocada.avisada);
-    const quien = [...new Set(sinEnterarse.map((c) => c.revocada.worker))].join(" y ");
-    banda.innerHTML = `<span>⏸ <b>${esc(p.name)}</b> está en pausa: la IA no toma sus tarjetas${delProyecto.length ? ` (${delProyecto.length} esperan en «En curso», con todo lo que llevaban)` : ""}.${
-      sinEnterarse.length ? ` <b class="avisando">Avisando a ${esc(quien)}: parará en cuanto vuelva a comunicarse con Órbita.</b>` : ""
+    const enMarcha = delProyecto.filter((c) => c.status === "running");
+    const esperan = delProyecto.length - enMarcha.length;
+    banda.innerHTML = `<span>⏸ <b>${esc(p.name)}</b> está en pausa: la IA no toma más tarjetas${esperan ? ` (${esperan} ${esperan === 1 ? "espera" : "esperan"} en «En curso»)` : ""}.${
+      enMarcha.length ? ` <b class="avisando">${enMarcha.map((c) => `${esc(c.worker || "La IA")} termina «${esc(corto(c.title, 40))}»`).join(" y ")} y para.</b>` : ""
     }</span><button class="btn mini-btn" id="pausaReanudar">▶ Reanudar</button>`;
     $("#pausaReanudar").onclick = () => pausarProyecto(p.id, false);
+  }
+  // Aviso sobre el tablero: tarjetas en curso que ninguna IA puede tomar (la pausa ya tiene su banda)
+  let sinIABanda = $("#sinIABanda");
+  if (!sinIABanda) {
+    sinIABanda = document.createElement("div");
+    sinIABanda.id = "sinIABanda";
+    sinIABanda.className = "pausa-banda sin-ia-banda";
+    banda.after(sinIABanda);
+  }
+  const esperan = p && !p.pausado ? [...state.cards.values()].filter((c) => c.projectId === p.id && sinIA(c)) : [];
+  sinIABanda.hidden = !esperan.length;
+  if (esperan.length) {
+    const s = sinIA(esperan[0]);
+    sinIABanda.innerHTML = `<span>⚠ ${esperan.length === 1 ? "1 tarjeta en «En curso» espera" : `${esperan.length} tarjetas en «En curso» esperan`}: <b>${esc(s.texto)}</b>.</span><button class="btn mini-btn" data-sin-ia="${esc(p.id)}" data-tipo="${s.tipo}">${esc(s.accion)}</button>`;
   }
   // Proyectos cuya carpeta de trabajo no aparece (se movió, se borró o es un disco desconectado)
   let falta = $("#faltaBanda");
@@ -442,11 +506,7 @@ export function renderSubnav() {
       if (confirm(`¿Quitar «${x.name}» de la lista? Su carpeta no se toca: si vuelve a aparecer, ábrela con ＋.`)) api(`/api/faltantes/${x.id}/quitar`, {}).catch((err) => toast(err.message, true));
     };
   for (const b of document.querySelectorAll("#subnav .sub"))
-    b.onclick = () => {
-      state.seccion = b.dataset.s;
-      renderSubnav();
-      renderSeccion();
-    };
+    b.onclick = () => irASeccion(b.dataset.s);
 }
 
 export function renderSeccion() {
@@ -460,7 +520,7 @@ export function renderSeccion() {
     pagina.dataset.vista = `${state.filtro}:${state.seccion}`;
     pagina.innerHTML = "";
   }
-  ({ ajustes: paginaAjustes, entidades: paginaEntidades, conocimiento: paginaConocimiento, entregables: paginaEntregables, archivo: paginaArchivo })[state.seccion]?.(pagina);
+  ({ ajustes: paginaAjustes, entidades: paginaEntidades, entregables: paginaEntregables, archivo: paginaArchivo })[state.seccion]?.(pagina);
 }
 
 // Sin ningún proyecto todavía: lo primero es crear uno (con su carpeta de trabajo)
@@ -493,6 +553,17 @@ export function bienvenida() {
 
 // Lo que se prepara al cargar la página (main.js lo llama en orden)
 export function iniciarModulo() {
+  // Los botones «Reanudar» / «Conectar una IA» de los avisos (en la tarjeta no la abren: solo hacen lo suyo)
+  document.addEventListener(
+    "click",
+    (e) => {
+      const b = e.target.closest?.("[data-sin-ia]");
+      if (!b) return;
+      e.stopPropagation();
+      resolverSinIA(b.dataset.sinIa, b.dataset.tipo);
+    },
+    true,
+  );
   addEventListener("resize", () => {
     clearTimeout(esperaAjuste);
     esperaAjuste = setTimeout(() => ajustarEtiquetas(document), 120);

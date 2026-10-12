@@ -1,12 +1,12 @@
-// Órbita · Páginas del proyecto: instrucciones, entidades, conocimiento, entregables y archivo.
+// Órbita · Páginas del proyecto: contexto para la IA (con el conocimiento), entidades, entregables y archivo.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, api, elegirCarpeta, esc, fileIcon, md, proyecto, state, toast, tono, visible } from "./nucleo.js";
-import { archivosDe, corto, deFiltro, elegirFiltro, proyectoPorDefecto, upsert } from "./tablero.js";
+import { archivosDe, corto, deFiltro, elegirFiltro, irASeccion, proyectoPorDefecto, upsert } from "./tablero.js";
 import { autosize, closeDrawer, openDrawer, showDrawer } from "./panel.js";
 import { openFile } from "./detalle.js";
-import { buscar, sinTildes } from "./busqueda.js";
+import { sinTildes } from "./busqueda.js";
 
-// Instrucciones y memoria (y nombre, y eliminar si está vacío)
+// Contexto para la IA: instrucciones, memoria, conocimiento y secretos (y nombre, carpeta, y eliminar si está vacío)
 export function paginaAjustes(pagina) {
   const p = proyecto(state.filtro);
   if (!pagina.querySelector(".ajustes")) {
@@ -15,6 +15,7 @@ export function paginaAjustes(pagina) {
       <label class="campo"><span>Nombre</span><input class="campo-input" data-campo="name"></label>
       <label class="campo"><span>Instrucciones para la IA</span><textarea data-campo="instructions" rows="6" placeholder="Reglas fijas para todas las tarjetas: idioma y tono, tecnología, formato de entrega, qué evitar…"></textarea></label>
       <label class="campo"><span>Memoria <small class="muted" data-memoria-fecha></small></span><textarea data-campo="memory" rows="10" placeholder="Lo que la IA aprende entre tarjetas: decisiones, preferencias, datos. Puedes editarla."></textarea></label>
+      <div class="campo"><span>Conocimiento</span><div data-conocimiento></div></div>
       <div class="campo"><span>Secretos <small class="muted">claves de API, tokens, contraseñas de servicios…</small></span>
         <ul class="kn-list secretos" data-secretos></ul>
         <form class="secreto-nuevo" data-secreto-form autocomplete="off">
@@ -48,6 +49,7 @@ export function paginaAjustes(pagina) {
       }
     };
   }
+  paginaConocimiento(pagina.querySelector("[data-conocimiento]"));
   // Secretos: solo nombres y fechas (el valor no sale del servidor)
   const secretos = p.secretos || [];
   pagina.querySelector("[data-secretos]").innerHTML = secretos.length
@@ -110,7 +112,7 @@ export function paginaAjustes(pagina) {
 }
 
 // Entidades: lo que existe en el proyecto y perdura (personajes, armas, objetos, personas, lugares…), como fichas
-// agrupadas por categoría. Las va guardando la IA (save_entity) y aquí se ven, se buscan y se editan.
+// agrupadas por categoría. Las va guardando la IA (entities) y aquí se ven, se buscan y se editan.
 export const ICONOS_CATEGORIA = [
   // [cómo se reconoce, icono, tono del color]
   [/personaj|heroe|villan|npc|criatur|enemig|monstru|bestia/, "🧙", 268],
@@ -360,30 +362,48 @@ export async function subir(ruta, archivos, mensaje) {
   }
 }
 
-// Entregables: lo que escribió la IA en la carpeta del proyecto
+// Entregables: las tarjetas marcadas como 📦 entregable, con su resultado y su documento (se guarda en
+// orbita/entregables/ al aprobarlas). Lo demás que escribe la IA (capturas, borradores, pruebas) va aparte,
+// plegado, como «Archivos de trabajo».
+const ORDEN_ENTREGABLE = { done: 0, review: 1, doing: 2, backlog: 3 };
 export function paginaEntregables(pagina) {
   const f = state.filtro;
   const p = proyecto(f);
-  const archivos = archivosDe(f);
-  const grupos = p ? [[p.folder, archivos]] : [...new Set(archivos.map((x) => (x.includes("/") ? x.split("/")[0] : "")))].map((d) => [d, archivos.filter((x) => (d ? x.startsWith(d + "/") : !x.includes("/")))]);
-  pagina.innerHTML = `<p class="intro">${p ? `Lo que escribió la IA para este proyecto, en <code>${esc(p.dir)}/orbita/</code>.` : "Lo que escribió la IA en todos los proyectos."}</p>
+  if (!p) return;
+  const entregables = [...state.cards.values()]
+    .filter((c) => c.entregable && c.projectId === p.id)
+    .sort((a, b) => ORDEN_ENTREGABLE[a.column] - ORDEN_ENTREGABLE[b.column] || (b.updatedAt || 0) - (a.updatedAt || 0));
+  const suyos = new Set(entregables.flatMap((c) => [c.documento, ...(c.files || [])].filter(Boolean)));
+  const deTrabajo = archivosDe(f).filter((x) => !suyos.has(x) && !x.startsWith(`${p.folder}/adjuntos/`));
+  const estado = (c) =>
+    c.column === "done" ? `<span class="ent-estado hecho">✓ Aprobado${c.updatedAt ? ` · ${new Date(c.updatedAt).toLocaleDateString([], { day: "numeric", month: "short" })}` : ""}</span>` : c.column === "review" ? `<span class="ent-estado revisar">Para revisar</span>` : `<span class="ent-estado prep">En preparación</span>`;
+  const archivo = (x, ico = fileIcon(x)) => `<button class="file" data-f="${esc(x)}"><span class="ico">${ico}</span>${esc(x.slice(p.folder.length + 1))}</button>`;
+  pagina.innerHTML = `<div class="entregables-pag">
+    <p class="intro">Lo que entrega este proyecto: las tarjetas marcadas como <b>📦 Entregable</b>. Al aprobar una, su resultado se guarda como documento en <code>${esc(p.dir)}/orbita/entregables/</code>.</p>
     ${
-      archivos.length
-        ? grupos
-            .map(([dir, lista]) => {
-              const dueño = state.projects.find((x) => x.folder === dir);
-              return `${p ? "" : `<h4 class="grupo">${dueño ? `<i class="tab-dot" style="--h:${tono(dueño.id)}"></i>${esc(dueño.name)}` : dir ? `<code>${esc(dir)}/</code>` : "Sueltos"}</h4>`}<div class="files">${lista.map((x) => `<button class="file" data-f="${esc(x)}"><span class="ico">${fileIcon(x)}</span>${esc(dir ? x.slice(dir.length + 1) : x)}</button>`).join("")}</div>`;
-            })
+      entregables.length
+        ? entregables
+            .map(
+              (c) => `<article class="entregable-doc">
+            <header><button class="link-card" data-open="${c.id}">${esc(c.title)}</button>${estado(c)}</header>
+            ${c.result ? `<div class="result ent-res">${md(c.result)}</div>` : `<p class="muted entregable-vacio">Aún sin resultado.</p>`}
+            ${c.documento || c.files?.length ? `<div class="files">${c.documento ? archivo(c.documento, "📄") : ""}${(c.files || []).map((x) => archivo(x)).join("")}</div>` : ""}
+          </article>`,
+            )
             .join("")
-        : `<div class="empty-state">Todavía no hay entregables.</div>`
-    }`;
+        : `<div class="empty-state">Todavía no hay entregables. Marca una tarjeta como <b>📦 Entregable</b> (al crearla, o en su panel → ⚙ Ajustes) y, al aprobarla, su resultado aparecerá aquí.</div>`
+    }
+    ${deTrabajo.length ? `<details class="trabajo"><summary><b>Archivos de trabajo</b><span>${deTrabajo.length} · capturas, borradores y pruebas que la IA guardó mientras trabajaba</span></summary><div class="files">${deTrabajo.map((x) => archivo(x)).join("")}</div></details>` : ""}
+  </div>`;
   for (const b of pagina.querySelectorAll("[data-f]")) b.onclick = () => openFile(b.dataset.f);
+  for (const b of pagina.querySelectorAll("[data-open]")) b.onclick = () => openDrawer(b.dataset.open);
 }
 
 // Archivo: tarjetas archivadas del proyecto, con «Restaurar»
 export function paginaArchivo(pagina) {
   const archivadas = [...state.cards.values()].filter((c) => c.archivedAt && deFiltro(state.filtro, c)).sort((a, b) => b.archivedAt - a.archivedAt);
-  pagina.innerHTML = `<p class="intro">Las tarjetas archivadas no se borran: siguen aquí con su resultado y sus archivos.</p>
+  pagina.innerHTML = `<div class="archivo-cabeza"><button class="btn mini-btn" data-volver>← Tablero</button><h2>🗄 Archivo y papelera</h2></div>
+    <p class="intro">Las tarjetas archivadas no se borran: siguen aquí con su resultado y sus archivos.</p>
     ${
       archivadas.length
         ? `<ul class="archive-list">${archivadas
@@ -391,6 +411,7 @@ export function paginaArchivo(pagina) {
             .join("")}</ul><div class="actions"><button class="btn" id="restoreAll">Restaurar todas</button></div>`
         : '<div class="empty-state">No hay tarjetas archivadas.</div>'
     }`;
+  pagina.querySelector("[data-volver]").onclick = () => irASeccion("tablero");
   for (const b of pagina.querySelectorAll("[data-restore]")) b.onclick = () => api(`/api/cards/${b.dataset.restore}/unarchive`, {}).then(() => toast("Restaurada en «Hecho»"));
   for (const b of pagina.querySelectorAll("[data-open]")) b.onclick = () => openDrawer(b.dataset.open);
   pagina.querySelector("#restoreAll")?.addEventListener("click", () => Promise.all(archivadas.map((c) => api(`/api/cards/${c.id}/unarchive`, {}))).then(() => toast("Todas restauradas")));

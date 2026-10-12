@@ -208,16 +208,10 @@ export async function pausarProyecto(id, si, silencioso = false) {
     state.projects = state.projects.map((x) => (x.id === id ? { ...x, ...nuevo } : x)); // sin esperar al aviso del servidor
     renderAll();
     if (!silencioso)
-      toast(si ? `⏸ «${p.name}» en pausa: la IA no tomará sus tarjetas` : `▶ «${p.name}» reanudado`, false, { texto: "Deshacer", accion: () => pausarProyecto(id, !si, true) });
+      toast(si ? `⏸ «${p.name}» en pausa: la IA termina lo que tiene y no toma más` : `▶ «${p.name}» reanudado`, false, { texto: "Deshacer", accion: () => pausarProyecto(id, !si, true) });
   } catch (err) {
     toast(err.message, true);
   }
-}
-export async function soloEste(id) {
-  const otras = state.projects.filter((x) => x.id !== id && !x.pausado).map((x) => x.id);
-  if (proyecto(id)?.pausado) await pausarProyecto(id, false, true);
-  for (const o of otras) await pausarProyecto(o, true, true);
-  toast(`▶ La IA trabaja solo en «${proyecto(id)?.name}» (${otras.length} en pausa)`, false, { texto: "Deshacer", accion: async () => { for (const o of otras) await pausarProyecto(o, false, true); } });
 }
 export async function reanudarTodos() {
   const pausados = state.projects.filter((x) => x.pausado).map((x) => x.id);

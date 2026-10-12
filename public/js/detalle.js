@@ -285,29 +285,24 @@ export function openConnect() {
     ["submit_result", "entrega el resultado para que lo revises"],
     ["ask_human", "te hace una pregunta"],
     ["create_card", "crea tarjetas (por ejemplo, al planificar un objetivo)"],
-    ["list_cards / get_card / claim_card", "consulta el tablero y toma tarjetas concretas"],
-    ["move_card", "mueve tarjetas si se lo pides"],
-    ["list_files / read_file / write_file", "comparte entregables"],
+    ["list_cards / get_card / update_card", "consulta y edita el tablero"],
+    ["read_file / write_file", "comparte archivos y entregables"],
   ];
   const brains = state.brains.length
     ? `<div class="brain-now on">🧠 Conectada ahora: <b>${state.brains.map((b) => esc(b.name) + (b.listening ? " (escuchando)" : "")).join(", ")}</b></div>`
     : `<div class="brain-now">Ahora mismo no hay ninguna IA conectada. Las tarjetas que pongas en «En curso» esperarán a que se conecte una.</div>`;
   $("#drawerBody").innerHTML = `
-    <div class="d-head"><div class="t">Conecta un cerebro</div><button class="icon-btn" id="dClose">✕</button></div>
+    <div class="d-head"><div class="t">Conecta un cerebro</div><button class="icon-btn" id="dClose" title="Cerrar (Esc)" aria-label="Cerrar">✕</button></div>
     <p class="sub" style="margin:6px 0 4px;font-size:13px">Órbita no usa API keys. La inteligencia la pone la IA que conectes por MCP: Claude Code, Cursor, Claude Desktop o cualquier otra. Esa IA toma las tarjetas que pongas en «En curso», te muestra su progreso y te entrega el resultado.</p>
     ${brains}
     <div class="mcp-url"><code>${esc(url)}</code><button class="btn" data-copy="${esc(url)}">Copiar</button></div>
     ${snippets.map(([name, hint, code]) => `<div class="d-section"><h4>${name}</h4><p class="sub" style="margin:0 0 8px">${hint}</p><div class="snippet"><pre>${esc(code)}</pre><button class="btn" data-copy="${esc(code)}">Copiar</button></div></div>`).join("")}
     <div class="d-section"><h4>Ponla a trabajar</h4>
-      <p class="sub" style="margin:0 0 8px;font-size:13px">En Claude Code usa el comando del servidor:</p>
-      <div class="snippet"><pre>/mcp__orbita__trabajar</pre><button class="btn" data-copy="/mcp__orbita__trabajar">Copiar</button></div>
-      <p class="sub" style="margin:10px 0 0;font-size:13px">En cualquier otra IA, pídele: <i>«Sé el cerebro de mi tablero Órbita: usa wait_for_work y trabaja las tarjetas una tras otra»</i>.</p>
+      <p class="sub" style="margin:0 0 8px;font-size:13px">Abre el panel 🧠 de tu proyecto (en la barra de secciones), copia su instrucción y pégala en una sesión de tu IA: se queda escuchando las tarjetas de ese proyecto. O pídeselo con tus palabras: <i>«Sé el cerebro de mi tablero Órbita: usa wait_for_work y trabaja las tarjetas una tras otra»</i>.</p>
     </div>
     <div class="d-section" id="dClaudeHooks"><h4>Todo lo que hace Claude, en vivo</h4><p class="sub" style="margin:0;font-size:13px">Cargando…</p></div>
     <div class="d-section"><h4>Un proyecto nuevo, desde tu IA</h4>
-      <p class="sub" style="margin:0 0 8px;font-size:13px">No hace falta tocar la app: pídeselo en su chat y el tablero cambia solo al proyecto. En Claude Code:</p>
-      <div class="snippet"><pre>/mcp__orbita__nuevo_proyecto Mi proyecto</pre><button class="btn" data-copy="/mcp__orbita__nuevo_proyecto ">Copiar</button></div>
-      <p class="sub" style="margin:10px 0 0;font-size:13px">O con tus palabras: <i>«Abre en Órbita un proyecto llamado Web de la tienda y quédate escuchando»</i>. Cada sesión puede llevar su propio proyecto, en paralelo.</p>
+      <p class="sub" style="margin:0 0 8px;font-size:13px">No hace falta tocar la app: pídeselo en su chat y el tablero cambia solo al proyecto. Por ejemplo: <i>«Abre en Órbita un proyecto llamado Web de la tienda y quédate escuchando»</i>. Cada sesión puede llevar su propio proyecto, en paralelo.</p>
     </div>
     <div class="d-section"><h4>Lo que puede hacer</h4><ul class="tool-list">${tools.map(([t, d]) => `<li><code>${t}</code><span>${d}</span></li>`).join("")}</ul></div>`;
   $("#dClose").onclick = closeDrawer;

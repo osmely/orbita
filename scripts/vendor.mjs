@@ -13,8 +13,10 @@ fs.rmSync(DESTINO, { recursive: true, force: true });
 fs.mkdirSync(path.join(DESTINO, "fonts"), { recursive: true });
 
 const copiar = (de, a) => fs.copyFileSync(path.join(NM, de), path.join(DESTINO, a));
-copiar("marked/marked.min.js", "marked.min.js");
-copiar("dompurify/dist/purify.min.js", "purify.min.js");
+// Los scripts, sin la referencia a su .map (no se reparte: solo daría un 404 en las herramientas del navegador)
+const copiarScript = (de, a) => fs.writeFileSync(path.join(DESTINO, a), fs.readFileSync(path.join(NM, de), "utf8").replace(/\n\/\/# sourceMappingURL=\S+\s*$/, "\n"));
+copiarScript("marked/lib/marked.umd.js", "marked.js"); // desde la v13 marked ya no trae versión minificada
+copiarScript("dompurify/dist/purify.min.js", "purify.min.js");
 
 // Fuentes: solo los pesos que usa styles.css, en latin (incluye ñ y tildes) y latin-ext
 const FUENTES = [
@@ -39,7 +41,7 @@ fs.writeFileSync(path.join(DESTINO, "fonts.css"), css);
 
 // Licencias de lo que se reparte con la app
 const licencias = [
-  ["marked", "marked/LICENSE.md"],
+  ["marked", fs.existsSync(path.join(NM, "marked/LICENSE.md")) ? "marked/LICENSE.md" : "marked/LICENSE"],
   ["DOMPurify", "dompurify/LICENSE"],
   ["Inter", "@fontsource/inter/LICENSE"],
   ["JetBrains Mono", "@fontsource/jetbrains-mono/LICENSE"],

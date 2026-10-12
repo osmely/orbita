@@ -74,7 +74,7 @@ export function indiceEntidades(p, max = 6000) {
     const linea = `${e.nombre} (${e.id})`;
     largo += linea.length;
     if (largo > max) {
-      indice["…"] = [`y ${lista.length - Object.values(indice).flat().length} más: búscalas con list_entities`];
+      indice["…"] = [`y ${lista.length - Object.values(indice).flat().length} más: búscalas con entities`];
       break;
     }
     (indice[e.categoria] ??= []).push(linea);

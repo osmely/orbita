@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="vendor/fonts.css" />
   <link rel="stylesheet" href="styles.css" />
   <!-- Todo va dentro de Órbita (public/vendor, ver scripts/vendor.mjs): funciona sin internet -->
-  <script defer src="vendor/marked.min.js"></script>
+  <script defer src="vendor/marked.js"></script>
   <script defer src="vendor/purify.min.js"></script>
 </head>
 <body>
@@ -25,17 +25,12 @@
     </div>
 
     <form class="goal" id="goalForm" autocomplete="off">
-      <div class="modo" role="radiogroup" aria-label="Qué hacer con lo que escribes">
-        <button type="button" role="radio" data-modo="planificar" title="Un objetivo grande: la IA lo divide en tarjetas">✦ <span>Planificar</span></button>
-        <button type="button" role="radio" data-modo="preguntar" title="Una pregunta rápida: la IA responde sin crear tarjeta">💬 <span>Preguntar</span></button>
-      </div>
       <input id="goalInput" placeholder="Un objetivo grande: la IA lo divide en tareas  ( / )" />
       <button type="submit" id="goalBtn"><span>Planificar</span></button>
     </form>
 
     <div class="stats">
       <div class="stat" title="Tarjetas que la IA está trabajando ahora"><div class="pulse-dots" id="agentDots"></div><b id="statAgents">0</b><span>en marcha</span></div>
-      <button class="stat link" id="qaBtn" title="Preguntas rápidas (?)">💬<span>Preguntas</span><b class="qa-badge" id="qaCount" hidden></b></button>
       <button class="stat link brain" id="brainStat"><i class="brain-dot"></i><span id="brainLabel">Conectar IA</span></button>
     </div>
   </header>
@@ -44,7 +39,6 @@
   <!-- Cada proyecto es una pestaña, como en el navegador; dentro, todo lo del proyecto -->
   <nav class="tabbar" aria-label="Proyectos">
     <div class="tabs" id="tabs" role="tablist"></div>
-    <button class="tab-new buscar" id="searchBtn" title="Buscar en todo (⌘K)" aria-label="Paleta de comandos y búsqueda">🔍</button>
     <div class="tab-add">
       <button class="tab-new" id="tabNew" title="Nuevo proyecto o reabrir una pestaña cerrada" aria-expanded="false">＋</button>
       <div class="popover tab-menu" id="tabMenu" hidden></div>
@@ -80,7 +74,7 @@
       <div class="drop"></div>
     </section>
     <section class="col" data-col="done">
-      <header><h2><i class="dot"></i>Hecho</h2><span class="count"></span><button class="add archive-all" id="archiveDone" title="Archivar las tarjetas hechas de este proyecto (se pueden restaurar)" hidden>Archivar</button></header>
+      <header><h2><i class="dot"></i>Hecho</h2><span class="count"></span><button class="add archive-all" id="archiveDone" title="Archivar las tarjetas hechas de este proyecto (se pueden restaurar)" hidden>Archivar</button><button class="add archive-all" id="verArchivo" title="Archivo y papelera: lo archivado y lo que borró una IA">🗄</button></header>
       <div class="drop"></div>
     </section>
   </main>
@@ -100,9 +94,9 @@
     <button class="visor-nav ant" id="visorAnt" title="Anterior (←)" aria-label="Anterior">‹</button>
     <button class="visor-nav sig" id="visorSig" title="Siguiente (→)" aria-label="Siguiente">›</button>
   </div>
-  <div class="buscador" id="buscador" hidden role="dialog" aria-modal="true" aria-label="Paleta de comandos y búsqueda">
+  <div class="buscador" id="buscador" hidden role="dialog" aria-modal="true" aria-label="Paleta de comandos">
     <div class="buscador-caja">
-      <div class="buscador-input"><span aria-hidden="true">🔍</span><input id="buscarInput" placeholder="Busca en todo o escribe un comando…" autocomplete="off" spellcheck="false" /><kbd>esc</kbd></div>
+      <div class="buscador-input"><span aria-hidden="true">⌘</span><input id="buscarInput" placeholder="Escribe un comando…" autocomplete="off" spellcheck="false" /><kbd>esc</kbd></div>
       <ol class="buscador-lista" id="buscarLista" role="listbox"></ol>
       <div class="buscador-pie" id="buscarPie"></div>
     </div>
@@ -116,16 +110,21 @@
   <dialog id="newDialog">
     <form method="dialog" id="newForm">
       <h3>Nueva tarjeta</h3>
-      <div class="plantillas-elegir" id="newPlantillas" aria-label="Plantillas"></div>
       <div class="campos-plantilla" id="newCampos" hidden></div>
-      <input name="title" placeholder="¿Qué hay que hacer?" required />
-      <textarea name="description" rows="4" placeholder="Detalles y contexto… (opcional)"></textarea>
-      <textarea name="criterios" rows="3" placeholder="✅ Terminado cuando… (uno por línea, opcional): la IA los revisará uno a uno al entregar"></textarea>
-      <label class="field">Proyecto <select name="projectId" id="newProject"></select></label>
-      <label class="check"><input type="checkbox" name="run" /> Pedírsela a la IA ya</label>
-      <div class="row">
+      <input name="title" placeholder="¿Qué hay que hacer?" required enterkeyhint="send" />
+      <textarea name="description" rows="3" placeholder="Detalles y contexto… (opcional)"></textarea>
+      <!-- Lo menos habitual, plegado: se abre solo si una plantilla lo rellena -->
+      <details class="mas-opciones" id="newMas">
+        <summary>Más opciones <span class="mas-resumen" id="newResumen"></span></summary>
+        <div class="plantillas-elegir" id="newPlantillas" aria-label="Plantillas"></div>
+        <textarea name="criterios" rows="3" placeholder="✅ Terminado cuando… (uno por línea, opcional): la IA los revisará uno a uno al entregar"></textarea>
+        <label class="field">Proyecto <select name="projectId" id="newProject"></select></label>
+        <label class="check"><input type="checkbox" name="entregable" /> 📦 Es un entregable: al aprobarla, su resultado pasa a «Entregables»</label>
+      </details>
+      <div class="row nueva-botones">
         <button value="cancel" formnovalidate class="ghost">Cancelar</button>
-        <button value="ok" class="primary">Crear</button>
+        <button value="ok" title="Se queda en Ideas">Solo crear</button>
+        <button value="ia" class="primary" title="Enter">Crear y pedírsela a la IA</button>
       </div>
     </form>
   </dialog>

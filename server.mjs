@@ -11,7 +11,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { ABRIR_NAVEGADOR, DATOS, PORT, VERSION, VERSION_APP, VISTA, abrirVentana, leerPublico, salir } from "./entorno.mjs";
+import { DATOS, PORT, VERSION, VERSION_APP, VISTA, abrirVentana, leerPublico, salir } from "./entorno.mjs";
+import { abrirAlArrancar } from "./arranque.mjs"; // antes que el tablero: ¿hay ya una Órbita abierta?
 import { broadcast, protegido, safePath, subscribers } from "./estado.mjs";
 import { createMcpHandler } from "./mcp.mjs";
 import { encontrarRuta, readJson, send } from "./rutas.mjs";
@@ -166,24 +167,16 @@ const server = http.createServer(async (req, res) => {
 // Mantiene vivas las conexiones SSE.
 setInterval(protegido("el ping de los navegadores", () => broadcast({ type: "ping" })), 25_000);
 
-// Solo en 127.0.0.1: desde otros equipos de la red no se puede entrar.
-server.on("error", async (err) => {
+// Solo en 127.0.0.1: desde otros equipos de la red no se puede entrar. (Si era otra Órbita, ya lo resolvió arranque.mjs.)
+server.on("error", (err) => {
   if (err.code !== "EADDRINUSE") salir(`No se pudo arrancar Órbita: ${err.message}`);
-  // ¿Es otra Órbita ya abierta? Entonces basta con abrir el navegador.
-  const otra = await fetch(`http://127.0.0.1:${PORT}/api/board`, { signal: AbortSignal.timeout(2000) })
-    .then((r) => r.json())
-    .catch(() => null);
-  if (otra?.version) {
-    console.log(`\n  ◉ Órbita ya está abierta en http://localhost:${PORT}\n`);
-    if (ABRIR_NAVEGADOR) abrirVentana(`http://localhost:${PORT}`);
-    process.exit(0);
-  }
   salir(`El puerto ${PORT} lo está usando otro programa. Arranca Órbita en otro, por ejemplo:  orbita --port ${PORT + 1}\n(Recuerda cambiar también la dirección MCP en tu IA.)`);
 });
-server.listen(PORT, "127.0.0.1", () => {
+server.on("listening", () => {
   console.log(`\n  ◉ Órbita ${VERSION_APP} está en http://localhost:${PORT}`);
   console.log(`    Conecta tu IA por MCP: http://localhost:${PORT}/mcp`);
   console.log(`    Tus datos: ${DATOS}`);
   console.log(`    Para cerrarla: Ctrl+C (o, en Órbita, ⌘K → «Cerrar Órbita»)\n`);
-  if (ABRIR_NAVEGADOR) abrirVentana(`http://localhost:${PORT}`);
+  if (abrirAlArrancar) abrirVentana(`http://localhost:${PORT}`);
 });
+server.listen(PORT, "127.0.0.1");

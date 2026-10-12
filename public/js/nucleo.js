@@ -2,9 +2,8 @@
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { corto, elegirFiltro, proyectoPorDefecto, refrescarCola, renderAll, renderSeccion, renderSubnav, renderTabs, upsert } from "./tablero.js";
 import { renderCounts, restaurarPapelera } from "./paginas.js";
-import { closeDrawer } from "./panel.js";
-import { actualizarPendientes, avisarRespuesta, dlg, pintarContadorPreguntas, renderPreguntas } from "./acciones.js";
-import { invalidarIndice } from "./busqueda.js";
+import { closeDrawer, updateDrawer } from "./panel.js";
+import { actualizarPendientes, dlg } from "./acciones.js";
 import { pintarIAProyecto, pintarPlantillas } from "./extras.js";
 
 // Órbita — interfaz del tablero. Todo el estado vive en el servidor; aquí
@@ -57,26 +56,9 @@ export const STATUS = {
 export const LIVE = ["queued", "running", "returned"];
 // En pantallas estrechas el texto de ayuda del objetivo no cabe entero
 export const ayudaObjetivo = matchMedia("(max-width: 600px)");
-// La barra de arriba: planificar un objetivo o hacer una pregunta rápida
-export let modoBarra = (() => {
-  try {
-    return localStorage.getItem("orbita.modo") === "preguntar" ? "preguntar" : "planificar";
-  } catch {
-    return "planificar";
-  }
-})();
+// La barra de arriba: un objetivo que la IA divide en tarjetas
 export function ponerAyuda() {
-  const corto = ayudaObjetivo.matches;
-  $("#goalInput").placeholder =
-    modoBarra === "preguntar"
-      ? corto ? "Pregunta algo…" : "Pregunta algo a la IA: te responde aquí mismo, sin crear tarjeta  ( / )"
-      : corto ? "Escribe un objetivo…" : "Un objetivo grande: la IA lo divide en tareas  ( / )";
-  $("#goalBtn span").textContent = modoBarra === "preguntar" ? "Preguntar" : "Planificar";
-  for (const b of document.querySelectorAll(".modo [data-modo]")) {
-    b.classList.toggle("on", b.dataset.modo === modoBarra);
-    b.setAttribute("aria-checked", String(b.dataset.modo === modoBarra));
-  }
-  $("#goalForm").classList.toggle("preguntando", modoBarra === "preguntar");
+  $("#goalInput").placeholder = ayudaObjetivo.matches ? "Escribe un objetivo…" : "Un objetivo grande: la IA lo divide en tareas  ( / )";
 }
 
 
@@ -123,8 +105,6 @@ export async function load() {
   state.cards = new Map(data.cards.map((c) => [c.id, c]));
   state.projects = data.projects || [];
   state.faltantes = data.faltantes || [];
-  state.questions = data.questions || [];
-  state.preguntasIA = data.preguntasIA || null;
   state.plantillas = data.plantillas || [];
   state.papelera = data.papelera || [];
   state.version ??= data.version; // la versión con la que se cargó esta página
@@ -138,7 +118,6 @@ export async function load() {
   renderAll();
   renderBrains();
   actualizarPendientes();
-  pintarContadorPreguntas();
 }
 
 export function connect() {
@@ -151,13 +130,11 @@ export function connect() {
     else if (ev.type === "remove") {
       setTimeout(actualizarPendientes);
       state.cards.delete(ev.id);
-      invalidarIndice();
       $(`.card[data-id="${ev.id}"]`)?.remove();
       if (state.openId === ev.id) closeDrawer();
       renderCounts();
     } else if (ev.type === "files") {
       state.files = ev.files;
-      invalidarIndice();
       renderSubnav();
       if (state.seccion === "entregables") renderSeccion();
     } else if (ev.type === "papelera") {
@@ -169,16 +146,6 @@ export function connect() {
     } else if (ev.type === "plantillas") {
       state.plantillas = ev.plantillas;
       if (dlg.open) pintarPlantillas();
-    } else if (ev.type === "preguntasIA") {
-      state.preguntasIA = ev.ia;
-      if (state.view === "preguntas") renderPreguntas();
-    } else if (ev.type === "questions") {
-      const antes = new Map((state.questions || []).map((q) => [q.id, q.status]));
-      state.questions = ev.questions;
-      invalidarIndice();
-      for (const q of ev.questions) if (q.status === "respondida" && antes.get(q.id) && antes.get(q.id) !== "respondida") avisarRespuesta(q);
-      pintarContadorPreguntas();
-      if (state.view === "preguntas") renderPreguntas();
     } else if (ev.type === "projects") {
       state.projects = ev.projects;
       state.faltantes = ev.faltantes || [];
@@ -189,6 +156,7 @@ export function connect() {
         renderSubnav();
         renderSeccion(); // sin redibujar lo que estás escribiendo
       }
+      refrescarAvisoPanel();
     } else if (ev.type === "enfoque") {
       enfocarProyecto(ev);
     } else if (ev.type === "brains") {
@@ -196,7 +164,7 @@ export function connect() {
       renderBrains();
       renderSubnav();
       if (state.view === "ia") pintarIAProyecto();
-      if (state.view === "preguntas") renderPreguntas();
+      refrescarAvisoPanel();
     }
   };
   es.onerror = () => {
@@ -275,6 +243,11 @@ export function hasBrain() {
   return state.brains.length > 0;
 }
 
+// La tarjeta abierta dice si ninguna IA puede tomarla: cambia al conectarse una IA o al reanudar el proyecto
+function refrescarAvisoPanel() {
+  const c = state.openId && state.cards.get(state.openId);
+  if (c) updateDrawer(c);
+}
 export function renderBrains() {
   const el = $("#brainStat");
   const listening = state.brains.filter((b) => b.listening);
@@ -288,15 +261,6 @@ export function renderBrains() {
 
 // Lo que se prepara al cargar la página (main.js lo llama en orden)
 export function iniciarModulo() {
-  for (const b of document.querySelectorAll(".modo [data-modo]"))
-    b.onclick = () => {
-      modoBarra = b.dataset.modo;
-      try {
-        localStorage.setItem("orbita.modo", modoBarra);
-      } catch {}
-      ponerAyuda();
-      $("#goalInput").focus();
-    };
   ayudaObjetivo.addEventListener("change", ponerAyuda);
   ponerAyuda();
 }

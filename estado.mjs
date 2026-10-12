@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
+import "./arranque.mjs"; // primero: si hay otra Órbita de una versión anterior, que guarde y se cierre antes de cargar nada
 import { baseDe, cargar, comprobarCarpeta, guardar, leerTablero, listarArchivos, moverCarpetaOrbita, normalizarCarpeta, rutaReal, slug, tableroDe } from "./almacen.mjs";
 import { DATOS, salir } from "./entorno.mjs";
 import { nombresSecretos } from "./secretos.mjs";
@@ -41,9 +42,10 @@ for (const p of board.projects) {
   p.memory ??= ""; // lo que la IA va aprendiendo (la persona también puede editarla)
   p.memoryAt ??= null;
 }
-board.questions ??= []; // preguntas rápidas: { id, text, projectId, t, status, worker, answer, answeredAt }
 board.notices ??= []; // avisos para las IAs: tarjetas que la persona les quitó
-board.preguntasIA ??= null; // la IA dedicada solo a las preguntas rápidas (si la hay)
+// Las preguntas rápidas (y su «IA de preguntas») ya no existen: si un tablero antiguo las tenía, se olvidan
+delete board.questions;
+delete board.preguntasIA;
 // Plantillas de tarjetas: { id, nombre, icono, titulo, descripcion, criterios: [], projectId, serie }
 // Los {campos} entre llaves se rellenan al usarla. Las de serie se añaden una vez (si las borras de board.json, vuelven).
 board.plantillas ??= [];
@@ -99,7 +101,7 @@ export function newProject(nombre, dir) {
   return { project, abierto: false };
 }
 
-// Para lo que llega sin proyecto (una pregunta rápida hecha desde «Todos», p. ej.): «General», en la carpeta de datos
+// Para lo que llega sin proyecto: «General», en la carpeta de datos
 export function proyectoGeneral() {
   const dir = path.join(DATOS, "general");
   const ya = board.projects.find((p) => p.dir === dir);
@@ -232,7 +234,7 @@ for (const evento of ["uncaughtException", "unhandledRejection"]) {
 
 export const findCard = (id) => board.cards.find((c) => c.id === id);
 
-export function newCard({ title, description = "", column = "backlog", origin = "tú", parentId = null, tag = null, kind = "task", projectId = null, criterios = [] }) {
+export function newCard({ title, description = "", column = "backlog", origin = "tú", parentId = null, tag = null, kind = "task", projectId = null, criterios = [], entregable = false }) {
   const card = {
     id: crypto.randomUUID().slice(0, 8),
     title: String(title).slice(0, 200),
@@ -252,6 +254,8 @@ export function newCard({ title, description = "", column = "backlog", origin = 
     versions: [], // cada resultado entregado: { n, t, quien, result, criterios }
     criterios: [], // «Terminado cuando…»: { id, texto, estado: null | "cumple" | "no", evidencia, falla }
     programa: null, // repetición o fecha programada
+    entregable: !!entregable, // su resultado es un entregable: al aprobarla se guarda en orbita/entregables/
+    documento: null, // ruta del documento guardado al aprobarla (si es entregable)
     worker: null, // nombre de la IA que la trabaja
     inbox: [], // tus mensajes pendientes para la IA
     progress: 0,
@@ -330,7 +334,7 @@ export function broadcast(event) {
   for (const res of subscribers) res.write(data);
 }
 // Una tarjeta cambió: se guarda solo el tablero de su proyecto. Si además cambia algo global
-// (avisos, papelera, preguntas…), quien lo cambia llama a save() sin argumentos.
+// (avisos, papelera…), quien lo cambia llama a save() sin argumentos.
 export function touch(card) {
   card.updatedAt = Date.now();
   broadcast({ type: "card", card });
@@ -363,11 +367,6 @@ export function nombreSeguro(nombre) {
 
 export const proyectosPublicos = () => board.projects.map((p) => ({ ...p, knowledge: conocimiento(p), secretos: nombresSecretos(p.id) }));
 
-export function broadcastQuestions() {
-  broadcast({ type: "questions", questions: board.questions });
-  changes.emit("change"); // despierta a la IA que espera trabajo
-  save();
-}
 
 export function broadcastProjects() {
   broadcast({ type: "projects", projects: proyectosPublicos(), faltantes });
@@ -493,13 +492,6 @@ export function conectada(name) {
   const b = name && brains.get(name);
   return !!b && (b.listening > 0 || Date.now() - b.lastSeen < 120_000);
 }
-// La IA de preguntas: solo responde preguntas rápidas; mientras esté conectada, las demás no las toman
-export function preguntasIA(ia) {
-  board.preguntasIA = String(ia || "").trim().slice(0, 60) || null;
-  broadcast({ type: "preguntasIA", ia: board.preguntasIA });
-  changes.emit("change");
-  save();
-}
 export function brainList() {
   const now = Date.now();
   return [...brains.values()]
@@ -509,7 +501,6 @@ export function brainList() {
       listening: b.listening > 0,
       proyectos: board.projects.filter((p) => p.ia === b.name).map((p) => p.id),
       tarjeta: board.cards.find((c) => c.worker === b.name && c.status === "running" && !c.archivedAt)?.title || null,
-      preguntas: b.name === board.preguntasIA,
     }));
 }
 export let lastBrains = "";
@@ -519,7 +510,7 @@ export function broadcastBrains() {
   if (key === lastBrains) return;
   lastBrains = key;
   broadcast({ type: "brains", brains: list });
-  changes.emit("change"); // si se desconecta la IA de preguntas, las demás vuelven a mirar si les toca alguna
+  changes.emit("change"); // las IAs que esperan vuelven a mirar si les toca algo
 }
 setInterval(protegido("el aviso de IAs conectadas", broadcastBrains), 10_000);
 
@@ -598,6 +589,26 @@ export function requestAI(card, note) {
   touch(card);
 }
 
+// Una tarjeta entregable aprobada: su resultado (la versión aprobada) se guarda como documento en
+// <carpeta>/orbita/entregables/<título>.md, que es lo que muestra la sección «Entregables» del proyecto.
+// Si se vuelve a aprobar con otro resultado, se sobrescribe el mismo documento.
+export function guardarEntregable(card) {
+  const p = findProject(card.projectId);
+  if (!card.entregable || !card.result?.trim() || !p) return;
+  const nombre = card.documento?.startsWith(`${p.folder}/entregables/`) ? card.documento : `${p.folder}/entregables/${slug(card.title, new Set())}.md`;
+  try {
+    const archivo = safePath(nombre);
+    fs.mkdirSync(path.dirname(archivo), { recursive: true });
+    const fecha = new Date().toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
+    fs.writeFileSync(archivo, `# ${card.title}\n\n_Entregable de «${p.name}» · aprobado el ${fecha}_\n\n${card.result.trim()}\n`);
+    card.documento = nombre;
+    log(card, "file", `Entregable guardado en ${nombre}`);
+    broadcast({ type: "files", files: listFiles() });
+  } catch (err) {
+    log(card, "note", `No se pudo guardar el entregable: ${err.message}`);
+  }
+}
+
 export function moveCard(card, column) {
   if (!COLUMNS.includes(column)) throw new Error("Columna inválida");
   if (column === "doing") return requestAI(card);
@@ -615,6 +626,7 @@ export function moveCard(card, column) {
     card.status = "done";
     card.progress = 100;
     log(card, "done", "Aprobada");
+    guardarEntregable(card);
     setImmediate(() => liberarDependientes(card.id));
   } else if (column === "backlog") {
     card.status = "idle";
@@ -628,7 +640,7 @@ export function moveCard(card, column) {
 // Play / pausa por proyecto: un proyecto en pausa no entrega tarjetas a la IA
 export const enPausa = (card) => !!findProject(card.projectId)?.pausado;
 
-// Una IA por proyecto: si un proyecto tiene su IA (project.ia), solo ella toma sus tarjetas y preguntas,
+// Una IA por proyecto: si un proyecto tiene su IA (project.ia), solo ella toma sus tarjetas,
 // y esa IA solo trabaja en su(s) proyecto(s). Así dos proyectos avanzan en paralelo sin pisarse.
 export function elegible(projectId, worker) {
   const mios = board.projects.filter((p) => p.ia === worker).map((p) => p.id);
@@ -644,17 +656,14 @@ export function iaDeProyecto(project, ia) {
 export function pausarProyecto(project, pausado) {
   project.pausado = !!pausado;
   project.pausadoAt = pausado ? Date.now() : null;
+  // Pausar no interrumpe: la IA termina la tarjeta que tiene entre manos y no toma más (nextFor salta los proyectos en pausa).
   for (const c of board.cards) {
     if (c.projectId !== project.id || c.archivedAt) continue;
-    if (pausado && c.column === "doing" && (c.status === "running" || c.status === "returned")) {
-      // La IA que la tenía recibe «detente»; la tarjeta vuelve a la cola sin perder nada (avance, conversación, archivos)
-      revocar(c, `la persona pausó el proyecto «${project.name}». La tarjeta seguirá cuando lo reanude`);
-      c.status = "queued";
-      c.pausada = true;
-      c.step = "⏸ En pausa (el proyecto está pausado)";
-      log(c, "stop", "En pausa con su proyecto");
+    if (pausado && c.status === "running") {
+      log(c, "stop", `Proyecto en pausa: ${c.worker || "la IA"} terminará esta y parará`);
       touch(c);
     } else if (!pausado && c.pausada) {
+      // Tarjetas que paró una pausa de antes (cuando pausar sí interrumpía)
       c.pausada = false;
       if (c.revocada && !c.revocada.avisada && c.worker === c.revocada.worker) {
         // La IA ni se enteró de la pausa: sigue trabajando como si nada (se retira el aviso pendiente)
@@ -680,7 +689,6 @@ export function pausarProyecto(project, pausado) {
 export function claim(card, worker) {
   if (card.column === "done") throw new Error("Esa tarjeta ya está aprobada.");
   if (enPausa(card)) throw new Error(`El proyecto «${findProject(card.projectId).name}» está en pausa: sus tarjetas no se trabajan hasta que la persona lo reanude.`);
-  if (worker && worker === board.preguntasIA) throw new Error(`Eres la IA de preguntas: solo respondes preguntas rápidas, no tomas tarjetas.`);
   if (!elegible(card.projectId, worker)) {
     const p = findProject(card.projectId);
     throw new Error(p?.ia ? `El proyecto «${p.name}» tiene su propia IA («${p.ia}»): solo ella toma sus tarjetas.` : `Eres la IA de otro proyecto: solo tomas tarjetas de ${board.projects.filter((x) => x.ia === worker).map((x) => `«${x.name}»`).join(", ")}.`);

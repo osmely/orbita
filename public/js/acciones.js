@@ -1,12 +1,20 @@
-// Órbita · Objetivo, nueva tarjeta, atajos, avisos y preguntas rápidas.
+// Órbita · Objetivo, nueva tarjeta, atajos y avisos.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
-import { $, api, connect, elegirCarpeta, esc, hasBrain, load, md, modoBarra, proyecto, state, toast, tono } from "./nucleo.js";
+import { $, api, connect, elegirCarpeta, esc, hasBrain, load, proyecto, state, toast } from "./nucleo.js";
 import { corto, elegirFiltro, upsert } from "./tablero.js";
 import { closeDrawer, desplazar, openDrawer, showDrawer } from "./panel.js";
 import { llenarProyectos, openConnect } from "./detalle.js";
-import { aplicarPlantilla, pintarIAPreguntas, pintarPlantillas } from "./extras.js";
+import { aplicarPlantilla, pintarPlantillas } from "./extras.js";
 
 export const dlg = $("#newDialog");
+
+// Junto a «Más opciones», lo que va a pasar sin abrirlas: el proyecto, y si hay criterios o es entregable
+export function resumirOpciones() {
+  const f = $("#newForm");
+  const n = f.criterios.value.split("\n").filter((t) => t.trim()).length;
+  const partes = [state.projects.length > 1 && f.projectId.selectedOptions[0] ? `en ${esc(f.projectId.selectedOptions[0].text)}` : "", n ? `${n} criterio${n > 1 ? "s" : ""}` : "", f.entregable.checked ? "📦 entregable" : ""].filter(Boolean);
+  $("#newResumen").innerHTML = partes.length ? `· ${partes.join(" · ")}` : "";
+}
 
 // Nueva tarjeta, opcionalmente desde una plantilla
 export function abrirNueva(plantillaId = null) {
@@ -16,6 +24,8 @@ export function abrirNueva(plantillaId = null) {
   $("#newCampos").innerHTML = "";
   llenarProyectos($("#newProject"), state.filtro);
   pintarPlantillas();
+  $("#newMas").open = false;
+  resumirOpciones();
   dlg.showModal();
   if (plantillaId) aplicarPlantilla(plantillaId);
   else $("#newForm").title.focus();
@@ -140,109 +150,6 @@ export function pintarAvisos() {
 
 
 
-// ---------------------------------------------------------------------------
-// Preguntas rápidas: la IA responde sin crear tarjeta
-// ---------------------------------------------------------------------------
-
-export async function preguntar(texto) {
-  try {
-    const projectId = proyecto(state.filtro) ? state.filtro : null; // en la pestaña de un proyecto, con su contexto
-    await api("/api/questions", { text: texto, projectId });
-    $("#goalInput").value = "";
-    openPreguntas();
-    if (!hasBrain()) toast("Tu pregunta espera a que se conecte una IA");
-  } catch (err) {
-    toast(err.message, true);
-  }
-}
-
-export function pintarContadorPreguntas() {
-  const n = (state.questions || []).filter((q) => q.status !== "respondida").length;
-  $("#qaCount").hidden = !n;
-  $("#qaCount").textContent = n;
-}
-
-export function avisarRespuesta(q) {
-  if (!noMirando() || state.view === "preguntas") return;
-  if (avisos.sonido) sonar("entrega");
-  if (avisos.navegador && "Notification" in window && Notification.permission === "granted") {
-    const n = new Notification(`💬 ${q.worker || "La IA"} respondió`, { body: q.text.slice(0, 140), tag: `orbita-q-${q.id}`, icon: ICONO_BASE });
-    n.onclick = () => (window.focus(), openPreguntas(), n.close());
-  }
-}
-
-export function renderPreguntas() {
-  const lista = [...(state.questions || [])].reverse();
-  const quien = state.brains.find((b) => b.listening)?.name;
-  // La caja de texto se crea una sola vez: si llegan cambios mientras escribes, solo se repinta la lista
-  if (!$("#qaForm")) {
-    $("#drawerBody").innerHTML = `
-    <div class="d-head"><div class="t">Preguntas rápidas</div><button class="icon-btn" id="dClose">✕</button></div>
-    <form class="qa-form" id="qaForm"><textarea id="qaText" rows="2" placeholder="Pregunta algo… (Cmd/Ctrl+Enter para enviar)"></textarea><button class="btn primary">Preguntar</button></form>
-    <p class="muted qa-ctx"></p>
-    <div class="qa-ia" id="qaIA"></div>
-    <ol class="qa-list"></ol>`;
-    $("#dClose").onclick = closeDrawer;
-    const ta = $("#qaText");
-    $("#qaForm").onsubmit = (e) => {
-      e.preventDefault();
-      if (ta.value.trim()) preguntar(ta.value.trim());
-    };
-    ta.onkeydown = (e) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("#qaForm").requestSubmit();
-    };
-  }
-  pintarIAPreguntas();
-  $("#drawerBody .qa-ctx").innerHTML = proyecto(state.filtro) ? `Se preguntará con el contexto de <b>${esc(proyecto(state.filtro).name)}</b> (instrucciones, memoria y conocimiento).` : "Sin proyecto: la IA responde sin contexto de proyecto. Pregunta desde la pestaña de un proyecto para darle su contexto.";
-  $("#drawerBody .qa-list").innerHTML = `${
-      lista
-        .map((q) => {
-          const estado =
-            q.status === "respondida"
-              ? `<div class="result qa-answer">${md(q.answer)}</div>`
-              : q.status === "respondiendo"
-                ? `<div class="qa-wait"><i class="spinner"></i> ${esc(q.worker)} está respondiendo…</div>`
-                : `<div class="qa-wait">⏳ ${quien ? `En espera: la recibirá ${esc(quien)}` : "Esperando a que se conecte una IA"}</div>`;
-          const p = proyecto(q.projectId);
-          return `<li class="qa-item" data-q="${q.id}">
-            <div class="qa-q">${esc(q.text)}</div>
-            <div class="qa-meta">${p ? `<i class="tab-dot" style="--h:${tono(p.id)}"></i>${esc(p.name)} · ` : ""}${new Date(q.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${q.status === "respondida" ? ` · respondió ${esc(q.worker || "la IA")}` : ""}</div>
-            ${estado}
-            <div class="qa-acciones">${q.status === "respondida" ? `<button class="mini" data-copiar="${q.id}">Copiar respuesta</button>` : ""}<button class="mini" data-tarjeta="${q.id}">Convertir en tarjeta</button><button class="mini" data-borrar-q="${q.id}">Eliminar</button></div>
-          </li>`;
-        })
-        .join("") || `<li class="empty-state">Aún no has hecho preguntas. Escribe arriba, o usa el modo 💬 Preguntar de la barra.</li>`
-    }`;
-  for (const b of document.querySelectorAll("[data-copiar]"))
-    b.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(state.questions.find((q) => q.id === b.dataset.copiar).answer);
-        toast("Respuesta copiada ✓");
-      } catch {
-        toast("No se pudo copiar", true);
-      }
-    };
-  for (const b of document.querySelectorAll("[data-tarjeta]"))
-    b.onclick = async () => {
-      const card = await api(`/api/questions/${b.dataset.tarjeta}/card`, {}).catch((err) => toast(err.message, true));
-      if (card) {
-        toast("Convertida en tarjeta (en Ideas)");
-        upsert(card); // sin esperar al aviso del servidor: si no, a veces no se abría
-        openDrawer(card.id);
-      }
-    };
-  for (const b of document.querySelectorAll("[data-borrar-q]")) b.onclick = () => api(`/api/questions/${b.dataset.borrarQ}`, undefined, "DELETE").catch((err) => toast(err.message, true));
-}
-
-export function openPreguntas() {
-  state.openId = null;
-  state.view = "preguntas";
-  $("#drawerBody").innerHTML = ""; // al abrir, panel nuevo
-  renderPreguntas();
-  showDrawer();
-  setTimeout(() => $("#qaText")?.focus(), 30); // listo para escribir, sin hacer clic
-}
-
 // Lo que se prepara al cargar la página (main.js lo llama en orden)
 export function iniciarModulo() {
   // ---------------------------------------------------------------------------
@@ -254,7 +161,6 @@ export function iniciarModulo() {
     const input = $("#goalInput");
     const goal = input.value.trim();
     if (!goal) return input.focus();
-    if (modoBarra === "preguntar") return preguntar(goal);
     try {
       // El plan va al proyecto que estás viendo; solo si no hay ninguno se crea uno (con su carpeta de trabajo)
       const actual = proyecto(state.filtro);
@@ -275,14 +181,18 @@ export function iniciarModulo() {
     }
   });
   $("#addBtn").onclick = () => abrirNueva();
-  // Enter en un campo de una línea = «Crear» (antes cerraba sin crear: el botón por defecto era «Cancelar»)
+  // Enter en un campo de una línea (o Cmd/Ctrl+Enter en cualquiera) = «Crear y pedírsela a la IA»
   $("#newForm").addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" || e.target.tagName !== "INPUT" || e.target.type === "checkbox" || e.isComposing) return;
+    if (e.key !== "Enter" || e.isComposing) return;
+    const atajo = e.metaKey || e.ctrlKey || (e.target.tagName === "INPUT" && e.target.type !== "checkbox");
+    if (!atajo) return;
     e.preventDefault();
-    $("#newForm").requestSubmit($('#newForm button[value="ok"]'));
+    $("#newForm").requestSubmit($('#newForm button[value="ia"]'));
   });
+  $("#newForm").addEventListener("input", resumirOpciones);
+  $("#newForm").addEventListener("change", resumirOpciones);
   $("#newForm").addEventListener("submit", async (e) => {
-    if (e.submitter?.value !== "ok") return;
+    if (!["ok", "ia"].includes(e.submitter?.value)) return;
     // Con plantilla: todos sus campos rellenos
     const vacio = [...document.querySelectorAll("#newCampos input")].find((i) => !i.value.trim());
     if (vacio) {
@@ -293,7 +203,7 @@ export function iniciarModulo() {
     }
     const f = new FormData(e.target);
     try {
-      await api("/api/cards", { title: f.get("title"), description: f.get("description"), criterios: String(f.get("criterios") || "").split("\n").map((t) => t.trim()).filter(Boolean), run: f.get("run") === "on", projectId: f.get("projectId") || null });
+      await api("/api/cards", { title: f.get("title"), description: f.get("description"), criterios: String(f.get("criterios") || "").split("\n").map((t) => t.trim()).filter(Boolean), run: e.submitter.value === "ia", entregable: f.get("entregable") === "on", projectId: f.get("projectId") || null });
     } catch (err) {
       toast(err.message, true);
     }
@@ -356,11 +266,4 @@ export function iniciarModulo() {
   };
   $("#testSound").onclick = () => sonar("pregunta");
   pintarAvisos();
-  $("#qaBtn").onclick = openPreguntas;
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) && !dlg.open) {
-      e.preventDefault();
-      openPreguntas();
-    }
-  });
 }

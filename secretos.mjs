@@ -4,6 +4,7 @@
 // acabar en un repositorio.
 //
 //   secretos.json = { <id del proyecto>: { <NOMBRE>: { valor, t } } }
+import "./arranque.mjs"; // antes de leer secretos.json (ver arranque.mjs)
 import fs from "node:fs";
 import path from "node:path";
 import { DATOS } from "./entorno.mjs";
@@ -69,7 +70,7 @@ export function leerSecreto(projectId, nombre) {
   const s = datos[projectId]?.[nombre];
   if (!s) {
     const hay = nombresSecretos(projectId).map((x) => x.nombre);
-    throw new Error(`Este proyecto no tiene el secreto «${nombre}». ${hay.length ? `Tiene: ${hay.join(", ")}.` : "No tiene ninguno: pídeselo a la persona (se añaden en Instrucciones y memoria → Secretos)."}`);
+    throw new Error(`Este proyecto no tiene el secreto «${nombre}». ${hay.length ? `Tiene: ${hay.join(", ")}.` : "No tiene ninguno: pídeselo a la persona (se añaden en Contexto para la IA → Secretos)."}`);
   }
   return s.valor;
 }

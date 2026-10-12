@@ -1,9 +1,9 @@
-// Órbita · Criterios, IA por proyecto, IA de preguntas, tareas programadas y plantillas.
+// Órbita · Criterios, IA por proyecto, tareas programadas y plantillas.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, api, esc, md, proyecto, state, toast } from "./nucleo.js";
 import { corto, renderAll, upsert } from "./tablero.js";
 import { closeDrawer, showDrawer } from "./panel.js";
-import { dlg } from "./acciones.js";
+import { dlg, resumirOpciones } from "./acciones.js";
 
 // ---------------------------------------------------------------------------
 // Criterios de aceptación («Terminado cuando…») y la autorrevisión de la IA
@@ -110,7 +110,7 @@ export function pintarIAProyecto(forzar = false) {
   // Si ya está abierto, solo se actualiza el estado (no se pierde lo que estés escribiendo)
   if (!forzar && $("#iaForm") && $("#drawerBody").dataset.ia === p.id) return void ($("#iaEstado").innerHTML = estado);
   const cuerpo = `
-    <div class="d-head"><div class="t">🧠 La IA de «${esc(p.name)}»</div><button class="icon-btn" id="dClose">✕</button></div>
+    <div class="d-head"><div class="t">🧠 La IA de «${esc(p.name)}»</div><button class="icon-btn" id="dClose" title="Cerrar (Esc)" aria-label="Cerrar">✕</button></div>
     <p class="sub" style="margin:6px 0 10px;font-size:13px">Con su propia IA, este proyecto <b>avanza en paralelo</b> a los demás: esa IA solo trabaja aquí, y las demás IAs no tocan sus tarjetas ni sus preguntas.</p>
     <div id="iaEstado">${estado}</div>
     <div class="d-section"><h4>1 · Su nombre</h4>
@@ -119,7 +119,6 @@ export function pintarIAProyecto(forzar = false) {
     <div class="d-section"><h4>2 · Lánzala en otra sesión de Claude</h4>
       <p class="sub" style="margin:0 0 8px;font-size:13px">Abre una <b>sesión nueva</b> de Claude Code (o de cualquier IA con el MCP «orbita») y pégale esto. Cada proyecto, en su sesión: así trabajan a la vez.</p>
       <div class="snippet"><pre id="iaInstruccion">${esc(instruccionIA(p, sugerido))}</pre><button class="btn" id="iaCopiar">Copiar</button></div>
-      <p class="sub" style="margin:10px 0 0;font-size:12.5px">En Claude Code también vale el comando <code>/mcp__orbita__trabajar</code> con nombre <code>${esc(sugerido)}</code> y proyecto <code>${esc(p.id)}</code>.</p>
     </div>`;
   $("#drawerBody").innerHTML = cuerpo;
   $("#drawerBody").dataset.ia = p.id;
@@ -154,68 +153,6 @@ export function pintarIAProyecto(forzar = false) {
   $("#iaCopiar").onclick = async () => {
     try {
       await navigator.clipboard.writeText($("#iaInstruccion").textContent);
-      toast("Copiado ✓ Pégalo en una sesión nueva de Claude");
-    } catch {
-      toast("No se pudo copiar; selecciónalo a mano", true);
-    }
-  };
-}
-
-
-// ---------------------------------------------------------------------------
-// La IA de preguntas: una instancia aparte que solo responde preguntas rápidas
-// ---------------------------------------------------------------------------
-
-export function instruccionPreguntas(nombre) {
-  return `Sé la IA de preguntas rápidas de mi tablero Órbita. Usa el servidor MCP "orbita" con worker "${nombre}" y llama a wait_for_work con solo: "preguntas" una y otra vez: responde cada pregunta al momento con answer_question (breve, en Markdown; si trae proyecto, usa su contexto) y vuelve a esperar, sin pedirme confirmación.`;
-}
-export function pintarIAPreguntas() {
-  const caja = $("#qaIA");
-  if (!caja) return;
-  const ia = state.preguntasIA;
-  const b = ia && state.brains.find((x) => x.name === ia);
-  const abierto = caja.querySelector("details")?.open;
-  const nombreEscrito = $("#qaIANombre")?.value;
-  const escribiendo = document.activeElement?.id === "qaIANombre";
-  const estado = !ia
-    ? `<span class="ia-dot off"></span>Sin IA propia: las responde la IA que esté libre, entre tarjeta y tarjeta.`
-    : b
-      ? (() => {
-          const respondiendo = (state.questions || []).some((q) => q.status === "respondiendo" && q.worker === ia);
-          return `<span class="ia-dot ${b.listening ? "on" : "trab"}"></span><b>${esc(ia)}</b> ${b.listening ? "está escuchando: responde al momento" : respondiendo ? "está respondiendo" : "está conectada"}`;
-        })()
-      : `<span class="ia-dot off"></span><b>${esc(ia)}</b> no está conectada: mientras tanto las responde otra IA`;
-  // Si estás escribiendo el nombre, solo se actualiza la línea de estado
-  if (escribiendo && caja.querySelector(".qa-ia-estado")) return void (caja.querySelector(".qa-ia-estado").innerHTML = estado);
-  const nombre = nombreEscrito || ia || "Claude · Preguntas";
-  caja.innerHTML = `
-    <div class="qa-ia-estado">${estado}</div>
-    <details${abierto ? " open" : ""}><summary>${ia ? "Cambiar o lanzar la IA de preguntas" : "🧠 Darles su propia IA (responde al momento, sin parar a las demás)"}</summary>
-      <form class="ia-form" id="qaIAForm"><input id="qaIANombre" value="${esc(nombre)}" maxlength="60" autocomplete="off" /><button class="btn primary">${ia ? "Guardar" : "Asignar"}</button>${ia ? `<button type="button" class="btn" id="qaIAQuitar">Quitar</button>` : ""}</form>
-      <p class="sub" style="margin:8px 0 6px;font-size:12.5px">Lánzala en una <b>sesión nueva</b> de Claude pegando esto:</p>
-      <div class="snippet"><pre id="qaIAInstr">${esc(instruccionPreguntas(nombre))}</pre><button class="btn" type="button" id="qaIACopiar">Copiar</button></div>
-    </details>`;
-  $("#qaIANombre").oninput = () => ($("#qaIAInstr").textContent = instruccionPreguntas($("#qaIANombre").value.trim() || "Claude · Preguntas"));
-  const guardar = async (valor) => {
-    try {
-      const r = await api("/api/preguntas/ia", { ia: valor });
-      state.preguntasIA = r.preguntasIA;
-      $("#qaIA").innerHTML = "";
-      pintarIAPreguntas();
-      toast(valor ? `🧠 «${valor}» es la IA de preguntas` : "Las preguntas vuelven a responderlas las IAs libres");
-    } catch (err) {
-      toast(err.message, true);
-    }
-  };
-  $("#qaIAForm").onsubmit = (e) => {
-    e.preventDefault();
-    const v = $("#qaIANombre").value.trim();
-    if (v) guardar(v);
-  };
-  if ($("#qaIAQuitar")) $("#qaIAQuitar").onclick = () => guardar(null);
-  $("#qaIACopiar").onclick = async () => {
-    try {
-      await navigator.clipboard.writeText($("#qaIAInstr").textContent);
       toast("Copiado ✓ Pégalo en una sesión nueva de Claude");
     } catch {
       toast("No se pudo copiar; selecciónalo a mano", true);
@@ -345,7 +282,9 @@ export function aplicarPlantilla(id) {
   for (const i of document.querySelectorAll("#newCampos input")) i.oninput = rellenar;
   rellenar();
   if (p.projectId && proyecto(p.projectId)) $("#newProject").value = p.projectId;
-  (document.querySelector("#newCampos input") || $('#newForm button[value="ok"]')).focus();
+  if ((p.criterios || []).length) $("#newMas").open = true; // lo que rellena la plantilla, a la vista
+  resumirOpciones();
+  (document.querySelector("#newCampos input") || $('#newForm button[value="ia"]')).focus();
 }
 export async function guardarComoPlantilla(id, nombre) {
   try {

@@ -5,6 +5,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +15,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "orbita-guardado-"));
 const DATOS = path.join(TMP, "datos");
 const DIR_A = path.join(TMP, "proyecto-a");
 const DIR_B = path.join(TMP, "proyecto-b");
-const PUERTO = 4700 + Math.floor(Math.random() * 200);
+// Un puerto que el sistema da por libre (al azar podía caer en uno ocupado y fallar a veces)
+const PUERTO = await new Promise((ok) => { const s = net.createServer().listen(0, "127.0.0.1", () => { const { port } = s.address(); s.close(() => ok(port)); }); });
 const B = `http://127.0.0.1:${PUERTO}`;
 const IA = "IA de prueba";
 
@@ -96,26 +98,40 @@ test("una tarjeta que cambia de proyecto sale del tablero.json del anterior", as
   assert.deepEqual(titulos(DIR_B), ["A2", "B1 renombrada"]);
 });
 
-test("lo global (preguntas, plantillas, papelera) se sigue guardando en orbita.json", async () => {
-  await api("/api/questions", { text: "¿Pregunta de prueba?", projectId: A.id });
+test("lo global (plantillas, papelera) se sigue guardando en orbita.json", async () => {
   await api("/api/plantillas", { desde: b1.id, nombre: "Plantilla de prueba" });
   await mcp("delete_card", { ids: [a2.id], reason: "prueba de papelera", worker: IA });
   await guardado();
   const global = leer(path.join(DATOS, "orbita.json"));
-  assert.ok(global.questions.some((q) => q.text === "¿Pregunta de prueba?"));
   assert.ok(global.plantillas.some((p) => p.nombre === "Plantilla de prueba"));
   assert.ok(global.papelera.some((x) => x.card.id === a2.id && x.motivo === "prueba de papelera"));
   assert.deepEqual(titulos(DIR_B), ["B1 renombrada"]); // y la borrada ya no está en su tablero
+});
+
+test("el resultado no se guarda dos veces: la última versión lo marca en vez de repetirlo", async () => {
+  await api(`/api/cards/${b1.id}/edit`, { result: "Primera versión" });
+  await api(`/api/cards/${b1.id}/edit`, { result: "Segunda versión" });
+  await guardado();
+  const enDisco = tablero(DIR_B).tarjetas.find((c) => c.id === b1.id);
+  assert.equal(enDisco.result, "Segunda versión");
+  assert.equal(enDisco.versions.at(-1).result, undefined);
+  assert.equal(enDisco.versions.at(-1).comoElResultado, true);
+  assert.equal(enDisco.versions.at(-2).result, "Primera versión");
+  assert.equal(JSON.stringify(enDisco).split("Segunda versión").length - 1, 1, "el texto aparece una sola vez");
+  // Para la interfaz no cambia nada
+  const enMemoria = (await api("/api/board")).cards.find((c) => c.id === b1.id);
+  assert.deepEqual(enMemoria.versions.map((v) => v.result), ["Primera versión", "Segunda versión"]);
 });
 
 test("al reiniciar Órbita está todo, sin tarjetas duplicadas ni perdidas", async () => {
   await mcp("report_progress", { id: a1.id, step: "Último paso antes de cerrar", worker: IA }); // sin esperar al guardado
   await parar();
   await arrancar();
-  const { cards, questions, plantillas, papelera } = await api("/api/board");
+  const { cards, plantillas, papelera } = await api("/api/board");
   assert.deepEqual(cards.map((c) => c.title).sort(), ["A1", "B1 renombrada"]);
   assert.equal(cards.find((c) => c.id === a1.id).step, "Último paso antes de cerrar");
-  assert.ok(questions.some((q) => q.text === "¿Pregunta de prueba?"));
   assert.ok(plantillas.some((p) => p.nombre === "Plantilla de prueba"));
   assert.ok(papelera.some((x) => x.id === a2.id));
+  // La última versión se rehace al leer, y los tableros antiguos (con el texto repetido) se siguen leyendo igual
+  assert.deepEqual(cards.find((c) => c.id === b1.id).versions.map((v) => v.result), ["Primera versión", "Segunda versión"]);
 });
