@@ -1,7 +1,7 @@
 // Órbita · Arrastrar y soltar, y el panel de la tarjeta.
 // Parte de la interfaz (ver main.js): exporta lo que declara e importa lo que usa de los demás módulos.
 import { $, LIVE, LOG_ICON, STATUS, api, esc, fileIcon, hasBrain, md, state, toast, visible } from "./nucleo.js";
-import { TEXTO_ESPERA, avisoSinIA, duracion, esperaDe, textoCola } from "./tablero.js";
+import { TEXTO_ESPERA, avisoSinIA, chipTokens, duracion, esperaDe, textoCola } from "./tablero.js";
 import { adjuntar, tamano } from "./paginas.js";
 import { llenarProyectos, openConnect, openFile, pintarDependencias, pintarHilo, pintarVersiones } from "./detalle.js";
 import { exportar } from "./exportar.js";
@@ -257,6 +257,7 @@ export function updateDrawer(c) {
     c.status === "running" && state.projects.find((x) => x.id === c.projectId)?.pausado ? `<span class="chip warn" title="El proyecto está en pausa: la IA termina esta tarjeta y no toma más">⏸ Termina y para</span>` : "",
     c.status === "running" && c.startedAt ? `<span class="chip">lleva <span data-since="${c.startedAt}">${duracion(c.startedAt)}</span></span>` : "",
     c.status === "queued" ? `<span class="chip agent">${esc(textoCola(c))}</span>` : "",
+    c.tokens ? chipTokens(c.tokens, true) : "",
     c.inbox?.length ? `<span class="chip warn">${c.inbox.length} mensaje${c.inbox.length > 1 ? "s" : ""} sin leer por la IA</span>` : "",
   ].join("") + avisoSinIA(c, "sin-ia sin-ia-panel");
 

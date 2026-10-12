@@ -16,11 +16,12 @@
     "id": "c540fb0a",
     "categoria": "Objetos",
     "nombre": "Reloj",
-    "resumen": "Reloj marrón de Pedro.",
-    "detalles": "- **Dueño:** Pedro\n- **Color:** marrón",
+    "resumen": "Reloj marrón de Pedro, que ganó en la guerra del 95.",
+    "detalles": "- **Dueño:** Pedro\n- **Color:** marrón\n- **Origen:** Pedro lo ganó en la guerra del 95.",
     "etiquetas": [
      "Pedro",
-     "marrón"
+     "marrón",
+     "guerra del 95"
     ],
     "imagen": null,
     "creada": {
@@ -28,7 +29,28 @@
      "por": "Claude · ia"
     },
     "actualizada": {
-     "t": 1791744753919,
+     "t": 1791776854164,
+     "por": "Claude · ia"
+    }
+   },
+   {
+    "id": "1fd56fe7",
+    "categoria": "Hechos históricos",
+    "nombre": "Guerra del 95",
+    "resumen": "Hecho histórico en el que murieron 44 hombres.",
+    "detalles": "- **Qué fue:** un hecho histórico.\n- **Víctimas:** murieron 44 hombres.\n- **Relacionado:** Pedro ganó en ella su reloj marrón (ver «Reloj», en Objetos).",
+    "etiquetas": [
+     "guerra",
+     "Pedro",
+     "Reloj"
+    ],
+    "imagen": null,
+    "creada": {
+     "t": 1791776854210,
+     "por": "Claude · ia"
+    },
+    "actualizada": {
+     "t": 1791776854210,
      "por": "Claude · ia"
     }
    }
@@ -193,7 +215,14 @@
    "createdAt": 1791740185390,
    "updatedAt": 1791770757603,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 1216911,
+    "salida": 11385,
+    "cacheLeida": 1167044,
+    "mensajes": 13,
+    "at": 1791777573302
+   }
   },
   {
    "id": "b1a2a22a",
@@ -303,7 +332,14 @@
    "createdAt": 1791740409501,
    "updatedAt": 1791770757603,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 462410,
+    "salida": 3646,
+    "cacheLeida": 456721,
+    "mensajes": 4,
+    "at": 1791777573302
+   }
   },
   {
    "id": "17b5b4a7",
@@ -418,7 +454,14 @@
    "createdAt": 1791740409538,
    "updatedAt": 1791770757603,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 1416784,
+    "salida": 11234,
+    "cacheLeida": 1399679,
+    "mensajes": 11,
+    "at": 1791777573302
+   }
   },
   {
    "id": "7f48aed7",
@@ -538,7 +581,14 @@
    "createdAt": 1791740409591,
    "updatedAt": 1791770757603,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 4546459,
+    "salida": 24342,
+    "cacheLeida": 4508738,
+    "mensajes": 29,
+    "at": 1791777573302
+   }
   },
   {
    "id": "380ee476",
@@ -694,7 +744,14 @@
    "createdAt": 1791740409608,
    "updatedAt": 1791770757603,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3867708,
+    "salida": 16697,
+    "cacheLeida": 3844189,
+    "mensajes": 13,
+    "at": 1791777573302
+   }
   },
   {
    "id": "d1c24fdb",
@@ -839,7 +896,14 @@
    "createdAt": 1791740409625,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 15957642,
+    "salida": 41478,
+    "cacheLeida": 15896084,
+    "mensajes": 28,
+    "at": 1791777573302
+   }
   },
   {
    "id": "8d957af5",
@@ -984,7 +1048,14 @@
    "createdAt": 1791740409640,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 9480127,
+    "salida": 34453,
+    "cacheLeida": 9434798,
+    "mensajes": 19,
+    "at": 1791777573302
+   }
   },
   {
    "id": "b1503449",
@@ -1060,7 +1131,14 @@
    "createdAt": 1791741123878,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 1626979,
+    "salida": 4915,
+    "cacheLeida": 1614765,
+    "mensajes": 9,
+    "at": 1791777573302
+   }
   },
   {
    "id": "b94df232",
@@ -1136,7 +1214,14 @@
    "createdAt": 1791741249777,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3083926,
+    "salida": 21448,
+    "cacheLeida": 3048431,
+    "mensajes": 15,
+    "at": 1791777573302
+   }
   },
   {
    "id": "ecdd8bb6",
@@ -1217,7 +1302,14 @@
    "createdAt": 1791741399923,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 5711068,
+    "salida": 22939,
+    "cacheLeida": 5679109,
+    "mensajes": 24,
+    "at": 1791777573302
+   }
   },
   {
    "id": "305b510d",
@@ -1391,7 +1483,14 @@
    "createdAt": 1791743684465,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 15063719,
+    "salida": 43741,
+    "cacheLeida": 14986499,
+    "mensajes": 42,
+    "at": 1791777573302
+   }
   },
   {
    "id": "a15c9ee2",
@@ -1492,7 +1591,14 @@
    "createdAt": 1791744140731,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 8070922,
+    "salida": 36773,
+    "cacheLeida": 8018125,
+    "mensajes": 21,
+    "at": 1791777573302
+   }
   },
   {
    "id": "797edc60",
@@ -1573,7 +1679,14 @@
    "createdAt": 1791745293253,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3691461,
+    "salida": 10092,
+    "cacheLeida": 3678663,
+    "mensajes": 8,
+    "at": 1791777573302
+   }
   },
   {
    "id": "30cce8ab",
@@ -1666,7 +1779,14 @@
    "createdAt": 1791745443403,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 1879802,
+    "salida": 3172,
+    "cacheLeida": 1874833,
+    "mensajes": 4,
+    "at": 1791777573302
+   }
   },
   {
    "id": "005371a0",
@@ -1788,7 +1908,14 @@
    "createdAt": 1791745761390,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3753160,
+    "salida": 8346,
+    "cacheLeida": 3737924,
+    "mensajes": 7,
+    "at": 1791777573302
+   }
   },
   {
    "id": "e8232d2f",
@@ -1874,7 +2001,14 @@
    "createdAt": 1791746588586,
    "updatedAt": 1791770757604,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 13290895,
+    "salida": 29473,
+    "cacheLeida": 13235063,
+    "mensajes": 21,
+    "at": 1791777573302
+   }
   },
   {
    "id": "ca594b80",
@@ -2117,7 +2251,14 @@
    "createdAt": 1791747008179,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 45284575,
+    "salida": 79927,
+    "cacheLeida": 45166260,
+    "mensajes": 60,
+    "at": 1791777573302
+   }
   },
   {
    "id": "e2a5ef97",
@@ -2203,7 +2344,14 @@
    "createdAt": 1791747488536,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 10613039,
+    "salida": 21730,
+    "cacheLeida": 10584273,
+    "mensajes": 15,
+    "at": 1791777573302
+   }
   },
   {
    "id": "39da9e53",
@@ -2289,7 +2437,14 @@
    "createdAt": 1791748576484,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 2465355,
+    "salida": 5274,
+    "cacheLeida": 2459278,
+    "mensajes": 3,
+    "at": 1791777573302
+   }
   },
   {
    "id": "1acaebdc",
@@ -2429,7 +2584,14 @@
    "createdAt": 1791753643268,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 23643172,
+    "salida": 20575,
+    "cacheLeida": 23606098,
+    "mensajes": 28,
+    "at": 1791777573302
+   }
   },
   {
    "id": "a98192b3",
@@ -2505,7 +2667,14 @@
    "createdAt": 1791754637425,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 20260734,
+    "salida": 23767,
+    "cacheLeida": 20217249,
+    "mensajes": 23,
+    "at": 1791777573302
+   }
   },
   {
    "id": "4d14f301",
@@ -2616,7 +2785,14 @@
    "createdAt": 1791757172628,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 5522443,
+    "salida": 12223,
+    "cacheLeida": 5509132,
+    "mensajes": 6,
+    "at": 1791777573302
+   }
   },
   {
    "id": "8ee70148",
@@ -2812,7 +2988,14 @@
    "createdAt": 1791757285061,
    "updatedAt": 1791770757605,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 10942184,
+    "salida": 28321,
+    "cacheLeida": 10858429,
+    "mensajes": 40,
+    "at": 1791777573302
+   }
   },
   {
    "id": "a6596268",
@@ -2927,7 +3110,14 @@
    "createdAt": 1791757285085,
    "updatedAt": 1791773557236,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 5788466,
+    "salida": 15547,
+    "cacheLeida": 5756857,
+    "mensajes": 21,
+    "at": 1791777573303
+   }
   },
   {
    "id": "34fcec7f",
@@ -3136,7 +3326,14 @@
    "createdAt": 1791757285128,
    "updatedAt": 1791773557236,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 10144188,
+    "salida": 37855,
+    "cacheLeida": 10045814,
+    "mensajes": 57,
+    "at": 1791777573303
+   }
   },
   {
    "id": "5305c6f2",
@@ -3251,7 +3448,14 @@
    "createdAt": 1791757285150,
    "updatedAt": 1791773557236,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 2485364,
+    "salida": 13212,
+    "cacheLeida": 2458810,
+    "mensajes": 16,
+    "at": 1791777573303
+   }
   },
   {
    "id": "c244f12c",
@@ -3366,7 +3570,14 @@
    "createdAt": 1791757285168,
    "updatedAt": 1791773557237,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3425132,
+    "salida": 15274,
+    "cacheLeida": 3392757,
+    "mensajes": 18,
+    "at": 1791777573303
+   }
   },
   {
    "id": "93d2260d",
@@ -3491,7 +3702,14 @@
    "createdAt": 1791758949435,
    "updatedAt": 1791773557237,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 9563255,
+    "salida": 20942,
+    "cacheLeida": 9526296,
+    "mensajes": 28,
+    "at": 1791777573303
+   }
   },
   {
    "id": "aaeb6340",
@@ -3567,7 +3785,14 @@
    "createdAt": 1791759041609,
    "updatedAt": 1791773557237,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3972412,
+    "salida": 8224,
+    "cacheLeida": 3951828,
+    "mensajes": 12,
+    "at": 1791777573303
+   }
   },
   {
    "id": "638bd753",
@@ -3687,7 +3912,14 @@
    "createdAt": 1791759101985,
    "updatedAt": 1791773557237,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 4879375,
+    "salida": 12996,
+    "cacheLeida": 4858831,
+    "mensajes": 14,
+    "at": 1791777573303
+   }
   },
   {
    "id": "b571c93c",
@@ -3795,7 +4027,14 @@
    "createdAt": 1791759101999,
    "updatedAt": 1791773557237,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 5285401,
+    "salida": 9385,
+    "cacheLeida": 5251961,
+    "mensajes": 14,
+    "at": 1791777573303
+   }
   },
   {
    "id": "382a72c0",
@@ -3915,7 +4154,14 @@
    "createdAt": 1791759102018,
    "updatedAt": 1791773557237,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 3225989,
+    "salida": 6673,
+    "cacheLeida": 3212252,
+    "mensajes": 8,
+    "at": 1791777573303
+   }
   },
   {
    "id": "bdacbc46",
@@ -4068,7 +4314,14 @@
    "createdAt": 1791759102064,
    "updatedAt": 1791773557238,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 7580073,
+    "salida": 15539,
+    "cacheLeida": 7555089,
+    "mensajes": 14,
+    "at": 1791777573303
+   }
   },
   {
    "id": "39498c2b",
@@ -4208,7 +4461,14 @@
    "createdAt": 1791759102083,
    "updatedAt": 1791773557238,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 16182184,
+    "salida": 36804,
+    "cacheLeida": 16125628,
+    "mensajes": 32,
+    "at": 1791777573303
+   }
   },
   {
    "id": "7285cd47",
@@ -4328,7 +4588,14 @@
    "createdAt": 1791759102095,
    "updatedAt": 1791773557238,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 5451936,
+    "salida": 8629,
+    "cacheLeida": 5438380,
+    "mensajes": 13,
+    "at": 1791777573303
+   }
   },
   {
    "id": "10067a71",
@@ -4487,7 +4754,14 @@
    "createdAt": 1791767310833,
    "updatedAt": 1791773557238,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 9108253,
+    "salida": 16781,
+    "cacheLeida": 9074024,
+    "mensajes": 17,
+    "at": 1791777573303
+   }
   },
   {
    "id": "bc943bec",
@@ -4609,7 +4883,14 @@
    "createdAt": 1791767624640,
    "updatedAt": 1791773557238,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 1417022,
+    "salida": 2068,
+    "cacheLeida": 1413280,
+    "mensajes": 3,
+    "at": 1791777573303
+   }
   },
   {
    "id": "b2f42989",
@@ -4714,7 +4995,14 @@
    "createdAt": 1791767624664,
    "updatedAt": 1791773557238,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 1869551,
+    "salida": 3483,
+    "cacheLeida": 1862766,
+    "mensajes": 4,
+    "at": 1791777573303
+   }
   },
   {
    "id": "f7756717",
@@ -4831,7 +5119,14 @@
    "createdAt": 1791770720299,
    "updatedAt": 1791773557239,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 2293603,
+    "salida": 6113,
+    "cacheLeida": 2286246,
+    "mensajes": 4,
+    "at": 1791777573303
+   }
   },
   {
    "id": "daf32dbd",
@@ -4921,7 +5216,14 @@
    "createdAt": 1791771382018,
    "updatedAt": 1791773557241,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 13199457,
+    "salida": 11543,
+    "cacheLeida": 13181343,
+    "mensajes": 22,
+    "at": 1791777573303
+   }
   },
   {
    "id": "0e9ad9bc",
@@ -5015,7 +5317,14 @@
    "createdAt": 1791771523067,
    "updatedAt": 1791773557242,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 10660244,
+    "salida": 7771,
+    "cacheLeida": 10646738,
+    "mensajes": 17,
+    "at": 1791777573303
+   }
   },
   {
    "id": "de9018ad",
@@ -5132,7 +5441,14 @@
    "createdAt": 1791771751476,
    "updatedAt": 1791773557242,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 11611387,
+    "salida": 14506,
+    "cacheLeida": 11589912,
+    "mensajes": 18,
+    "at": 1791777573303
+   }
   },
   {
    "id": "578f6bbf",
@@ -5225,22 +5541,29 @@
    "createdAt": 1791771817076,
    "updatedAt": 1791773557242,
    "revocada": null,
-   "pausada": false
+   "pausada": false,
+   "tokens": {
+    "entrada": 15955821,
+    "salida": 17995,
+    "cacheLeida": 15928203,
+    "mensajes": 25,
+    "at": 1791777573303
+   }
   },
   {
    "id": "a944fd16",
    "title": "busca errores y corrige",
    "description": "",
    "kind": "task",
-   "column": "doing",
-   "status": "running",
+   "column": "done",
+   "status": "done",
    "origin": "tú",
    "parentId": null,
    "tag": null,
    "projectId": "034dfa34",
    "archivedAt": null,
    "dependsOn": [],
-   "order": 2000,
+   "order": 1791666055905,
    "thread": [
     {
      "t": 1791774102038,
@@ -5254,6 +5577,13 @@
      "de": "persona",
      "tipo": "comentario",
      "texto": "sube.. las capturas no las incluyas"
+    },
+    {
+     "t": 1791775975542,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** subido. Todo el trabajo de ayer y hoy está en GitHub en un solo commit (`5676209`), **sin las capturas**, y la web ya se ha publicado con los textos y las imágenes nuevos."
     }
    ],
    "attachments": [],
@@ -5261,6 +5591,12 @@
     {
      "n": 1,
      "t": 1791774102038,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** busqué errores por todas partes y esta vez **no encontré ninguno nuevo** que corregir. Los de hoy ya están arreglados en sus tarjetas: chips como bolas, orden de la cola, versión vieja al reabrir, enlaces a PDF y comandos de Claude. Lo único pendiente es un fallo intermitente de una prueba que no se ha vuelto a dar en 16 ejecuciones seguidas.\n\n### Lo que revisé y está bien\n| Qué | Cómo | Resultado |\n|---|---|---|\n| Tu tablero real | Recorrido en solo lectura: 3 proyectos, cada sección, el archivo y cada pestaña de cada tarjeta | 0 errores; el tablero, igual (46 tarjetas) |\n| Versión en marcha | Comparé la de tu Órbita con la del código | Coinciden (`d2e474c5eb`): ya usas lo último |\n| Todos los comandos de ⌘K | Ejecuté los 39, con y sin tarjeta abierta | Ninguno da error |\n| Móvil, claro y oscuro | Tablero, contexto, entidades, entregables, archivo y las 6 pestañas del panel a 390 px, con títulos, tablas y código muy largos | Sin desbordes ni errores |\n| Peticiones malformadas | 26 llamadas a la API (JSON roto, ids que no existen, columnas inventadas, rutas `../`) y 9 a las herramientas de la IA | Todas con error controlado (400/404 o un mensaje claro); nada sale de la carpeta del proyecto y Órbita sigue en pie |\n| Código | Identificadores sin declarar, restos de depuración, funciones sin uso | Nada |\n| Pruebas | `npm test` y la batería de interfaz | 13/13 y 64/64 |\n\n### El fallo intermitente\n- Una vez, en la batería de interfaz, la prueba de «Entregables» falló con un error de JavaScript. Pasó con el equipo cargado: 8 Chrome a la vez.\n- Lo repetí **10 veces seguidas en bucle** (y 6 antes): todas en verde.\n- No invento un arreglo sin ver el error. Si vuelve, la salida de la prueba mostrará el mensaje y lo corrijo.\n\n### Lo que espera tu decisión\n- **«sube»:** ya son **35 archivos (+3.661 / −1.476 líneas)** sin subir, con todo el trabajo de ayer y hoy y sus pruebas en verde. Cuanto más espere, más difícil será revisar el commit si algo sale mal.\n- **Las capturas de prueba de `orbita/capturas`** (3,4 MB): ¿van en el commit? Mi recomendación es dejarlas fuera.\n- **Tarjetas nuevas al crearlas con «pedírsela a la IA»:** ¿al final de la cola, como ahora, o arriba?\n\nContéstame en esta tarjeta y lo hago."
+    },
+    {
+     "n": 2,
+     "t": 1791775975541,
      "quien": "Claude · ia",
      "comoElResultado": true
     }
@@ -5271,8 +5607,8 @@
    "documento": null,
    "worker": "Claude · ia",
    "inbox": [],
-   "progress": 20,
-   "step": "Preparando el commit sin las capturas",
+   "progress": 100,
+   "step": "Listo para revisar",
    "live": "**Plan:**\n1. El fallo intermitente conocido («Entregables», 1 de cada ~6 ejecuciones): lo repito en bucle hasta capturar el mensaje.\n2. Revisión de lo cambiado hoy: identificadores sin declarar, casos límite del arranque, del orden y de la pausa.\n3. Recorrido de tu tablero real, en solo lectura.",
    "liveAt": 1791773553991,
    "startedAt": 1791775899056,
@@ -5306,13 +5642,529 @@
      "t": 1791775907800,
      "kind": "step",
      "text": "Preparando el commit sin las capturas"
+    },
+    {
+     "t": 1791775975542,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791776444731,
+     "kind": "done",
+     "text": "Aprobada"
     }
    ],
-   "result": "**Resumen:** busqué errores por todas partes y esta vez **no encontré ninguno nuevo** que corregir. Los de hoy ya están arreglados en sus tarjetas: chips como bolas, orden de la cola, versión vieja al reabrir, enlaces a PDF y comandos de Claude. Lo único pendiente es un fallo intermitente de una prueba que no se ha vuelto a dar en 16 ejecuciones seguidas.\n\n### Lo que revisé y está bien\n| Qué | Cómo | Resultado |\n|---|---|---|\n| Tu tablero real | Recorrido en solo lectura: 3 proyectos, cada sección, el archivo y cada pestaña de cada tarjeta | 0 errores; el tablero, igual (46 tarjetas) |\n| Versión en marcha | Comparé la de tu Órbita con la del código | Coinciden (`d2e474c5eb`): ya usas lo último |\n| Todos los comandos de ⌘K | Ejecuté los 39, con y sin tarjeta abierta | Ninguno da error |\n| Móvil, claro y oscuro | Tablero, contexto, entidades, entregables, archivo y las 6 pestañas del panel a 390 px, con títulos, tablas y código muy largos | Sin desbordes ni errores |\n| Peticiones malformadas | 26 llamadas a la API (JSON roto, ids que no existen, columnas inventadas, rutas `../`) y 9 a las herramientas de la IA | Todas con error controlado (400/404 o un mensaje claro); nada sale de la carpeta del proyecto y Órbita sigue en pie |\n| Código | Identificadores sin declarar, restos de depuración, funciones sin uso | Nada |\n| Pruebas | `npm test` y la batería de interfaz | 13/13 y 64/64 |\n\n### El fallo intermitente\n- Una vez, en la batería de interfaz, la prueba de «Entregables» falló con un error de JavaScript. Pasó con el equipo cargado: 8 Chrome a la vez.\n- Lo repetí **10 veces seguidas en bucle** (y 6 antes): todas en verde.\n- No invento un arreglo sin ver el error. Si vuelve, la salida de la prueba mostrará el mensaje y lo corrijo.\n\n### Lo que espera tu decisión\n- **«sube»:** ya son **35 archivos (+3.661 / −1.476 líneas)** sin subir, con todo el trabajo de ayer y hoy y sus pruebas en verde. Cuanto más espere, más difícil será revisar el commit si algo sale mal.\n- **Las capturas de prueba de `orbita/capturas`** (3,4 MB): ¿van en el commit? Mi recomendación es dejarlas fuera.\n- **Tarjetas nuevas al crearlas con «pedírsela a la IA»:** ¿al final de la cola, como ahora, o arriba?\n\nContéstame en esta tarjeta y lo hago.",
+   "result": "**Resumen:** subido. Todo el trabajo de ayer y hoy está en GitHub en un solo commit (`5676209`), **sin las capturas**, y la web ya se ha publicado con los textos y las imágenes nuevos.\n\n### El commit\n- **«Órbita más simple, más ligera para la IA y con pruebas de la interfaz»**: 50 archivos (+4.982 / −1.476), en `main`, ya en `origin/main`.\n- **Incluye:** el código, las pruebas (`test/`, `test/interfaz/`), el README, la web con sus imágenes (`web/img/`), `public/vendor` actualizado, el tablero del proyecto (`orbita/tablero.json`) y el PDF de muestra (`orbita/documentos/`).\n- **No incluye**, como pediste:\n  - **`orbita/capturas/`:** las 16 capturas nuevas de prueba; no toqué las 18 que ya estaban en el repositorio.\n  - **`orbita/adjuntos/`:** la captura de pantalla que adjuntaste a la tarjeta «bug». También es una captura, así que la dejé fuera.\n\n  Las dos carpetas siguen en tu disco y en las tarjetas, solo que sin subir.\n\n### La web\nEl despliegue de GitHub Pages terminó bien, y https://osmely.github.io/orbita/ ya muestra, por ejemplo, «⏸ Pausa sin cortes» y las capturas nuevas del tablero.\n\n### Antes de subir\nLas pruebas estaban en verde y no hubo cambios de código después: `npm test` 13/13 y la interfaz 64/64.\n\n### Queda una pregunta\nLas tarjetas que creas con «Crear y pedírsela a la IA», ¿al final de la cola (como ahora) o arriba? Si no me dices nada, se quedan como están.\n\nSi quieres que las capturas dejen de aparecer como pendientes en git, puedo añadir `orbita/capturas/` y `orbita/adjuntos/` al `.gitignore`: dímelo.",
    "question": "",
    "files": [],
    "createdAt": 1791773543044,
-   "updatedAt": 1791775907800,
+   "updatedAt": 1791776444731,
+   "revocada": null,
+   "pausada": false,
+   "tokens": {
+    "entrada": 13240246,
+    "salida": 18129,
+    "cacheLeida": 13218978,
+    "mensajes": 19,
+    "at": 1791777573303
+   }
+  },
+  {
+   "id": "ea1d4c59",
+   "title": "concatena LAKEY con 'yes'",
+   "description": "",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666056905,
+   "thread": [
+    {
+     "t": 1791776519942,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** hecho, pero **no escribo el resultado aquí**: contiene el valor del secreto `LAKEY`, y los secretos no se copian en el tablero. La concatenación es `LAKEY` seguido de «yes», y mide 7 caracteres (4 del secreto y 3 de «yes»)."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791776519942,
+     "quien": "Claude · ia",
+     "comoElResultado": true
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "entregable": false,
+   "documento": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791776493233,
+   "log": [
+    {
+     "t": 1791776493233,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791776505631,
+     "kind": "step",
+     "text": "Pidiendo el secreto LAKEY para concatenarlo, sin copiarlo en el tablero"
+    },
+    {
+     "t": 1791776505655,
+     "kind": "note",
+     "text": "Claude · ia usó el secreto LAKEY"
+    },
+    {
+     "t": 1791776519942,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791776638081,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** hecho, pero **no escribo el resultado aquí**: contiene el valor del secreto `LAKEY`, y los secretos no se copian en el tablero. La concatenación es `LAKEY` seguido de «yes», y mide 7 caracteres (4 del secreto y 3 de «yes»).\n\n### Por qué no lo pego\n- Los secretos existen para que la IA los use (en un `.env`, en una llamada a una API…) sin que acaben en tarjetas, resultados ni entregables. Lo pedí con `get_secret` y queda apuntado en la actividad de esta tarjeta.\n- **Ojo con este secreto en concreto:** el tablero tapa automáticamente los valores de **6 caracteres o más** con «secreto NOMBRE». El de `LAKEY` tiene **4**, así que si lo hubiera escrito se vería tal cual. Los valores cortos no se tapan para no confundirlos con palabras normales.\n\n### Si necesitas el resultado en algún sitio\nDime dónde y lo pongo ahí, fuera del tablero. Por ejemplo, en el `.env` de la carpeta del proyecto, como `LAKEY_YES=…`. O, si era una prueba de que los secretos funcionan: sí funcionan. Para probar el tapado, usa un valor de 6 caracteres o más.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791776493232,
+   "updatedAt": 1791776638081,
+   "revocada": null,
+   "pausada": false,
+   "tokens": {
+    "entrada": 2872233,
+    "salida": 2101,
+    "cacheLeida": 2869984,
+    "mensajes": 4,
+    "at": 1791777573303
+   }
+  },
+  {
+   "id": "b7bfa9c0",
+   "title": "dame una imagen del sitio de la key SITE",
+   "description": "",
+   "kind": "task",
+   "column": "done",
+   "status": "done",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 1791666057905,
+   "thread": [
+    {
+     "t": 1791776692986,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** aquí tienes la captura del sitio guardado en el secreto `SITE`, tomada ahora con Chrome sin ventana a 1280×800. La dirección no aparece escrita en el tablero."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791776692986,
+     "quien": "Claude · ia",
+     "comoElResultado": true
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "entregable": false,
+   "documento": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791776655281,
+   "log": [
+    {
+     "t": 1791776655281,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791776661187,
+     "kind": "step",
+     "text": "Pidiendo el secreto SITE para capturar el sitio"
+    },
+    {
+     "t": 1791776661222,
+     "kind": "note",
+     "text": "Claude · ia usó el secreto SITE"
+    },
+    {
+     "t": 1791776686534,
+     "kind": "file",
+     "text": "Claude · ia escribió ia/capturas/sitio-SITE.png"
+    },
+    {
+     "t": 1791776692986,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791776787355,
+     "kind": "done",
+     "text": "Aprobada"
+    }
+   ],
+   "result": "**Resumen:** aquí tienes la captura del sitio guardado en el secreto `SITE`, tomada ahora con Chrome sin ventana a 1280×800. La dirección no aparece escrita en el tablero.\n\n![Captura del sitio de SITE](/files/ia/capturas/sitio-SITE.png)\n\n### Cómo la hice\n1. Pedí el valor de `SITE` con `get_secret`; queda apuntado en la actividad de esta tarjeta.\n2. Abrí la página con un Chrome sin ventana (perfil limpio, sin tus sesiones), esperé a que cargara y la capturé tal cual, sin pulsar nada.\n3. La guardé como `orbita/capturas/sitio-SITE.png`. Está en `capturas`, así que, como acordamos, no irá en los commits.\n\nLa captura enseña la página, así que se ve qué sitio es. La dirección completa no está escrita en ningún sitio del tablero. Este secreto mide más de 6 caracteres, así que, si se colara en un texto, el tablero lo taparía igualmente.",
+   "question": "",
+   "files": [
+    "ia/capturas/sitio-SITE.png"
+   ],
+   "createdAt": 1791776655281,
+   "updatedAt": 1791776787356,
+   "revocada": null,
+   "pausada": false,
+   "tokens": {
+    "entrada": 3610808,
+    "salida": 2191,
+    "cacheLeida": 3606982,
+    "mensajes": 5,
+    "at": 1791777573303
+   }
+  },
+  {
+   "id": "6e2593a3",
+   "title": "describe los relojes que conoces",
+   "description": "",
+   "kind": "task",
+   "column": "review",
+   "status": "ready",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 2000,
+   "thread": [
+    {
+     "t": 1791776790655,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** en este proyecto conozco **un solo reloj**: el **reloj marrón de Pedro**, guardado en las entidades del proyecto (Objetos)."
+    },
+    {
+     "t": 1791776844896,
+     "de": "persona",
+     "tipo": "comentario",
+     "texto": "ese reloj lo gano en la guerra del 95. La gerra del 95 es un hecho hsitorico donde murieron 44 hombres"
+    },
+    {
+     "t": 1791776860453,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** apuntado. El reloj de Pedro ya cuenta que lo ganó en la guerra del 95, y la guerra tiene su propia ficha en Entidades, para que la recuerde en próximas tarjetas."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791776790654,
+     "quien": "Claude · ia",
+     "result": "**Resumen:** en este proyecto conozco **un solo reloj**: el **reloj marrón de Pedro**, guardado en las entidades del proyecto (Objetos).\n\n| | |\n|---|---|\n| **Nombre** | Reloj |\n| **Categoría** | Objetos |\n| **Resumen** | Reloj marrón de Pedro. |\n| **Dueño** | Pedro |\n| **Color** | marrón |\n| **Etiquetas** | Pedro, marrón |\n| **Actualizado** | 11/10/2026, 18:52 (por Claude · ia) |\n\nEs todo lo que sé de él: no tiene más detalles ni imagen. Si hay más relojes, o quieres añadirle algo (marca, modelo, una foto…), dímelo y actualizo la ficha en Entidades."
+    },
+    {
+     "n": 2,
+     "t": 1791776860453,
+     "quien": "Claude · ia",
+     "comoElResultado": true
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "entregable": false,
+   "documento": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791776844896,
+   "log": [
+    {
+     "t": 1791776779485,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791776790655,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    },
+    {
+     "t": 1791776844896,
+     "kind": "you",
+     "text": "ese reloj lo gano en la guerra del 95. La gerra del 95 es un hecho hsitorico donde murieron 44 hombres"
+    },
+    {
+     "t": 1791776844896,
+     "kind": "start",
+     "text": "Claude · ia la retomó"
+    },
+    {
+     "t": 1791776854164,
+     "kind": "note",
+     "text": "Claude · ia actualizó la entidad «Reloj» (Objetos)"
+    },
+    {
+     "t": 1791776854210,
+     "kind": "note",
+     "text": "Claude · ia añadió la entidad «Guerra del 95» (Hechos históricos)"
+    },
+    {
+     "t": 1791776860453,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    }
+   ],
+   "result": "**Resumen:** apuntado. El reloj de Pedro ya cuenta que lo ganó en la guerra del 95, y la guerra tiene su propia ficha en Entidades, para que la recuerde en próximas tarjetas.\n\n### El único reloj que conozco\n| | |\n|---|---|\n| **Reloj** (Objetos) | Reloj marrón de Pedro, que ganó en la guerra del 95. |\n| Dueño | Pedro |\n| Color | marrón |\n| Origen | Lo ganó en la guerra del 95 |\n| Etiquetas | Pedro, marrón, guerra del 95 |\n\n### Ficha nueva\n| | |\n|---|---|\n| **Guerra del 95** (Hechos históricos) | Hecho histórico en el que murieron 44 hombres. |\n| Relacionado | Pedro ganó en ella su reloj marrón |\n\nLas dos están en **Entidades**, y la nueva categoría «Hechos históricos» aparece allí. Si quieres que Pedro tenga también su propia ficha (en «Personas» o «Personajes»), dímelo y la creo con lo que sepamos de él.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791776779485,
+   "updatedAt": 1791776860453,
+   "revocada": null,
+   "pausada": false,
+   "tokens": {
+    "entrada": 3634683,
+    "salida": 2277,
+    "cacheLeida": 3630645,
+    "mensajes": 5,
+    "at": 1791777573303
+   }
+  },
+  {
+   "id": "1338ac02",
+   "title": "cada tarjeta debe tener los tokens usados de entrada y salida",
+   "description": "",
+   "kind": "task",
+   "column": "review",
+   "status": "ready",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 2000,
+   "thread": [
+    {
+     "t": 1791777489594,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** cada tarjeta muestra ya los tokens que gastó la IA en ella: «⇣ entrada · ⇡ salida» en el tablero, y en su panel con el desglose. Órbita los cuenta sola, sin configurar nada, con las cifras exactas que apunta Claude Code."
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791777489593,
+     "quien": "Claude · ia",
+     "comoElResultado": true
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "entregable": false,
+   "documento": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "**Hecho:** `tokens.mjs` lee los registros de Claude Code de la carpeta del proyecto.\n- Con tus registros reales: **53 tarjetas con uso**, en 168 ms la primera vez y 0 ms las siguientes (solo lee lo nuevo).\n- Ejemplo, esta misma tarjeta: 2,9M de entrada (casi todo caché) y 10k de salida, en 4 respuestas.\n\n**Ahora:** que Órbita lo actualice cada 20 s y justo al entregar, y que se vea en cada tarjeta.",
+   "liveAt": 1791777346462,
+   "startedAt": 1791777223038,
+   "log": [
+    {
+     "t": 1791777223038,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791777240067,
+     "kind": "step",
+     "text": "Viendo de dónde sacar los tokens reales de cada tarjeta"
+    },
+    {
+     "t": 1791777287789,
+     "kind": "step",
+     "text": "Diseñando el contador: qué sesión trabajó cada tarjeta y cuánto gastó"
+    },
+    {
+     "t": 1791777346462,
+     "kind": "step",
+     "text": "Contador probado con tus registros reales; conectándolo a Órbita"
+    },
+    {
+     "t": 1791777489594,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    }
+   ],
+   "result": "**Resumen:** cada tarjeta muestra ya los tokens que gastó la IA en ella: «⇣ entrada · ⇡ salida» en el tablero, y en su panel con el desglose. Órbita los cuenta sola, sin configurar nada, con las cifras exactas que apunta Claude Code.\n\n### De dónde salen\n- La IA no conoce de forma fiable sus propios tokens, y tus hooks de Claude Code no están puestos. Pero Claude Code guarda cada sesión en `~/.claude/projects/<carpeta>/<sesión>.jsonl`, y cada respuesta lleva su uso exacto: entrada, caché leída y creada, y salida.\n- Órbita **solo lee** esos registros, **solo** los de las carpetas de trabajo de tus proyectos, y **solo** usa las cifras.\n- Para saber de qué tarjeta es cada respuesta, sigue lo que la IA hace con Órbita en esa sesión. La tarjeta empieza cuando `wait_for_work` se la da, o cuando la IA la nombra al informar o guardar un archivo (por si retoma sin `wait_for_work`), y termina cuando la entrega o pregunta. Lo que la IA hace entre tarjetas no se le apunta a ninguna.\n- Un mismo mensaje aparece en varias líneas del registro: cuenta una sola vez.\n- Los registros pueden ser enormes (alguno tuyo pasa de 270 MB), así que se leen por partes y solo lo nuevo. Con tus registros reales, la primera pasada tardó **168 ms** y las siguientes, **0 ms**.\n- Se actualiza cada 20 s y justo después de cada entrega, y queda guardado en la tarjeta.\n\n### Cómo se ve\n- **En el tablero:** un chip, por ejemplo `⇣ 2,9M · ⇡ 10k`.\n- **En el panel:** «Tokens: ⇣ 2,9M · ⇡ 10k». Al pasar el ratón por encima: «2.912.345 de entrada (2.900.000 leídos de caché) y 10.234 de salida, en 4 respuestas de Claude».\n\n### Cifras reales de hoy (de tus registros)\n| Tarjeta | Entrada | De ella, caché | Salida | Respuestas |\n|---|---|---|---|---|\n| raro (versión vieja al reabrir) | 16,0M | 15,9M | 18k | 25 |\n| busca errores y corrige | 13,2M | 13,2M | 18k | 19 |\n| orden de ejecución de cards | 11,6M | 11,6M | 15k | 18 |\n| los tags parecen bolas | 10,7M | 10,6M | 8k | 17 |\n| concatena LAKEY | 2,9M | 2,9M | 2k | 4 |\n\nLa entrada es tan alta porque cada respuesta vuelve a leer todo el contexto de la sesión (unos 700k tokens), y casi todo sale de caché, que es mucho más barata. La salida es lo que la IA escribe de verdad. Con esto puedes ver qué tarjetas «pesan».\n\n### Límites\n- Solo hay cifras cuando la IA es **Claude Code** y trabaja desde la carpeta del proyecto (lo normal). Con otras IAs, como Cursor, no aparece el chip.\n- Las tarjetas antiguas tienen cifras si sus sesiones siguen en `~/.claude/projects`.\n\n### Pruebas\n- **`test/tokens.test.mjs`** (4) usa un registro con la forma real:\n  - reparto por tarjeta;\n  - el mismo mensaje en varias líneas cuenta una vez;\n  - lo que llega después de entregar no se apunta;\n  - una tarjeta retomada sin `wait_for_work` sí cuenta;\n  - solo lee lo nuevo, y una línea a medio escribir espera a completarse.\n- **`test/interfaz/tokens.test.mjs`** (3): Órbita los cuenta sola y aparecen en la tarjeta y en el panel sin recargar.\n- `npm test`: **17/17**. Interfaz: **67/67**. README actualizado.\n\nPara verlo en tu tablero, vuelve a abrir Órbita con `npm start`: ahora sustituye sola a la que tienes abierta. En unos segundos aparecerán las cifras en todas las tarjetas de la IA, también en esta. Está sin subir; dime «sube» cuando quieras.",
+   "question": "",
+   "files": [],
+   "createdAt": 1791777223036,
+   "updatedAt": 1791777489594,
+   "revocada": null,
+   "pausada": false,
+   "tokens": {
+    "entrada": 10443689,
+    "salida": 20997,
+    "cacheLeida": 10418815,
+    "mensajes": 14,
+    "at": 1791777573303
+   }
+  },
+  {
+   "id": "dad4c7bd",
+   "title": "haz prueba de conteo de tokens",
+   "description": "",
+   "kind": "task",
+   "column": "review",
+   "status": "ready",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 2000,
+   "thread": [
+    {
+     "t": 1791777598198,
+     "de": "ia",
+     "quien": "Claude · ia",
+     "tipo": "entrega",
+     "texto": "Resumen:** el conteo de tokens **cuadra al token** con un recuento independiente sobre tus registros reales de Claude Code, tanto en esta tarjeta mientras la trabajaba como en la anterior, ya entregada. Para verlo en tu tablero falta reiniciar Órbita: la que tienes abierta es de antes de este cambio"
+    }
+   ],
+   "attachments": [],
+   "versions": [
+    {
+     "n": 1,
+     "t": 1791777598198,
+     "quien": "Claude · ia",
+     "comoElResultado": true
+    }
+   ],
+   "criterios": [],
+   "programa": null,
+   "entregable": false,
+   "documento": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 100,
+   "step": "Listo para revisar",
+   "live": "",
+   "liveAt": null,
+   "startedAt": 1791777533929,
+   "log": [
+    {
+     "t": 1791777533929,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791777540658,
+     "kind": "step",
+     "text": "Comprobando si tu Órbita ya cuenta tokens"
+    },
+    {
+     "t": 1791777598198,
+     "kind": "done",
+     "text": "Claude · ia entregó el resultado"
+    }
+   ],
+   "result": "**Resumen:** el conteo de tokens **cuadra al token** con un recuento independiente sobre tus registros reales de Claude Code, tanto en esta tarjeta mientras la trabajaba como en la anterior, ya entregada. Para verlo en tu tablero falta reiniciar Órbita: la que tienes abierta es de antes de este cambio.\n\n### Prueba 1: esta tarjeta, en marcha\nMedí con el contador de Órbita (`tokens.mjs`) y, aparte, con un recuento escrito a mano. Ese recuento busca en el registro el momento en que `wait_for_work` me dio esta tarjeta y suma cada mensaje desde ahí, una vez por id.\n\n| | Entrada | De ella, caché | Salida | Respuestas |\n|---|---|---|---|---|\n| Contador de Órbita | 3.040.903 | 3.035.683 | 3.749 | 4 |\n| Recuento independiente | 3.040.903 | 3.035.683 | 3.749 | 4 |\n\nEntre una medición y otra la cifra fue creciendo con cada respuesta mía: 2 → 3 → 4 respuestas, y 1,52M → 2,28M → 3,04M de entrada.\n\n### Prueba 2: la tarjeta anterior, entregada\n«Cada tarjeta debe tener los tokens…» (1338ac02): desde que `wait_for_work` me la dio hasta su `submit_result`.\n\n| | Entrada | Salida | Respuestas |\n|---|---|---|---|\n| Contador de Órbita | 10.443.689 | 20.997 | 14 |\n| Recuento independiente | 10.443.689 | 20.997 | 14 |\n\nCoinciden, y **deja de contar al entregar**: lo que hice después ya no se le apunta. En su resultado puse «2,9M»; esa era la cifra a mitad de trabajo. La final es 10,4M.\n\n### Por qué no lo has visto aún en el tablero\nTu Órbita es la versión `d2e474c5eb`, y la que cuenta tokens es la `15419959d7`. No la reinicié yo: una Órbita lanzada desde mi sesión podría cerrarse cuando yo termine y dejarte sin tablero.\n\nPara verlo: abre una terminal en la carpeta del proyecto y ejecuta `npm start`. Sustituye sola a la que tienes abierta, guardando antes, y tu ventana se recarga. En unos segundos aparecerá «⇣ … · ⇡ …» en las tarjetas que trabajó Claude, también en esta.\n\nLo que se ve en pantalla ya lo comprueban las pruebas: Órbita los cuenta sola y salen en la tarjeta y en el panel sin recargar (67/67 en la interfaz).",
+   "question": "",
+   "files": [],
+   "createdAt": 1791777533929,
+   "updatedAt": 1791777598198,
+   "revocada": null,
+   "pausada": false,
+   "tokens": {
+    "entrada": 4568037,
+    "salida": 5948,
+    "cacheLeida": 4560349,
+    "mensajes": 6,
+    "at": 1791777600203
+   }
+  },
+  {
+   "id": "6307e07e",
+   "title": "publica la web",
+   "description": "",
+   "kind": "task",
+   "column": "doing",
+   "status": "running",
+   "origin": "tú",
+   "parentId": null,
+   "tag": null,
+   "projectId": "034dfa34",
+   "archivedAt": null,
+   "dependsOn": [],
+   "order": 2000,
+   "thread": [],
+   "attachments": [],
+   "versions": [],
+   "criterios": [],
+   "programa": null,
+   "entregable": false,
+   "documento": null,
+   "worker": "Claude · ia",
+   "inbox": [],
+   "progress": 15,
+   "step": "Añadiendo a la web el conteo de tokens y publicando",
+   "live": "**Situación:** la web se publica sola en GitHub Pages con cada subida a `main`. Lo último ya está publicado, salvo lo que hice después: los **tokens por tarjeta**.\n\n**Plan:**\n1. Añadir los tokens a la rejilla de funciones de la web.\n2. Subir esa función y la web juntas, sin `orbita/capturas` ni `orbita/adjuntos`, como la otra vez.\n3. Esperar al despliegue y comprobar la web publicada.",
+   "liveAt": 1791777896556,
+   "startedAt": 1791777884632,
+   "log": [
+    {
+     "t": 1791777884632,
+     "kind": "start",
+     "text": "Claude · ia la tomó"
+    },
+    {
+     "t": 1791777896556,
+     "kind": "step",
+     "text": "Añadiendo a la web el conteo de tokens y publicando"
+    }
+   ],
+   "result": "",
+   "question": "",
+   "files": [],
+   "createdAt": 1791777884631,
+   "updatedAt": 1791777896556,
    "revocada": null,
    "pausada": false
   }

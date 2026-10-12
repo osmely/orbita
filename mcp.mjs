@@ -9,7 +9,7 @@ import { z } from "zod/v4";
 import { VERSION_APP } from "./entorno.mjs";
 import { normalizarCarpeta, baseDe, CARPETA } from "./almacen.mjs";
 // El tablero y sus operaciones (antes llegaban por parámetro desde server.mjs)
-import { PLAN_INSTRUCCIONES, aLaPapelera, board, brainList, broadcast, broadcastProjects, changes, claim, conectada, conocimiento, dependenciasPendientes, elegible, enPausa, evaluarCriterios, findCard, findProject, hilo, iaDeProyecto, listFiles, log, moveCard, moverProyecto, newCard, newProject, nuevaVersion, papeleraPublica, ponerCriterios, ponerDependencias, requestAI, restaurarDePapelera, safePath, save, seen, touch } from "./estado.mjs";
+import { PLAN_INSTRUCCIONES, aLaPapelera, board, brainList, broadcast, broadcastProjects, actualizarTokens, changes, claim, conectada, conocimiento, dependenciasPendientes, elegible, enPausa, evaluarCriterios, findCard, findProject, hilo, iaDeProyecto, listFiles, log, moveCard, moverProyecto, newCard, newProject, nuevaVersion, papeleraPublica, ponerCriterios, ponerDependencias, requestAI, restaurarDePapelera, safePath, save, seen, touch } from "./estado.mjs";
 import { nombresSecretos, leerSecreto, taparSecretos } from "./secretos.mjs";
 import { guardarEntidad, quitarEntidad, indiceEntidades, buscarEntidades, IMAGEN } from "./entidades.mjs";
 
@@ -388,6 +388,7 @@ export function createMcpHandler() {
         const cumplidos = card.criterios.filter((c) => c.estado === "cumple").length;
         log(card, "done", `${card.worker} entregó el resultado${card.criterios.length ? ` (criterios: ${cumplidos}/${card.criterios.length} ✓)` : ""}`);
         touch(card);
+        setTimeout(actualizarTokens, 2000); // su gasto, en cuanto Claude Code lo apunte
         return ok("Entregado. Llama a wait_for_work para la siguiente tarjeta.");
       }),
     );

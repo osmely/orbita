@@ -146,6 +146,13 @@ export function duracion(desde) {
 
 // Posición en la cola, en el mismo orden en que wait_for_work entrega las tarjetas
 // Tarjetas a las que todavía espera (las que no están en Hecho)
+// Tokens que ha gastado la IA en la tarjeta (de los registros de Claude Code; ver tokens.mjs)
+export const cifra = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n)).replace(".", ",");
+export function chipTokens(t, largo = false) {
+  const titulo = `Tokens de la IA en esta tarjeta: ${t.entrada.toLocaleString()} de entrada (${t.cacheLeida.toLocaleString()} leídos de caché) y ${t.salida.toLocaleString()} de salida, en ${t.mensajes} respuesta${t.mensajes === 1 ? "" : "s"} de Claude`;
+  return `<span class="chip tokens" title="${titulo}">${largo ? "Tokens: " : ""}⇣ ${cifra(t.entrada)} · ⇡ ${cifra(t.salida)}</span>`;
+}
+
 export function pendientesDe(c) {
   return (c.dependsOn || []).map((id) => state.cards.get(id)).filter((d) => d && d.column !== "done");
 }
@@ -239,6 +246,7 @@ export function cardHTML(c) {
     else chips.push(`<span class="chip crit" title="${esc(lista)}">☐ ${cr.length} criterio${cr.length > 1 ? "s" : ""}</span>`);
   }
   if (c.attachments?.length) chips.push(`<span class="chip adj" title="${c.attachments.length} archivo${c.attachments.length > 1 ? "s" : ""} adjuntado${c.attachments.length > 1 ? "s" : ""} por ti">📎 ${c.attachments.length}</span>`);
+  if (c.tokens) chips.push(chipTokens(c.tokens));
   if (c.files?.length) chips.push(`<span class="chip" title="${c.files.length} archivo${c.files.length > 1 ? "s" : ""} de la IA">✎ ${c.files.length}</span>`);
 
   let live = "";

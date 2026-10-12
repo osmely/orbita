@@ -406,6 +406,7 @@ dialog input:focus, dialog textarea:focus { border-color: #a78bfa88; }
 .entregables-pag .trabajo summary span { font-size: 12.5px; }
 .entregables-pag .trabajo .files { margin-top: 10px; }
 .chip.entregable { color: #a78bfa; background: #a78bfa1f; }
+.chip.tokens { font-variant-numeric: tabular-nums; }
 .d-entregable { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
 .d-entregable input { margin-top: 3px; }
 @keyframes destello { from { box-shadow: 0 0 0 3px #67e8f966; } to { box-shadow: 0 0 0 0 #67e8f900; } }

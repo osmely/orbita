@@ -7,6 +7,7 @@ import path from "node:path";
 import "./arranque.mjs"; // primero: si hay otra Órbita de una versión anterior, que guarde y se cierre antes de cargar nada
 import { baseDe, cargar, comprobarCarpeta, guardar, leerTablero, listarArchivos, moverCarpetaOrbita, normalizarCarpeta, rutaReal, slug, tableroDe } from "./almacen.mjs";
 import { DATOS, salir } from "./entorno.mjs";
+import { contarTokens } from "./tokens.mjs";
 import { nombresSecretos } from "./secretos.mjs";
 // ---------------------------------------------------------------------------
 // Estado del tablero
@@ -513,6 +514,31 @@ export function broadcastBrains() {
   changes.emit("change"); // las IAs que esperan vuelven a mirar si les toca algo
 }
 setInterval(protegido("el aviso de IAs conectadas", broadcastBrains), 10_000);
+
+// Tokens de cada tarjeta (entrada y salida), de los registros de Claude Code de las carpetas de los proyectos (ver tokens.mjs)
+let contando = false;
+export async function actualizarTokens() {
+  if (contando) return;
+  contando = true;
+  try {
+    const totales = await contarTokens(board.projects.map((p) => p.dir).filter(Boolean));
+    for (const card of board.cards) {
+      const t = totales.get(card.id);
+      if (!t || (card.tokens?.entrada === t.entrada && card.tokens?.salida === t.salida)) continue;
+      card.tokens = { ...t, at: Date.now() };
+      broadcast({ type: "card", card }); // sin touch: no es un cambio de la tarjeta (ni la sube en «actualizada»)
+      save(card);
+    }
+  } catch (err) {
+    anotarFallo("el recuento de tokens", err);
+  } finally {
+    contando = false;
+  }
+}
+if (!process.env.ORBITA_SIN_TOKENS) {
+  setTimeout(actualizarTokens, 3000);
+  setInterval(actualizarTokens, 20_000);
+}
 
 // ---------------------------------------------------------------------------
 // Acciones del tablero (las usan la web y el MCP)
